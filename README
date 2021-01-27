@@ -1,0 +1,6 @@
+
+# Source the ACAP SDK environment
+. /opt/axis/acapsdk/<version>/<architecture>/environment-setup-<architecture>-*
+
+# Build the ACAP
+create-package.sh
