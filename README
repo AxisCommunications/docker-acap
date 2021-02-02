@@ -1,6 +1,9 @@
-
 # Source the ACAP SDK environment
 . /opt/axis/acapsdk/<version>/<architecture>/environment-setup-<architecture>-*
 
 # Build the ACAP
 create-package.sh
+
+# Building with the Container SDK
+docker build . -t docker-acap:latest
+docker cp $(docker create docker-acap:latest):/opt/app/Docker_Daemon_1_0_2_armv7hf.eap .
