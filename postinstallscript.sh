@@ -3,11 +3,11 @@
 # Make sure containerd is started before dockerd and set a PATH that includes docker-proxy
 cat >> /etc/systemd/system/sdkrun_dockerd.service << EOF
 [Unit]
-BindsTo=containerd.service
-After=network-online.target containerd.service var-spool-storage-SD_DISK.mount
+BindsTo=sdkacap4_runtime.service
+After=network-online.target sdkacap4_runtime.service var-spool-storage-SD_DISK.mount
 Wants=network-online.target
 [Service]
-Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/usr/local/packages/run_dockerd/docker-proxy
+Environment=PATH=/usr/local/packages/acap4-runtime:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/usr/local/packages/run_dockerd/docker-proxy
 ExecStartPre=sh /etc/docker/setup.sh
 EOF
 
