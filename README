@@ -1,9 +1,5 @@
-# Source the ACAP SDK environment
-. /opt/axis/acapsdk/<version>/<architecture>/environment-setup-<architecture>-*
+# Install
 
-# Build the ACAP
-create-package.sh
+Installing the Docker ACAP can be done by running
 
-# Building with the Container SDK
-docker build . -t docker-acap:latest
-docker cp $(docker create docker-acap:latest):/opt/app/Docker_Daemon_1_0_2_armv7hf.eap .
+    docker run --rm axisecp/docker-acap <camera ip> <rootpasswd> install
