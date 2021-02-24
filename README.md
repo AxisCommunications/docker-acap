@@ -6,6 +6,6 @@ use.
 ## Building
     docker build . -t axisecp/docker-acap:latest 
 
-## Installing the Docker ACAP can be done by running
+## Installing
 
     docker run --rm axisecp/docker-acap <camera ip> <rootpasswd> install
