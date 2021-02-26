@@ -8,7 +8,6 @@ After=network-online.target sdkacap4_runtime.service var-spool-storage-SD_DISK.m
 Wants=network-online.target
 [Service]
 Environment=PATH=/usr/local/packages/acap4-runtime:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/usr/local/packages/run_dockerd/docker-proxy
-ExecStartPre=sh /etc/docker/setup.sh
 EOF
 
 mkdir -p /etc/docker
