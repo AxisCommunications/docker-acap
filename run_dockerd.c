@@ -3,6 +3,9 @@
 #include <syslog.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+
 
 int main(void)
 {
@@ -18,10 +21,21 @@ int main(void)
     exit_code = -1;
   }
   else if (pid == 0) {
-    syslog(LOG_INFO, "Starting dockerd.");
-
-    int result = execv("/usr/local/packages/run_dockerd/dockerd",
-      (char*[]){"dockerd", "-H", "tcp://0.0.0.0:2375", (char *) NULL});
+    int result;
+    struct stat statbuf;
+    if (!stat("/usr/local/packages/run_dockerd/server-key.pem", &statbuf)) {
+        syslog(LOG_INFO, "Starting dockerd in TLS mode.");
+        result = execv("/usr/local/packages/run_dockerd/dockerd",
+          (char*[]){"dockerd", "-H", "tcp://0.0.0.0:2376", "--tlsverify",
+                    "--tlscacert=/usr/local/packages/run_dockerd/ca.pem",
+                    "--tlscert=/usr/local/packages/run_dockerd/server-cert.pem",
+                    "--tlskey=/usr/local/packages/run_dockerd/server-key.pem",
+                    (char *) NULL});
+    } else {
+        syslog(LOG_INFO, "Starting unsecured dockerd.");
+        result = execv("/usr/local/packages/run_dockerd/dockerd",
+          (char*[]){"dockerd", "-H", "tcp://0.0.0.0:2375", (char *) NULL});
+    }
 
     if (result == -1) {
       syslog(LOG_ERR, "Starting dockerd failed with error %s", strerror(errno));
