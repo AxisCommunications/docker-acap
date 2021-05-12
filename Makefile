@@ -1,4 +1,4 @@
-PROG1	= run_dockerd
+PROG1	= dockerdwrapper
 OBJS1	= $(PROG1).c
 DOCKS	= dockerd docker-proxy
 
@@ -29,4 +29,3 @@ $(PROG1): $(OBJS1)
 clean:
 	mv package.conf.orig package.conf
 	rm -f $(PROGS) $(DOCKS) *.o *.eap
-
