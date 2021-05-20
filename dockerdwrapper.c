@@ -23,17 +23,17 @@ int main(void)
   else if (pid == 0) {
     int result;
     struct stat statbuf;
-    if (!stat("/usr/local/packages/run_dockerd/server-key.pem", &statbuf)) {
+    if (!stat("/usr/local/packages/dockerdwrapper/server-key.pem", &statbuf)) {
         syslog(LOG_INFO, "Starting dockerd in TLS mode.");
-        result = execv("/usr/local/packages/run_dockerd/dockerd",
+        result = execv("/usr/local/packages/dockerdwrapper/dockerd",
           (char*[]){"dockerd", "-H", "tcp://0.0.0.0:2376", "--tlsverify",
-                    "--tlscacert=/usr/local/packages/run_dockerd/ca.pem",
-                    "--tlscert=/usr/local/packages/run_dockerd/server-cert.pem",
-                    "--tlskey=/usr/local/packages/run_dockerd/server-key.pem",
+                    "--tlscacert=/usr/local/packages/dockerdwrapper/ca.pem",
+                    "--tlscert=/usr/local/packages/dockerdwrapper/server-cert.pem",
+                    "--tlskey=/usr/local/packages/dockerdwrapper/server-key.pem",
                     (char *) NULL});
     } else {
         syslog(LOG_INFO, "Starting unsecured dockerd.");
-        result = execv("/usr/local/packages/run_dockerd/dockerd",
+        result = execv("/usr/local/packages/dockerdwrapper/dockerd",
           (char*[]){"dockerd", "-H", "tcp://0.0.0.0:2375", (char *) NULL});
     }
 
@@ -49,4 +49,3 @@ int main(void)
 
   return exit_code;
 }
-

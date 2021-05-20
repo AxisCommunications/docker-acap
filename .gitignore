@@ -1,6 +1,6 @@
 dockerd
 docker-proxy
-run_dockerd
+dockerdwrapper
 package.conf.orig
 *.eap
 *.eap.old
