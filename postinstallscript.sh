@@ -15,7 +15,7 @@ mkdir -p /etc/docker
 cat > /etc/docker/setup.sh << 'EOFEOF'
 #!/bin/sh
 USE_SDCARD=$( parhandclient get root.dockerdwrapper.SDCardSupport | grep yes )
-if [ -d /var/spool/storage/SD_DISK ] && [ -n "$USE_SDCARD" ]
+if [ -d /var/spool/storage/SD_DISK ] && [ "$USE_SDCARD" ]
 then
 	logger sdkdockerdwrapper: Configure to run from SD Card
 	mkdir -p /var/spool/storage/SD_DISK/dockerd/data
