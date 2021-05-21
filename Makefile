@@ -20,6 +20,7 @@ endif
 
 docker%:
 	curl https://download.docker.com/linux/static/stable/$(DOCKERARCH)/docker-19.03.8.tgz | tar xz --strip-components=1 docker/$@
+	$(STRIP) $@
 
 all:	$(PROGS) $(DOCKS)
 
