@@ -1,4 +1,4 @@
-DOCKERVERSION=20.10.7
+DOCKERVERSION=20_stretch
 
 ifeq ($(ARCH),arm64)
   DOCKER_CROSSPLATFORMS = linux/arm64
@@ -12,7 +12,7 @@ all: dockerd
 	$(STRIP) dockerd
 
 moby-$(DOCKERVERSION):
-	curl -L https://github.com/moby/moby/archive/refs/tags/v$(DOCKERVERSION).tar.gz | tar xz
+	curl -L https://github.com/lukgiax/moby/archive/refs/tags/v$(DOCKERVERSION).tar.gz | tar xz
 
 moby-$(DOCKERVERSION)/bundles/cross/$(DOCKER_CROSSPLATFORMS)/dockerd: moby-$(DOCKERVERSION)
 	make -C moby-$(DOCKERVERSION) DOCKER_CROSSPLATFORMS=$(DOCKER_CROSSPLATFORMS) cross

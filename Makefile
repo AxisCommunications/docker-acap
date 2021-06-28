@@ -26,7 +26,8 @@ dockerd:
 all:	$(PROG1) dockerd
 
 acap: dockerd
-	docker build --build-arg ACAPARCH=$(ACAPARCH) . -t axisecp/docker-acap-$(ACAPARCH):latest
+	docker build --build-arg ACAPARCH=$(ACAPARCH) . -t axisecp/docker-acap-$(ACAPARCH):latest \
+	&& docker cp $$(docker create axisecp/docker-acap-$(ACAPARCH):latest):/opt/app ./build
 
 clean:
 	mv package.conf.orig package.conf || :
