@@ -10,5 +10,3 @@ docker build --build-arg http_proxy="${http_proxy}" --build-arg https_proxy="${h
 
 rm -rf build/
 docker cp $(docker create "$1"):/opt/app/ ./build
-pwd
-ls
