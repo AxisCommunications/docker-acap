@@ -9,7 +9,7 @@ else
 endif
 
 all: dockerd
-	$(STRIP) dockerd
+	arm-linux-gnueabi-strip dockerd
 
 moby-$(DOCKERVERSION):
 	curl -L https://github.com/lukgiax/moby/archive/refs/tags/v$(DOCKERVERSION).tar.gz | tar xz

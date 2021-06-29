@@ -17,17 +17,17 @@ else
   $(error No Docker download path defined for ARCH "$(ARCH)")
 endif
 
+all:	$(PROG1) dockerd
+
 $(PROG1): $(OBJS1)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LIBS) $(LDLIBS) -o $@
 
 dockerd:
 	ARCH=$(ARCH) $(MAKE) -f Makefile.dockerd
 
-all:	$(PROG1) dockerd
-
 acap: dockerd
-	docker build --build-arg ACAPARCH=$(ACAPARCH) . -t axisecp/docker-acap-$(ACAPARCH):latest \
-	&& docker cp $$(docker create axisecp/docker-acap-$(ACAPARCH):latest):/opt/app ./build
+	docker build --build-arg ACAPARCH=$(ACAPARCH) . -t axisecp/docker-acap-$(ACAPARCH):latest
+	docker cp $$(docker create axisecp/docker-acap-$(ACAPARCH):latest):/opt/app ./build
 
 clean:
 	mv package.conf.orig package.conf || :
