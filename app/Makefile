@@ -7,28 +7,11 @@ LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) pkg-config --libs $(PKGS))
 
 CFLAGS += -W -Wformat=2 -Wpointer-arith -Wbad-function-cast -Wstrict-prototypes -Wmissing-prototypes -Winline -Wdisabled-optimization -Wfloat-equal -Wall -Werror
 
-ifeq ($(ARCH),arm64)
-  ACAPARCH = aarch64
-  DOCKERARCH = aarch64
-else ifeq ($(ARCH),arm)
-  ACAPARCH = armv7hf
-  DOCKERARCH = armhf
-else
-  $(error No Docker download path defined for ARCH "$(ARCH)")
-endif
-
-all:	$(PROG1) dockerd
-
 $(PROG1): $(OBJS1)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LIBS) $(LDLIBS) -o $@
 
-dockerd:
-	ARCH=$(ARCH) $(MAKE) -f Makefile.dockerd
-
-acap: dockerd
-	docker build --build-arg ACAPARCH=$(ACAPARCH) . -t axisecp/docker-acap-$(ACAPARCH):latest
-	docker cp $$(docker create axisecp/docker-acap-$(ACAPARCH):latest):/opt/app ./build
+all:	$(PROG1)
 
 clean:
 	mv package.conf.orig package.conf || :
-	rm -f $(PROG1) dockerd *.o *.eap
+	rm -f $(PROG1) *.o *.eap

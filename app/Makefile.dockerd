@@ -1,24 +1,34 @@
-DOCKERVERSION=20_stretch
+DOCKERVERSION=20.10.7_stretch
+DOCKS	     = dockerd docker-proxy
 
 ifeq ($(ARCH),arm64)
+  DOCKERARCH = aarch64
+  DOCKER_COMPOSE_ARCH = arm64
   DOCKER_CROSSPLATFORMS = linux/arm64
 else ifeq ($(ARCH),arm)
+  DOCKERARCH = armhf
+  DOCKER_COMPOSE_ARCH = armv7
   DOCKER_CROSSPLATFORMS = linux/arm/v7
 else
   $(error No support yet for ARCH "$(ARCH)")
 endif
 
-all: dockerd
-	arm-linux-gnueabi-strip dockerd
+all: make_output_folder $(DOCKS)
+
+make_output_folder:
+	mkdir bin
 
 moby-$(DOCKERVERSION):
-	curl -L https://github.com/lukgiax/moby/archive/refs/tags/v$(DOCKERVERSION).tar.gz | tar xz
+	curl -L https://github.com/AxisCommunications/moby/archive/refs/tags/${DOCKERVERSION}.tar.gz | tar xz
 
 moby-$(DOCKERVERSION)/bundles/cross/$(DOCKER_CROSSPLATFORMS)/dockerd: moby-$(DOCKERVERSION)
 	make -C moby-$(DOCKERVERSION) DOCKER_CROSSPLATFORMS=$(DOCKER_CROSSPLATFORMS) cross
 
 dockerd: moby-$(DOCKERVERSION)/bundles/cross/$(DOCKER_CROSSPLATFORMS)/dockerd
-	cp -L moby-$(DOCKERVERSION)/bundles/cross/$(DOCKER_CROSSPLATFORMS)/$@ .
+	cp -L moby-$(DOCKERVERSION)/bundles/cross/$(DOCKER_CROSSPLATFORMS)/$@ bin/$@
+
+docker-proxy:
+	curl https://download.docker.com/linux/static/stable/$(DOCKERARCH)/docker-20.10.7.tgz | tar xz -C bin --strip-components=1 docker/docker-proxy
 
 clean:
-	rm -f dockerd moby-$(DOCKERVERSION)
+	rm -f $(DOCKS) moby-$(DOCKERVERSION)

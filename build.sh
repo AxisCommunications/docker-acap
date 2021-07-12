@@ -1,18 +1,36 @@
+if [ -z $1 ]; then
+        echo "Please supply an argument, valid arguments are armv7hf or aarch64"
+        exit
+fi
+
+if [ $1 != "armv7hf" ] && [ $1 != "aarch64" ]; then
+        echo "Invalid argument, valid arguments are armv7hf or aarch64"
+        exit
+fi
+
+dockerdtag=dockerd:1.0
 imagetag=docker-acap:1.0
-envname=docker-acap-env
+dockerdname=dockerd_name
 
-export http_proxy=http://wwwproxy.se.axis.com:3128
-export https_proxy=http://wwwproxy.se.axis.com:3128
-export DOCKER_CONFIG="$WORKSPACE/.docker"
-mkdir -p "$DOCKER_CONFIG"
-echo '{"proxies":{ "default":{"httpProxy": "http://wwwproxy.se.axis.com:3128", "httpsProxy": "http://wwwproxy.se.axis.com:3128"}}}' > "$DOCKER_CONFIG/config.json"
+# First we build and copy out dockerd
+docker build --build-arg http_proxy=${HTTP_PROXY} \
+             --build-arg https_proxy=${HTTPS_PROXY} \
+             --build-arg ARCH=$1 \
+             --tag $dockerdtag \
+             --no-cache \
+             --file Dockerfile.dockerd .
 
-docker build --build-arg http_proxy="${http_proxy}" \
-             --build-arg https_proxy="${https_proxy}" \
-             --tag $envname .
+docker run --privileged --name $dockerdname -it $dockerdtag
+docker cp $dockerdname:/opt/app/bin .
+ls bin
+mv bin/* app/
+rm -rf bin
+docker stop $dockerdname
+docker rm $dockerdname
 
-docker run -v /var/run/docker.sock:/var/run/docker.sock --network host --name docker_acap $envname /bin/bash ./build_acap.sh $imagetag
-# docker run -v /var/run/docker.sock:/var/run/docker.sock -it --network host --name docker_acap $envname
-docker cp docker_acap:/opt/app/build .
-docker stop docker_acap
-docker rm docker_acap
+# Now build and copy out the acap
+docker build --build-arg ARCH=$1 \
+             --file Dockerfile.acap \
+             --no-cache \
+             --tag $imagetag . 
+docker cp $(docker create $imagetag):/opt/app/ ./build
