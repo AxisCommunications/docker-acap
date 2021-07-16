@@ -1,11 +1,14 @@
-#include <unistd.h>
-#include <sys/wait.h>
-#include <syslog.h>
+#include <linux/magic.h>
 #include <errno.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <syslog.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-
+#include <sys/statfs.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 int main(void)
 {
@@ -13,6 +16,20 @@ int main(void)
 
   openlog(NULL, LOG_PID, LOG_USER);
   syslog(LOG_INFO, "Started logging.");
+
+  bool use_sdcard = system("parhandclient get root.dockerdwrapper.SDCardSupport | grep yes -q") == 0;
+  if (use_sdcard) {
+    struct statfs sd_disk_stat;
+    int stat_result = statfs("/var/spool/storage/SD_DISK", &sd_disk_stat);
+    if (stat_result != 0) {
+      syslog(LOG_ERR, "Cannot use SD_CARD, no storage exists at /var/spool/storage/SD_DISK");
+      return -1;
+    }
+    if (sd_disk_stat.f_type != EXT4_SUPER_MAGIC) {
+      syslog(LOG_ERR, "The sd card at /var/spool/storage/SD_DISK uses another file system than ext4. Only ext4 is supported when running dockerdwrapper on the sd card.");
+      return -1;
+    }
+  }
 
   pid_t pid = fork();
 
