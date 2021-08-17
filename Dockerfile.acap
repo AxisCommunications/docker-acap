@@ -1,8 +1,8 @@
 ARG ARCH=armv7hf
-FROM axisecp/acap-sdk:3.4-${ARCH}
+FROM axisecp/acap-native-sdk:1.0_beta1-${ARCH}-ubuntu20.04
 
 COPY ./app /opt/app/
 WORKDIR /opt/app
 
-RUN . /opt/axis/acapsdk/environment-setup* && create-package.sh
+RUN . /opt/axis/acapsdk/environment-setup* && acap-build . -a dockerd -a docker-proxy
 ENTRYPOINT [ "/opt/axis/acapsdk/sysroots/x86_64-pokysdk-linux/usr/bin/eap-install.sh" ]

@@ -1,0 +1,36 @@
+{
+    "schemaVersion": "1.2",
+    "acapPackageConf": {
+        "setup": {
+            "friendlyName": "Docker Daemon",
+            "appName": "dockerdwrapper",
+            "vendor": "Axis Communications",
+            "embeddedSdkVersion": "3.0",
+            "user": {
+                "group": "root",
+                "username": "root"
+            },
+            "vendorUrl": "https://www.axis.com",
+            "runMode": "respawn",
+            "version": "1.0.3"
+        },
+        "copyProtection": {
+            "method": "none"
+        },
+        "installation": {
+            "postInstallScript": "postinstallscript.sh"
+        },
+        "uninstallation": {
+            "preUninstallScript": "preuninstallscript.sh"
+        },
+        "configuration": {
+            "paramConfig": [
+                {
+                    "name": "SDCardSupport",
+                    "default": "no",
+                    "type": "enum:no|No, yes|Yes"
+                }
+            ]
+        }
+    }
+}
