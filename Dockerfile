@@ -1,5 +1,5 @@
 ARG ACAPARCH=armv7hf
-FROM axisecp/acap-sdk:3.2-$ACAPARCH
+FROM axisecp/acap-sdk:3.4.2-$ACAPARCH
 
 COPY . /opt/app 
 WORKDIR /opt/app
