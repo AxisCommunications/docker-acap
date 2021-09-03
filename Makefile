@@ -22,7 +22,7 @@ docker%:
 	curl https://download.docker.com/linux/static/stable/$(DOCKERARCH)/docker-19.03.8.tgz | tar xz --strip-components=1 docker/$@
 	$(STRIP) $@
 
-all:	$(PROGS)
+all:	$(PROGS) $(DOCKS)
 
 $(PROG1): $(OBJS1)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LIBS) $(LDLIBS) -o $@
