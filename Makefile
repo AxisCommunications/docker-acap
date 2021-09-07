@@ -1,3 +1,5 @@
+include DOCKERVERSION
+
 PROG1	= dockerdwrapper
 OBJS1	= $(PROG1).c
 
@@ -17,17 +19,20 @@ else
   $(error No Docker download path defined for ARCH "$(ARCH)")
 endif
 
+all:	$(PROG1) dockerd docker-proxy
+
 $(PROG1): $(OBJS1)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LIBS) $(LDLIBS) -o $@
 
 dockerd:
 	ARCH=$(ARCH) $(MAKE) -f Makefile.dockerd
 
-all:	$(PROG1) dockerd
+docker-proxy:
+	curl https://download.docker.com/linux/static/stable/$(DOCKERARCH)/docker-$(DOCKERVERSION).tgz | tar xz --strip-components=1 docker/$@ && $(STRIP) $@
 
 acap: dockerd
 	docker build --build-arg ACAPARCH=$(ACAPARCH) . -t axisecp/docker-acap-$(ACAPARCH):latest
 
 clean:
 	mv package.conf.orig package.conf || :
-	rm -f $(PROG1) dockerd *.o *.eap
+	rm -f $(PROG1) dockerd docker-proxy *.o *.eap
