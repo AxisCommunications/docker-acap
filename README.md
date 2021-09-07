@@ -33,6 +33,17 @@ similar to the step for `armv7hf`.
 
     docker run --rm axisecp/docker-acap<-arch> <camera ip> <rootpasswd> install
 
+## Using the Docker ACAP
+The Docker ACAP does not contain the docker client binary. This means that all calls needs to be done from a separate machine. This can be achieved by using the -H flag when running the docker command.
+The port used will change depending on if the Docker ACAP runs using TLS or not. The Docker ACAP will be reachable on port 2375 when running unsecured, and on port 2376 when running secured using TLS. Please read section [Securing the Docker ACAP using TLS](#securing-the-docker-acap-using-tls) for more information.
+Below is an example of how to remotely run a docker command on a camera running the Docker ACAP in unsecured mode.
+
+```bash
+docker -H=<axis_device_ip>:2375 version
+```
+
+See [Client keys and certificates](#client-keys-and-certificates) for an example of how to remotely run docker commands on a camera running a secured Docker ACAP using TLS.
+
 ## Securing the Docker ACAP using TLS
 The Docker ACAP can be run either unsecured or in TLS mode. The Docker ACAP uses TLS as default. Use the "Use TLS" dropdown in the web interface to switch between the two different modes. Note that the dockerd service will be restarted every time TLS is activated or deactivated. Running the ACAP using TLS requires some additional setup, see [TLS Setup](#tls-setup). Running the ACAP without TLS requires no further setup.
 
