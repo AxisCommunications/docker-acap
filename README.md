@@ -48,7 +48,10 @@ See [Client keys and certificates](#client-keys-and-certificates) for an example
 The Docker ACAP can be run either unsecured or in TLS mode. The Docker ACAP uses TLS as default. Use the "Use TLS" dropdown in the web interface to switch between the two different modes. Note that the dockerd service will be restarted every time TLS is activated or deactivated. Running the ACAP using TLS requires some additional setup, see [TLS Setup](#tls-setup). Running the ACAP without TLS requires no further setup.
 
 ### TLS Setup
-The following keys and certificates are required to use TLS.
+TLS requires a few keys and certificates to work, which are listed in the subsections below. Most of these needs to be moved to the camera. There are mutliple ways of achieveing this, for example by using scp to copy the files from a remote machine onto the camera. This can be done by running the following command on the remote machine:
+```bash
+scp ca.pem server-cert.pem server-key.pem root@<axis_device_ip>:/usr/local/packages/dockerdwrapper/
+```
 #### The Certificate Authority (CA) certificate
 This certificate needs to be present in the dockerdwrapper package folder on the camera and be named "ca.perm". The full path of the file should be "/usr/local/packages/dockerdwrapper/ca.pem".
 
