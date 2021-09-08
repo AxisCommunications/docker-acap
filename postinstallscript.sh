@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Make sure containerd is started before dockerd and set a PATH that includes docker-proxy
+# Make sure containerd is started before dockerd and set PATH
 cat >> /etc/systemd/system/sdkdockerdwrapper.service << EOF
 [Unit]
 BindsTo=containerd.service
