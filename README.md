@@ -74,6 +74,6 @@ docker --tlsverify \
 ```
 
 ## Using an SD card as storage
-An SD card might be necessary to run the dockerdwrapper correctly. Docker containers and docker images can be quite large, and putting them on an SD card gives more freedom in how many and how large containers that can be run. Switching between storage on the SD card or internal storage is done by toggling the "SD card support" dropdown in the web interface. Toggling this setting will automatically restart the docker daemon using the specified storage. The default setting is to use the internal storage on the camera.
+An SD card might be necessary to run the dockerdwrapper correctly. Docker containers and docker images can be quite large, and putting them on an SD card gives more freedom in how many and how large images that can be stored. Switching between storage on the SD card or internal storage is done by toggling the "SD card support" dropdown in the web interface. Toggling this setting will automatically restart the docker daemon using the specified storage. The default setting is to use the internal storage on the camera.
 
 Note that dockerdwrapper requires that Unix permissions are supported by the file system. Examples of file system which supports this is ext4, ext3 and xfs. It might be necessary to reformat the SD card to one of these file systems, for example if the original file system of the SD card is vfat.
