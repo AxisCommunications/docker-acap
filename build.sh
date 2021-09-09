@@ -1,21 +1,22 @@
-if [ -z $1 ]; then
-        echo "Please supply an argument, valid arguments are armv7hf or aarch64"
-        exit
-fi
+#!/bin/sh
+case "$1" in
+    armv7hf)
+       strip=arm-none-eabi-strip
+       ;;
+    aarch64)
+       strip=aarch64-none-elf-strip
+       ;;
+    *)
+      # error
+    echo "Invalid argument '$1', valid arguments are armv7hf or aarch64"
+    exit 1
+     ;;
+esac
 
-if [ $1 != "armv7hf" ] && [ $1 != "aarch64" ]; then
-        echo "Invalid argument, valid arguments are armv7hf or aarch64"
-        exit
-fi
 
 dockerdtag=dockerd:1.0
 imagetag=docker-acap:1.0
 dockerdname=dockerd_name
-
-if [[ "$1" = "armv7hf" ]] ; then \
-    strip=arm-none-eabi-strip ; else \
-    strip=aarch64-none-elf-strip ; \
-    fi
 
 # First we build and copy out dockerd
 docker build --build-arg ACAPARCH=$1 \

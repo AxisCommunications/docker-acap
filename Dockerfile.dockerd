@@ -1,16 +1,24 @@
-FROM docker:20.10.8
+ARG DOCKERVERSION=20.10.8
+FROM docker:$DOCKERVERSION
 
 RUN mkdir /opt/dockerd
 WORKDIR /opt/dockerd
 
-# Copy over necessary files
+# Copy necessary files
 COPY Makefile.dockerd .
 COPY DOCKERVERSION .
 COPY 0001-Use-stretch-as-base-to-work-on-ARTPEC-6-7.patch .
 COPY config.json /root/.docker/config.json
 
 # Install the packages we use
-RUN apk add --update make curl git bash patch binutils-aarch64-none-elf binutils-arm-none-eabi
+RUN apk add --update \
+    bash \
+    binutils-aarch64-none-elf \
+    binutils-arm-none-eabi \
+    curl \
+    git \
+    make \
+    patch
 
 # Setup the environment
 ARG ACAPARCH=armv7hf

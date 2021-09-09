@@ -6,23 +6,23 @@ use.
 
 ## Building
 ### armv7hf
-```bash
-sh build.sh armv7hf
+```sh
+./build.sh armv7hf
 ```
 ### aarch64
-```bash
-sh build.sh aarch64
+```sh
+./build.sh aarch64
 ```
 ## Installing
 Installation can be done in two ways. Either by using the built docker image:
 
-```bash
+```sh
 docker run --rm docker-acap:1.0 <camera ip> <rootpasswd> install
 ```
     
 Or by manually navigating to device GUI by browsing to the following page (replace <axis_device_ip> with the IP number of your Axis video device)
 
-```bash
+```sh
 http://<axis_device_ip>/#settings/apps
 ```
 
