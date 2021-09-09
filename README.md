@@ -45,7 +45,11 @@ docker -H=<axis_device_ip>:2375 version
 See [Client keys and certificates](#client-keys-and-certificates) for an example of how to remotely run docker commands on a camera running a secured Docker ACAP using TLS.
 
 ## Securing the Docker ACAP using TLS
-The Docker ACAP can be run either unsecured or in TLS mode. The Docker ACAP uses TLS as default. Use the "Use TLS" dropdown in the web interface to switch between the two different modes. Note that the dockerd service will be restarted every time TLS is activated or deactivated. Running the ACAP using TLS requires some additional setup, see [TLS Setup](#tls-setup). Running the ACAP without TLS requires no further setup.
+The Docker ACAP can be run either unsecured or in TLS mode. The Docker ACAP uses TLS as default. Use the "Use TLS" dropdown in the web interface to switch between the two different modes. It's also possible to toggle this option using Vapix:
+```bash
+curl --anyauth -u root:pass 'http://<axis_device_ip>/axis-cgi/admin/param.cgi?action=update&root.dockerdwrapper.UseTLS=no'
+```
+Note that the dockerd service will be restarted every time TLS is activated or deactivated. Running the ACAP using TLS requires some additional setup, see [TLS Setup](#tls-setup). Running the ACAP without TLS requires no further setup.
 
 ### TLS Setup
 TLS requires a few keys and certificates to work, which are listed in the subsections below. Most of these needs to be moved to the camera. There are mutliple ways of achieveing this, for example by using scp to copy the files from a remote machine onto the camera. This can be done by running the following command on the remote machine:
@@ -74,6 +78,10 @@ docker --tlsverify \
 ```
 
 ## Using an SD card as storage
-An SD card might be necessary to run the dockerdwrapper correctly. Docker containers and docker images can be quite large, and putting them on an SD card gives more freedom in how many and how large images that can be stored. Switching between storage on the SD card or internal storage is done by toggling the "SD card support" dropdown in the web interface. Toggling this setting will automatically restart the docker daemon using the specified storage. The default setting is to use the internal storage on the camera.
+An SD card might be necessary to run the dockerdwrapper correctly. Docker containers and docker images can be quite large, and putting them on an SD card gives more freedom in how many and how large images that can be stored. Switching between storage on the SD card or internal storage is done by toggling the "SD card support" dropdown in the web interface. It's also possible to toggle this option using Vapix:
+```bash
+curl --anyauth -u root:pass 'http://<axis_device_ip>/axis-cgi/admin/param.cgi?action=update&root.dockerdwrapper.SDCardSupport=no'
+```
+Toggling this setting will automatically restart the docker daemon using the specified storage. The default setting is to use the internal storage on the camera.
 
 Note that dockerdwrapper requires that Unix permissions are supported by the file system. Examples of file system which supports this is ext4, ext3 and xfs. It might be necessary to reformat the SD card to one of these file systems, for example if the original file system of the SD card is vfat.
