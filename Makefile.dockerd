@@ -1,8 +1,8 @@
 include DOCKERVERSION
 
-ifeq ($(ARCH),arm64)
+ifeq ($(ARCH),aarch64)
   DOCKER_CROSSPLATFORMS = linux/arm64
-else ifeq ($(ARCH),arm)
+else ifeq ($(ARCH),armv7hf)
   DOCKER_CROSSPLATFORMS = linux/arm/v7
 else
   $(error No support yet for ARCH "$(ARCH)")

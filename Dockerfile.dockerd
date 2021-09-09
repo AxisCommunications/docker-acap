@@ -1,0 +1,23 @@
+FROM docker:20.10.8
+
+RUN mkdir /opt/dockerd
+WORKDIR /opt/dockerd
+
+# Copy over necessary files
+COPY Makefile.dockerd .
+COPY DOCKERVERSION .
+COPY 0001-Use-stretch-as-base-to-work-on-ARTPEC-6-7.patch .
+COPY config.json /root/.docker/config.json
+
+# Install the packages we use
+RUN apk add --update make curl git bash patch binutils-aarch64-none-elf binutils-arm-none-eabi
+
+# Setup the environment
+ARG ACAPARCH=armv7hf
+ARG STRIP=arm-none-eabi-strip
+ENV ARCH ${ACAPARCH}
+ENV STRIP ${STRIP}
+ENV HTTP_PROXY http://wwwproxy.se.axis.com:3128
+ENV HTTPS_PROXY http://wwwproxy.se.axis.com:3128
+
+ENTRYPOINT [ "make", "-f", "Makefile.dockerd" ] 
