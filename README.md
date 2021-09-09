@@ -45,7 +45,7 @@ docker -H=<axis_device_ip>:2375 version
 See [Client keys and certificates](#client-keys-and-certificates) for an example of how to remotely run docker commands on a camera running a secured Docker ACAP using TLS.
 
 ## Securing the Docker ACAP using TLS
-The Docker ACAP can be run either unsecured or in TLS mode. The Docker ACAP uses TLS as default. Use the "Use TLS" dropdown in the web interface to switch between the two different modes. It's also possible to toggle this option using Vapix:
+The Docker ACAP can be run either unsecured or in TLS mode. The Docker ACAP uses TLS as default. Use the "Use TLS" dropdown in the web interface to switch between the two different modes. It's also possible to toggle this option using VAPIX:
 ```bash
 curl --anyauth -u root:pass 'http://<axis_device_ip>/axis-cgi/admin/param.cgi?action=update&root.dockerdwrapper.UseTLS=no'
 ```
@@ -78,7 +78,7 @@ docker --tlsverify \
 ```
 
 ## Using an SD card as storage
-An SD card might be necessary to run the dockerdwrapper correctly. Docker containers and docker images can be quite large, and putting them on an SD card gives more freedom in how many and how large images that can be stored. Switching between storage on the SD card or internal storage is done by toggling the "SD card support" dropdown in the web interface. It's also possible to toggle this option using Vapix:
+An SD card might be necessary to run the dockerdwrapper correctly. Docker containers and docker images can be quite large, and putting them on an SD card gives more freedom in how many and how large images that can be stored. Switching between storage on the SD card or internal storage is done by toggling the "SD card support" dropdown in the web interface. It's also possible to toggle this option using VAPIX:
 ```bash
 curl --anyauth -u root:pass 'http://<axis_device_ip>/axis-cgi/admin/param.cgi?action=update&root.dockerdwrapper.SDCardSupport=no'
 ```
