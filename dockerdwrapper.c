@@ -76,6 +76,9 @@ main(void)
   parameter = ax_parameter_new("dockerdwrapper", &error);
   if (!ax_parameter_get(
           parameter, "SDCardSupport", &sd_card_support_value, &error)) {
+    syslog(LOG_ERROR
+           "Failed to fetch parameter value of SDCardSupport. Error: %s",
+           error->message);
     exit_code = -1;
     goto end;
   }
@@ -142,10 +145,7 @@ main(void)
   }
 
 end:
-  if (error) {
-    syslog(LOG_INFO, "Failed %s", error->message);
-    g_error_free(error);
-  }
+  g_clear_error(error);
   ax_parameter_free(parameter);
 
   return exit_code;
