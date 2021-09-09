@@ -85,12 +85,14 @@ main(void)
     // Confirm that the SD card is usable
     char *sd_file_system = get_sd_filesystem();
     if (sd_file_system == NULL) {
-      syslog(LOG_ERR, "Couldn't identify the file system of %s", sd_card_path);
+      syslog(LOG_ERR,
+             "Couldn't identify the file system of the SD card at %s",
+             sd_card_path);
     }
-    syslog(LOG_ERR, "File system: %s", sd_file_system);
+
     if (strcmp(sd_file_system, "vfat") == 0) {
       syslog(LOG_ERR,
-             "The sd card at %s uses file system %s "
+             "The SD card at %s uses file system %s "
              "which does not support Unix file permissions. Please reformat to "
              "a file system that support Unix file permissions, such as ext4 "
              "or xfs.",
