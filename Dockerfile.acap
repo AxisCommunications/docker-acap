@@ -1,7 +1,9 @@
 ARG ACAPARCH=armv7hf
 FROM axisecp/acap-sdk:3.2-$ACAPARCH
 
-COPY . /opt/app 
+COPY app /opt/app
+COPY DOCKERVERSION /opt/app
+
 WORKDIR /opt/app
 
 RUN . /opt/axis/acapsdk/environment-setup* && create-package.sh
