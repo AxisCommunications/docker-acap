@@ -7,10 +7,10 @@ case "$1" in
        strip=aarch64-none-elf-strip
        ;;
     *)
-      # error
-    echo "Invalid argument '$1', valid arguments are armv7hf or aarch64"
-    exit 1
-     ;;
+       # error
+       echo "Invalid argument '$1', valid arguments are armv7hf or aarch64"
+       exit 1
+       ;;
 esac
 
 
