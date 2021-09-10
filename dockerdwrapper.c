@@ -93,7 +93,8 @@ main(void)
              sd_card_path);
     }
 
-    if (strcmp(sd_file_system, "vfat") == 0) {
+    if (strcmp(sd_file_system, "vfat") == 0 ||
+        strcmp(sd_file_system, "exfat") == 0) {
       syslog(LOG_ERR,
              "The SD card at %s uses file system %s "
              "which does not support Unix file permissions. Please reformat to "
