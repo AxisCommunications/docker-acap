@@ -3,7 +3,7 @@ include DOCKERVERSION
 PROG1	= dockerdwrapper
 OBJS1	= $(PROG1).c
 
-PKGS = gio-2.0 glib-2.0 axhttp
+PKGS = gio-2.0 glib-2.0 axparameter
 CFLAGS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) pkg-config --cflags $(PKGS))
 LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) pkg-config --libs $(PKGS))
 
