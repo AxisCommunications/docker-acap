@@ -28,7 +28,7 @@ dockerd:
 	ARCH=$(ARCH) $(MAKE) -f Makefile.dockerd
 
 download_docker_binaries:
-	curl https://download.docker.com/linux/static/stable/armhf/docker-20.10.8.tgz -o docker_binaries.tgz
+	curl https://download.docker.com/linux/static/stable/$(DOCKERARCH)/docker-$(DOCKERVERSION).tgz -o docker_binaries.tgz
 
 docker-init: download_docker_binaries
 	tar xz -f docker_binaries.tgz --strip-components=1 docker/$@ && $(STRIP) $@
