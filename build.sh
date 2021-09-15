@@ -19,7 +19,7 @@ imagetag=docker-acap:1.0
 dockerdname=dockerd_name
 
 # First we build and copy out dockerd
-docker build --build-arg ACAPARCH=$1 \
+docker build --build-arg ACAPARCH="$1" \
              --build-arg STRIP=$strip \
              --tag $dockerdtag \
              --no-cache \
@@ -34,9 +34,9 @@ docker stop $dockerdname
 docker rm $dockerdname
 
 # Now build and copy out the acap
-docker build --build-arg ACAPARCH=$1 \
+docker build --build-arg ACAPARCH="$1" \
              --file Dockerfile.acap \
              --no-cache \
              --tag $imagetag . 
 
-docker cp $(docker create $imagetag):/opt/app/ ./build
+docker cp "$(docker create $imagetag)":/opt/app/ ./build
