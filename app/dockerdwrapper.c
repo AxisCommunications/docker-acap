@@ -2,9 +2,13 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <glib.h>
+#include <linux/limits.h>
+#include <mntent.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -19,6 +23,9 @@ static int exit_code = 0;
 
 // Pid of the running dockerd process.
 static pid_t dockerd_process_pid = -1;
+
+// Full path to the SD card
+static const char *sd_card_path = "/var/spool/storage/SD_DISK";
 
 /**
  * @brief Signals handling
@@ -36,8 +43,6 @@ handle_signals(__attribute__((unused)) int signal_num)
   }
 }
 
-// Send docker-init
-// Look at piping child output to parent
 /**
  * @brief Initialize signals
  */
@@ -52,6 +57,26 @@ init_signals(void)
   sa.sa_handler = handle_signals;
   sigaction(SIGTERM, &sa, NULL);
   sigaction(SIGINT, &sa, NULL);
+}
+
+/**
+ * @brief Checks if the given process is alive.
+ *
+ * @return True if alive. False if dead or exited.
+ */
+static bool
+is_process_alive(int pid)
+{
+  int status;
+  pid_t return_pid = waitpid(pid, &status, WNOHANG);
+  if (return_pid == -1) {
+    // Report errors as dead.
+    return false;
+  } else if (return_pid == dockerd_process_pid) {
+    // Child is alread exited, so not alive.
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -73,23 +98,152 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
 }
 
 /**
- * @brief Checks if the given process is alive.
+ * @brief Callback function called when the SDCardSupport parameter
+ * changes. Will restart the dockerd process with the new setting.
  *
- * @return True if alive. False if dead or exited.
+ * @param name Name of the updated parameter.
+ * @param value Value of the updated parameter.
  */
-static bool
-is_process_alive(int pid)
+static void
+parameter_changed_callback(const gchar *name,
+                           const gchar *value,
+                           __attribute__((unused)) gpointer data)
 {
-  int status;
-  pid_t return_pid = waitpid(pid, &status, WNOHANG);
-  if (return_pid == -1) {
-    // Report errors as dead.
-    return false;
-  } else if (return_pid == dockerd_process_pid) {
-    // Child is alread exited, so not alive.
-    return false;
+  const gchar *parname = name += strlen("root.dockerdwrapper.");
+  bool dockerd_started_correctly = false;
+  if (strcmp(parname, "SDCardSupport") == 0) {
+    syslog(LOG_INFO, "SDCardSupport changed to: %s", value);
+  } else if (strcmp(parname, "UseTLS") == 0) {
+    syslog(LOG_INFO, "UseTLS changed to: %s", value);
+  } else {
+    syslog(LOG_WARNING, "Parameter %s is not recognized", name);
+
+    // No known parameter was changed, do not restart.
+    return;
   }
-  return true;
+
+  // Stop the currently running process.
+  if (!stop_dockerd()) {
+    syslog(LOG_ERR,
+           "Failed to stop dockerd process. Please restart the acap "
+           "manually.");
+    exit_code = -1;
+    goto end;
+  }
+
+  // Start a new one.
+  dockerd_process_pid = fork();
+  if (dockerd_process_pid == 0) {
+    if (!start_dockerd()) {
+      syslog(LOG_ERR,
+             "Failed to start dockerd process. Please restart the acap "
+             "manually.");
+      exit_code = -1;
+      goto end;
+    }
+  }
+
+  // Watch the child process
+  g_child_watch_add(dockerd_process_pid, dockerd_process_exited_callback, NULL);
+
+  if (!is_process_alive(dockerd_process_pid)) {
+    // The child process died during adding of callback, tell loop to quit.
+    g_main_loop_quit(loop);
+  }
+
+  dockerd_started_correctly = true;
+end:
+  if (!dockerd_started_correctly) {
+    // Tell the main process to quit its loop.
+    syslog(LOG_INFO,
+           "Parameter changed but dockerd did not start correctly, quitting.");
+    g_main_loop_quit(loop);
+  }
+}
+
+/**
+ * @brief Fetch the value of the parameter as a string
+ *
+ * @return The value of the parameter as string if successful, NULL otherwise
+ */
+static char *
+get_parameter_value(const char *parameter_name)
+{
+  GError *error = NULL;
+  char *parameter_value = NULL;
+  AXParameter *ax_parameter = ax_parameter_new("dockerdwrapper", &error);
+  if (ax_parameter == NULL) {
+    syslog(LOG_ERR, "Error when creating AXParameter: %s", error->message);
+    goto end;
+  }
+
+  if (!ax_parameter_get(
+          ax_parameter, parameter_name, &parameter_value, &error)) {
+    syslog(LOG_ERR,
+           "Failed to fetch parameter value of %s. Error: %s",
+           parameter_name,
+           error->message);
+
+    free(parameter_value);
+    parameter_value = NULL;
+  }
+
+end:
+  if (ax_parameter != NULL) {
+    ax_parameter_free(ax_parameter);
+  }
+
+  g_clear_error(&error);
+
+  return parameter_value;
+}
+
+/**
+ * @brief Retrieve the file system type of the SD card as a string.
+ *
+ * @return The file system type as a string (ext4/ext3/vfat etc...) if
+ * successful, NULL otherwise.
+ */
+static char *
+get_sd_filesystem(void)
+{
+  char buf[PATH_MAX];
+  struct stat sd_card_stat;
+  int stat_result = stat(sd_card_path, &sd_card_stat);
+  if (stat_result != 0) {
+    syslog(LOG_ERR,
+           "Cannot store data on the SD card, no storage exists at %s",
+           sd_card_path);
+    return NULL;
+  }
+
+  FILE *fp;
+  dev_t dev;
+
+  dev = sd_card_stat.st_dev;
+
+  if ((fp = setmntent("/proc/mounts", "r")) == NULL) {
+    return NULL;
+  }
+
+  struct mntent mnt;
+  while (getmntent_r(fp, &mnt, buf, PATH_MAX)) {
+    if (stat(mnt.mnt_dir, &sd_card_stat) != 0) {
+      continue;
+    }
+
+    if (sd_card_stat.st_dev == dev) {
+      endmntent(fp);
+      char *return_value = strdup(mnt.mnt_type);
+      return return_value;
+    }
+  }
+
+  endmntent(fp);
+
+  // Should never reach here.
+  errno = EINVAL;
+  return NULL;
 }
 
 /**
@@ -129,43 +283,6 @@ end:
   free(create_eroot_command);
 
   return res == 0;
-}
-
-/**
- * @brief Fetch the value of the parameter as a string
- *
- * @return The value of the parameter as string if successful, NULL otherwise
- */
-static char *
-get_parameter_value(const char *parameter_name)
-{
-  GError *error = NULL;
-  char *parameter_value = NULL;
-  AXParameter *ax_parameter = ax_parameter_new("dockerdwrapper", &error);
-  if (ax_parameter == NULL) {
-    syslog(LOG_ERR, "Error when creating AXParameter: %s", error->message);
-    goto end;
-  }
-
-  if (!ax_parameter_get(
-          ax_parameter, parameter_name, &parameter_value, &error)) {
-    syslog(LOG_ERR,
-           "Failed to fetch parameter value of %s. Error: %s",
-           parameter_name,
-           error->message);
-
-    free(parameter_value);
-    parameter_value = NULL;
-  }
-
-end:
-  if (ax_parameter != NULL) {
-    ax_parameter_free(ax_parameter);
-  }
-
-  g_clear_error(&error);
-
-  return parameter_value;
 }
 
 /**
@@ -239,6 +356,32 @@ start_dockerd(void)
   bool use_sdcard = strcmp(use_sd_card_value, "yes") == 0;
   bool use_tls = strcmp(use_tls_value, "yes") == 0;
 
+  if (use_sdcard) {
+    // Confirm that the SD card is usable
+    char *sd_file_system = get_sd_filesystem();
+    if (sd_file_system == NULL) {
+      syslog(LOG_ERR,
+             "Couldn't identify the file system of the SD card at %s",
+             sd_card_path);
+    }
+
+    if (strcmp(sd_file_system, "vfat") == 0 ||
+        strcmp(sd_file_system, "exfat") == 0) {
+      syslog(LOG_ERR,
+             "The SD card at %s uses file system %s which does not support "
+             "Unix file permissions. Please reformat to a file system that "
+             "support Unix file permissions, such as ext4 or xfs.",
+             sd_card_path,
+             sd_file_system);
+      goto end;
+    }
+
+    if (!setup_sdcard()) {
+      syslog(LOG_ERR, "Failed to setup SD card.");
+      goto end;
+    }
+  }
+
   if (use_tls) {
     const char *ca_path = "/usr/local/packages/dockerdwrapper/ca.pem";
     const char *cert_path =
@@ -268,12 +411,8 @@ start_dockerd(void)
     if (!ca_exists || !cert_exists || !key_exists) {
       goto end;
     }
+
     if (use_sdcard) {
-      bool sdcard_setup = setup_sdcard();
-      if (!sdcard_setup) {
-        syslog(LOG_ERR, "Failed to setup SD card.");
-        goto end;
-      }
       syslog(LOG_INFO,
              "Starting dockerd in TLS mode using SD card as storage.");
       result = execv(
@@ -325,11 +464,6 @@ start_dockerd(void)
     }
   } else {
     if (use_sdcard) {
-      bool sdcard_setup = setup_sdcard();
-      if (!sdcard_setup) {
-        syslog(LOG_ERR, "Failed to setup SD card.");
-        goto end;
-      }
       syslog(LOG_INFO, "Starting unsecured dockerd using SD card as storage.");
       result = execv("/usr/local/packages/dockerdwrapper/dockerd",
                      (char *[]){"dockerd",
@@ -375,70 +509,6 @@ end:
   free(use_tls_value);
 
   return return_value;
-}
-
-/**
- * @brief Callback function called when the SDCardSupport parameter
- * changes. Will restart the dockerd process with the new setting.
- *
- * @param name Name of the updated parameter.
- * @param value Value of the updated parameter.
- */
-static void
-parameter_changed_callback(const gchar *name,
-                           const gchar *value,
-                           __attribute__((unused)) gpointer data)
-{
-  const gchar *parname = name += strlen("root.dockerdwrapper.");
-  bool dockerd_started_correctly = false;
-  if (strcmp(parname, "SDCardSupport") == 0) {
-    syslog(LOG_INFO, "SDCardSupport changed to: %s", value);
-  } else if (strcmp(parname, "UseTLS") == 0) {
-    syslog(LOG_INFO, "UseTLS changed to: %s", value);
-  } else {
-    syslog(LOG_WARNING, "Parameter %s is not recognized", name);
-
-    // No known parameter was changed, do not restart.
-    return;
-  }
-
-  // Stop the currently running process.
-  if (!stop_dockerd()) {
-    syslog(LOG_ERR,
-           "Failed to stop dockerd process. Please restart the acap "
-           "manually.");
-    exit_code = -1;
-    goto end;
-  }
-
-  // Start a new one.
-  dockerd_process_pid = fork();
-  if (dockerd_process_pid == 0) {
-    if (!start_dockerd()) {
-      syslog(LOG_ERR,
-             "Failed to start dockerd process. Please restart the acap "
-             "manually.");
-      exit_code = -1;
-      goto end;
-    }
-  }
-
-  // Watch the child process
-  g_child_watch_add(dockerd_process_pid, dockerd_process_exited_callback, NULL);
-
-  if (!is_process_alive(dockerd_process_pid)) {
-    // The child process died during adding of callback, tell loop to quit.
-    g_main_loop_quit(loop);
-  }
-
-  dockerd_started_correctly = true;
-end:
-  if (!dockerd_started_correctly) {
-    // Tell the main process to quit its loop.
-    syslog(LOG_INFO,
-           "Parameter changed but dockerd did not start correctly, quitting.");
-    g_main_loop_quit(loop);
-  }
 }
 
 int

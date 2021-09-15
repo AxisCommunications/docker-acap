@@ -1,0 +1,25 @@
+include DOCKERVERSION
+
+ifeq ($(ARCH),aarch64)
+  DOCKER_CROSSPLATFORMS = linux/arm64
+else ifeq ($(ARCH),armv7hf)
+  DOCKER_CROSSPLATFORMS = linux/arm/v7
+else
+  $(error No support yet for ARCH "$(ARCH)")
+endif
+
+all: dockerd
+	$(STRIP) dockerd
+
+moby-$(DOCKERVERSION):
+	curl -L https://github.com/moby/moby/archive/refs/tags/v$(DOCKERVERSION).tar.gz | tar xz && \
+	patch -d moby-$(DOCKERVERSION) < 0001-Use-stretch-as-base-to-work-on-ARTPEC-6-7.patch
+
+moby-$(DOCKERVERSION)/bundles/cross/$(DOCKER_CROSSPLATFORMS)/dockerd: moby-$(DOCKERVERSION)
+	make -C moby-$(DOCKERVERSION) DOCKER_CROSSPLATFORMS=$(DOCKER_CROSSPLATFORMS) cross
+
+dockerd: moby-$(DOCKERVERSION)/bundles/cross/$(DOCKER_CROSSPLATFORMS)/dockerd
+	cp -L moby-$(DOCKERVERSION)/bundles/cross/$(DOCKER_CROSSPLATFORMS)/$@ .
+
+clean:
+	rm -f dockerd moby-$(DOCKERVERSION)
