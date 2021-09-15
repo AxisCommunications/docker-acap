@@ -1,0 +1,3 @@
+#!/bin/bash
+AXIS_ARCH=$(echo $DOCKER_TAG | sed 's/.*-\(.*\)/\1/')
+./build.sh $AXIS_ARCH

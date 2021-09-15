@@ -1,0 +1,3 @@
+#!/bin/bash
+AXIS_ARCH=$(echo $DOCKER_TAG | sed 's/.*-\(.*\)/\1/')
+docker build --build-arg ACAPARCH=$AXIS_ARCH -f $DOCKERFILE_PATH -t $IMAGE_NAME .
