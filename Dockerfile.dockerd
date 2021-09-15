@@ -1,4 +1,7 @@
 ARG DOCKERVERSION=20.10.8
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+
 FROM docker:$DOCKERVERSION
 
 RUN mkdir /opt/dockerd
@@ -8,7 +11,6 @@ WORKDIR /opt/dockerd
 COPY Makefile.dockerd .
 COPY DOCKERVERSION .
 COPY 0001-Use-stretch-as-base-to-work-on-ARTPEC-6-7.patch .
-COPY config.json /root/.docker/config.json
 
 # Install the packages we use
 RUN apk add --update \
@@ -25,7 +27,7 @@ ARG ACAPARCH=armv7hf
 ARG STRIP=arm-none-eabi-strip
 ENV ARCH ${ACAPARCH}
 ENV STRIP ${STRIP}
-ENV HTTP_PROXY http://wwwproxy.se.axis.com:3128
-ENV HTTPS_PROXY http://wwwproxy.se.axis.com:3128
+ENV HTTP_PROXY=$HTTP_PROXY
+ENV HTTPS_PROXY=$HTTPS_PROXY
 
 ENTRYPOINT [ "make", "-f", "Makefile.dockerd" ] 
