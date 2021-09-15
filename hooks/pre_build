@@ -1,3 +1,6 @@
 #!/bin/bash
+# Extracts the architecture as the part of the image tag after '-'
+echo $DOCKER_TAG
 AXIS_ARCH=$(echo $DOCKER_TAG | sed 's/.*-\(.*\)/\1/')
+echo $AXIS_ARCH
 ./build.sh $AXIS_ARCH
