@@ -1,5 +1,6 @@
 #!/bin/bash
 # Extracts the architecture as the part of the image tag after '-'
+env
 AXIS_ARCH=$(echo $DOCKER_TAG | sed 's/.*-\(.*\)/\1/')
-./build.sh $AXIS_ARCH
-docker build --build-arg ACAPARCH=$AXIS_ARCH -f $DOCKERFILE_PATH -t $IMAGE_NAME .
+./build.sh $AXIS_ARCH && docker build --build-arg ACAPARCH=$AXIS_ARCH -f $DOCKERFILE_PATH -t $IMAGE_NAME .
+
