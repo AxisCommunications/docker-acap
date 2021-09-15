@@ -19,7 +19,7 @@ else
   $(error No Docker download path defined for ARCH "$(ARCH)")
 endif
 
-all:	$(PROG1) dockerd docker-proxy
+all:	$(PROG1) dockerd docker-init docker-proxy
 
 $(PROG1): $(OBJS1)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LIBS) $(LDLIBS) -o $@
@@ -27,12 +27,18 @@ $(PROG1): $(OBJS1)
 dockerd:
 	ARCH=$(ARCH) $(MAKE) -f Makefile.dockerd
 
-docker-proxy:
-	curl https://download.docker.com/linux/static/stable/$(DOCKERARCH)/docker-$(DOCKERVERSION).tgz | tar xz --strip-components=1 docker/$@ && $(STRIP) $@
+download_docker_binaries:
+	curl https://download.docker.com/linux/static/stable/$(DOCKERARCH)/docker-$(DOCKERVERSION).tgz -o docker_binaries.tgz
+
+docker-init: download_docker_binaries
+	tar xz -f docker_binaries.tgz --strip-components=1 docker/$@ && $(STRIP) $@
+
+docker-proxy: download_docker_binaries
+	tar xz -f docker_binaries.tgz --strip-components=1 docker/$@ && $(STRIP) $@
 
 acap: dockerd
 	docker build --build-arg ACAPARCH=$(ACAPARCH) . -t axisecp/docker-acap-$(ACAPARCH):latest
 
 clean:
 	mv package.conf.orig package.conf || :
-	rm -f $(PROG1) dockerd docker-proxy *.o *.eap
+	rm -f $(PROG1) dockerd docker_binaries.tgz docker-init docker-proxy *.o *.eap
