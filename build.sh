@@ -15,7 +15,7 @@ esac
 
 
 dockerdtag=dockerd:1.0
-imagetag=docker-acap:1.0
+imagetag=${2:-docker-acap:1.0}
 dockerdname=dockerd_name
 
 # First we build and copy out dockerd
