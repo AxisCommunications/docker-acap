@@ -149,7 +149,7 @@ parameter_changed_callback(const gchar *name,
 
   if (!is_process_alive(dockerd_process_pid)) {
     // The child process died during adding of callback, tell loop to quit.
-    g_main_loop_quit(loop);
+    goto end;
   }
 
   dockerd_started_correctly = true;
