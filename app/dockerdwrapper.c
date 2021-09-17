@@ -81,88 +81,6 @@ is_process_alive(int pid)
 }
 
 /**
- * @brief Callback called when the dockerd process exits.
- */
-static void
-dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
-                                gint status,
-                                __attribute__((unused)) gpointer user_data)
-{
-  GError *error = NULL;
-  if (!g_spawn_check_exit_status(status, &error)) {
-    syslog(LOG_ERR, "Dockerd process exited with error: %d", status);
-    g_clear_error(&error);
-
-    // There has been an error, quit the main loop.
-    g_main_loop_quit(loop);
-  }
-}
-
-/**
- * @brief Callback function called when the SDCardSupport parameter
- * changes. Will restart the dockerd process with the new setting.
- *
- * @param name Name of the updated parameter.
- * @param value Value of the updated parameter.
- */
-static void
-parameter_changed_callback(const gchar *name,
-                           const gchar *value,
-                           __attribute__((unused)) gpointer data)
-{
-  const gchar *parname = name += strlen("root.dockerdwrapper.");
-  bool dockerd_started_correctly = false;
-  if (strcmp(parname, "SDCardSupport") == 0) {
-    syslog(LOG_INFO, "SDCardSupport changed to: %s", value);
-  } else if (strcmp(parname, "UseTLS") == 0) {
-    syslog(LOG_INFO, "UseTLS changed to: %s", value);
-  } else {
-    syslog(LOG_WARNING, "Parameter %s is not recognized", name);
-
-    // No known parameter was changed, do not restart.
-    return;
-  }
-
-  // Stop the currently running process.
-  if (!stop_dockerd()) {
-    syslog(LOG_ERR,
-           "Failed to stop dockerd process. Please restart the acap "
-           "manually.");
-    exit_code = -1;
-    goto end;
-  }
-
-  // Start a new one.
-  dockerd_process_pid = fork();
-  if (dockerd_process_pid == 0) {
-    if (!start_dockerd()) {
-      syslog(LOG_ERR,
-             "Failed to start dockerd process. Please restart the acap "
-             "manually.");
-      exit_code = -1;
-      goto end;
-    }
-  }
-
-  // Watch the child process
-  g_child_watch_add(dockerd_process_pid, dockerd_process_exited_callback, NULL);
-
-  if (!is_process_alive(dockerd_process_pid)) {
-    // The child process died during adding of callback, tell loop to quit.
-    goto end;
-  }
-
-  dockerd_started_correctly = true;
-end:
-  if (!dockerd_started_correctly) {
-    // Tell the main process to quit its loop.
-    syslog(LOG_INFO,
-           "Parameter changed but dockerd did not start correctly, quitting.");
-    g_main_loop_quit(loop);
-  }
-}
-
-/**
  * @brief Fetch the value of the parameter as a string
  *
  * @return The value of the parameter as string if successful, NULL otherwise
@@ -284,57 +202,6 @@ end:
   free(create_eroot_command);
 
   return res == 0;
-}
-
-/**
- * @brief Stop the currently running dockerd process.
- *
- * @return True if successful, false otherwise
- */
-static bool
-stop_dockerd(void)
-{
-  bool killed = false;
-
-  // Send SIGTERM to the process
-  bool sigterm_successfully_sent = kill(dockerd_process_pid, SIGTERM) == 0;
-  if (!sigterm_successfully_sent) {
-    syslog(
-        LOG_ERR, "Failed to send SIGTERM to child. Error: %s", strerror(errno));
-    errno = 0;
-  }
-
-  if (sigterm_successfully_sent) {
-    // Give the process 20 seconds to shut down
-    for (int i = 0; i < 20; i++) {
-      int result = waitpid(dockerd_process_pid, NULL, WNOHANG);
-      if (result == dockerd_process_pid) {
-        killed = true;
-        break;
-      }
-      sleep(1);
-    }
-  }
-
-  if (!killed) {
-    killed = kill(dockerd_process_pid, SIGKILL) == 0;
-    if (!killed) {
-      syslog(LOG_ERR,
-             "Failed to send SIGKILL to child. Error: %s",
-             strerror(errno));
-    } else {
-      int result = waitpid(dockerd_process_pid, NULL, 0);
-      if (result != dockerd_process_pid) {
-        syslog(LOG_ERR, "Failed to wait for process.");
-      }
-    }
-  }
-
-  // The lockfile might have been left behind if dockerd shut down in a bad
-  // manner. Remove it manually.
-  remove("/var/run/docker.pid");
-  dockerd_process_pid = -1;
-  return killed;
 }
 
 /**
@@ -515,6 +382,139 @@ end:
   free(use_tls_value);
 
   return return_value;
+}
+
+/**
+ * @brief Stop the currently running dockerd process.
+ *
+ * @return True if successful, false otherwise
+ */
+static bool
+stop_dockerd(void)
+{
+  bool killed = false;
+
+  // Send SIGTERM to the process
+  bool sigterm_successfully_sent = kill(dockerd_process_pid, SIGTERM) == 0;
+  if (!sigterm_successfully_sent) {
+    syslog(
+        LOG_ERR, "Failed to send SIGTERM to child. Error: %s", strerror(errno));
+    errno = 0;
+  }
+
+  if (sigterm_successfully_sent) {
+    // Give the process 20 seconds to shut down
+    for (int i = 0; i < 20; i++) {
+      int result = waitpid(dockerd_process_pid, NULL, WNOHANG);
+      if (result == dockerd_process_pid) {
+        killed = true;
+        break;
+      }
+      sleep(1);
+    }
+  }
+
+  if (!killed) {
+    killed = kill(dockerd_process_pid, SIGKILL) == 0;
+    if (!killed) {
+      syslog(LOG_ERR,
+             "Failed to send SIGKILL to child. Error: %s",
+             strerror(errno));
+    } else {
+      int result = waitpid(dockerd_process_pid, NULL, 0);
+      if (result != dockerd_process_pid) {
+        syslog(LOG_ERR, "Failed to wait for process.");
+      }
+    }
+  }
+
+  // The lockfile might have been left behind if dockerd shut down in a bad
+  // manner. Remove it manually.
+  remove("/var/run/docker.pid");
+  dockerd_process_pid = -1;
+  return killed;
+}
+
+/**
+ * @brief Callback called when the dockerd process exits.
+ */
+static void
+dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
+                                gint status,
+                                __attribute__((unused)) gpointer user_data)
+{
+  GError *error = NULL;
+  if (!g_spawn_check_exit_status(status, &error)) {
+    syslog(LOG_ERR, "Dockerd process exited with error: %d", status);
+    g_clear_error(&error);
+
+    // There has been an error, quit the main loop.
+    g_main_loop_quit(loop);
+  }
+}
+
+/**
+ * @brief Callback function called when the SDCardSupport parameter
+ * changes. Will restart the dockerd process with the new setting.
+ *
+ * @param name Name of the updated parameter.
+ * @param value Value of the updated parameter.
+ */
+static void
+parameter_changed_callback(const gchar *name,
+                           const gchar *value,
+                           __attribute__((unused)) gpointer data)
+{
+  const gchar *parname = name += strlen("root.dockerdwrapper.");
+  bool dockerd_started_correctly = false;
+  if (strcmp(parname, "SDCardSupport") == 0) {
+    syslog(LOG_INFO, "SDCardSupport changed to: %s", value);
+  } else if (strcmp(parname, "UseTLS") == 0) {
+    syslog(LOG_INFO, "UseTLS changed to: %s", value);
+  } else {
+    syslog(LOG_WARNING, "Parameter %s is not recognized", name);
+
+    // No known parameter was changed, do not restart.
+    return;
+  }
+
+  // Stop the currently running process.
+  if (!stop_dockerd()) {
+    syslog(LOG_ERR,
+           "Failed to stop dockerd process. Please restart the acap "
+           "manually.");
+    exit_code = -1;
+    goto end;
+  }
+
+  // Start a new one.
+  dockerd_process_pid = fork();
+  if (dockerd_process_pid == 0) {
+    if (!start_dockerd()) {
+      syslog(LOG_ERR,
+             "Failed to start dockerd process. Please restart the acap "
+             "manually.");
+      exit_code = -1;
+      goto end;
+    }
+  }
+
+  // Watch the child process
+  g_child_watch_add(dockerd_process_pid, dockerd_process_exited_callback, NULL);
+
+  if (!is_process_alive(dockerd_process_pid)) {
+    // The child process died during adding of callback, tell loop to quit.
+    goto end;
+  }
+
+  dockerd_started_correctly = true;
+end:
+  if (!dockerd_started_correctly) {
+    // Tell the main process to quit its loop.
+    syslog(LOG_INFO,
+           "Parameter changed but dockerd did not start correctly, quitting.");
+    g_main_loop_quit(loop);
+  }
 }
 
 int
