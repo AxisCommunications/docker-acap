@@ -1,4 +1,4 @@
-#include <axsdk/axparameter.h>
+#include <axsdk/ax_parameter.h>
 #include <errno.h>
 #include <linux/limits.h>
 #include <mntent.h>
