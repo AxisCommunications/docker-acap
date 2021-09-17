@@ -55,8 +55,9 @@ init_signals(void)
 
   sigemptyset(&sa.sa_mask);
   sa.sa_handler = handle_signals;
-  sigaction(SIGTERM, &sa, NULL);
   sigaction(SIGINT, &sa, NULL);
+  sigaction(SIGTERM, &sa, NULL);
+  sigaction(SIGQUIT, &sa, NULL);
 }
 
 /**
@@ -288,7 +289,7 @@ end:
 /**
  * @brief Stop the currently running dockerd process.
  *
- * @return True if successful, false if setup failed.
+ * @return True if successful, false otherwise
  */
 static bool
 stop_dockerd(void)
@@ -339,7 +340,7 @@ stop_dockerd(void)
 /**
  * @brief Start a new dockerd process.
  *
- * @return True if successful, false if setup failed.
+ * @return True if successful, false otherwise
  */
 static bool
 start_dockerd(void)
@@ -363,6 +364,7 @@ start_dockerd(void)
       syslog(LOG_ERR,
              "Couldn't identify the file system of the SD card at %s",
              sd_card_path);
+      goto end;
     }
 
     if (strcmp(sd_file_system, "vfat") == 0 ||
@@ -438,6 +440,7 @@ start_dockerd(void)
             "Could not execv the dockerd process. Return value: %d, error: %s",
             result,
             strerror(errno));
+        goto end;
       }
     } else {
       syslog(LOG_INFO, "Starting dockerd in TLS mode using internal storage.");
@@ -461,6 +464,7 @@ start_dockerd(void)
             result,
             strerror(errno));
       }
+      goto end;
     }
   } else {
     if (use_sdcard) {
@@ -482,6 +486,7 @@ start_dockerd(void)
             "Could not execv the dockerd process. Return value: %d, error: %s",
             result,
             strerror(errno));
+        goto end;
       }
     } else {
       syslog(LOG_INFO, "Starting unsecured dockerd using internal storage.");
@@ -498,6 +503,7 @@ start_dockerd(void)
             "Could not execv the dockerd process. Return value: %d, error: %s",
             result,
             strerror(errno));
+        goto end;
       }
     }
   }
