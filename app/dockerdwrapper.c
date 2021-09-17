@@ -1,4 +1,4 @@
-#include <axsdk/axparameter.h>
+#include <axsdk/ax_parameter.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <glib.h>
