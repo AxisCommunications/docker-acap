@@ -1,3 +1,5 @@
+ *Copyright (C) 2021, Axis Communications AB, Lund, Sweden. All Rights Reserved.*
+
 # The Docker Engine ACAP
 
 This is the ACAP packaging of the Docker Engine to be run on Axis devices with
