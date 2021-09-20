@@ -1,6 +1,5 @@
 ARG ACAPARCH=armv7hf
-FROM axisecp/acap-sdk:3.4-${ACAPARCH}-ubuntu20.04 as acap-sdk
-
+FROM axisecp/acap-sdk:3.4.2-${ACAPARCH}-ubuntu20.04 as acap-sdk
 FROM axisecp/acap-native-sdk:1.0_beta2-${ACAPARCH}-ubuntu20.04
 
 ARG ACAPARCH
@@ -10,8 +9,6 @@ COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/libaxparamet
 COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/libaxparameter.so.1 /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/libaxparameter.so.1
 COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/libaxparameter.so.1.0 /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/libaxparameter.so.1.0
 COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/pkgconfig/axparameter.pc /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/pkgconfig/axparameter.pc
-
-
 
 COPY app /opt/app
 COPY DOCKERVERSION /opt/app

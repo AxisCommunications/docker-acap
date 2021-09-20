@@ -4,3 +4,4 @@ dockerdwrapper
 package.conf.orig
 *.eap
 *.eap.old
+.clang-format
