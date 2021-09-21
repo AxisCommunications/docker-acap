@@ -1,3 +1,4 @@
+---
 name: 'Trigger: Push action'
 
 on:
@@ -7,9 +8,9 @@ on:
 
 jobs:
   shellcheck:
-    name: Shellcheck
+    name: ShellCheck
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Run ShellCheck
-      uses: ludeeus/action-shellcheck@master
+      - uses: actions/checkout@v2
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
