@@ -20,7 +20,8 @@ dockerdname=dockerd_name
 
 # First we build and copy out dockerd
 docker build --build-arg ACAPARCH="$1" \
-             --build-arg STRIP=$strip \
+             --build-arg HTTP_PROXY \
+             --build-arg HTTPS_PROXY \
              --tag $dockerdtag \
              --no-cache \
              --file Dockerfile.dockerd .

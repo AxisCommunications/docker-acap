@@ -1,5 +1,8 @@
 ARG DOCKERVERSION=20.10.8
+
 FROM docker:$DOCKERVERSION
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
 
 RUN mkdir /opt/dockerd
 WORKDIR /opt/dockerd
