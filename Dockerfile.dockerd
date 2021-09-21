@@ -8,7 +8,6 @@ WORKDIR /opt/dockerd
 COPY Makefile.dockerd .
 COPY DOCKERVERSION .
 COPY 0001-Use-stretch-as-base-to-work-on-ARTPEC-6-7.patch .
-COPY config.json /root/.docker/config.json
 
 # Install the packages we use
 RUN apk add --update \

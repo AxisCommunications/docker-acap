@@ -15,7 +15,7 @@ esac
 
 
 dockerdtag=dockerd:1.0
-imagetag=docker-acap:1.0
+imagetag=${2:-docker-acap:1.0}
 dockerdname=dockerd_name
 
 # First we build and copy out dockerd
@@ -26,8 +26,11 @@ docker build --build-arg ACAPARCH="$1" \
              --file Dockerfile.dockerd .
 
 docker run -v /var/run/docker.sock:/var/run/docker.sock \
+           --env HTTP_PROXY=$HTTP_PROXY \
+           --env HTTPS_PROXY=$HTTPS_PROXY \
            --name $dockerdname \
            -it $dockerdtag
+
 docker cp $dockerdname:/opt/dockerd/dockerd app/
 
 docker stop $dockerdname
