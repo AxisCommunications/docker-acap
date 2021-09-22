@@ -54,6 +54,13 @@ the Docker ACAP in unsecured mode:
 docker -H=<axis_device_ip>:2375 version
 ```
 
+The [docker compose](https://docs.docker.com/compose/cli-command) client can also run commands
+remotely on the camera:
+
+```sh
+docker -H=<axis_device_ip>:2375 compose ls
+```
+
 See [Client keys and certificates](#client-keys-and-certificates) for an example
 of how to remotely run docker commands on a camera running a secured Docker ACAP
 using TLS.
