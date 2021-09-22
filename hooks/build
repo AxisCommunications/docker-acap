@@ -2,4 +2,5 @@
 # Extracts the architecture as the part of the image tag after '-'
 AXIS_ARCH=$(echo $DOCKER_TAG | sed 's/.*-\(.*\)/\1/')
 AXIS_ARCH=armv7hf
+
 ./build.sh $AXIS_ARCH $IMAGE_NAME
