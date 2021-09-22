@@ -362,6 +362,7 @@ start_dockerd(void)
                                 "/var/spool/storage/SD_DISK/dockerd/data",
                                 "--exec-root",
                                 "/var/spool/storage/SD_DISK/dockerd/exec",
+                                "--tls=false",
                                 (char *)NULL});
       if (result != 0) {
         syslog(
@@ -379,6 +380,7 @@ start_dockerd(void)
                                 "unix:///var/run/docker.sock",
                                 "-H",
                                 "tcp://0.0.0.0:2375",
+                                "--tls=false",
                                 (char *)NULL});
       if (result != 0) {
         syslog(
