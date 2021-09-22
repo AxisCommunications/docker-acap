@@ -28,11 +28,14 @@ docker build --build-arg ACAPARCH="$1" \
              --file Dockerfile.dockerd .
 
 docker images
+ls -al /var/run/
+find /var | grep docker.sock
 docker run -v /var/run/docker.sock:/var/run/docker.sock \
            --env HTTP_PROXY="$HTTP_PROXY" \
            --env HTTPS_PROXY="$HTTPS_PROXY" \
            --name $dockerdname \
-           -it $dockerdtag
+           -a stdin -a stdout -i -t \
+           $dockerdtag; echo $?
 docker container ls -al
 docker cp $dockerdname:/opt/dockerd/dockerd app/
 
