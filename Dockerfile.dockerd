@@ -1,5 +1,8 @@
 ARG DOCKERVERSION=20.10.8
+
 FROM docker:$DOCKERVERSION
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
 
 RUN mkdir /opt/dockerd
 WORKDIR /opt/dockerd
@@ -8,7 +11,6 @@ WORKDIR /opt/dockerd
 COPY Makefile.dockerd .
 COPY DOCKERVERSION .
 COPY 0001-Use-stretch-as-base-to-work-on-ARTPEC-6-7.patch .
-COPY config.json /root/.docker/config.json
 
 # Install the packages we use
 RUN apk add --update \
