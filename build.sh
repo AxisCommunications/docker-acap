@@ -34,7 +34,7 @@ docker run -v /var/run/docker.sock:/var/run/docker.sock \
            --env HTTP_PROXY="$HTTP_PROXY" \
            --env HTTPS_PROXY="$HTTPS_PROXY" \
            --name $dockerdname \
-           -a stdin -a stdout -i -t \
+           -a stdin -a stdout \
            $dockerdtag; echo $?
 docker container ls -al
 docker cp $dockerdname:/opt/dockerd/dockerd app/
