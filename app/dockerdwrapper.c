@@ -306,6 +306,8 @@ start_dockerd(void)
               "dockerd",
               "-H",
               "tcp://0.0.0.0:2376",
+              "--config-file",
+              "/usr/local/packages/dockerdwrapper/empty_config.json",
               "--data-root",
               "/var/spool/storage/SD_DISK/dockerd/data",
               "--exec-root",
@@ -331,6 +333,8 @@ start_dockerd(void)
               "dockerd",
               "-H",
               "tcp://0.0.0.0:2376",
+              "--config-file",
+              "/usr/local/packages/dockerdwrapper/empty_config.json",
               "--tlsverify",
               "--tlscacert=/usr/local/packages/dockerdwrapper/ca.pem",
               "--tlscert=/usr/local/packages/dockerdwrapper/server-cert.pem",
@@ -348,16 +352,19 @@ start_dockerd(void)
   } else {
     if (use_sdcard) {
       syslog(LOG_INFO, "Starting unsecured dockerd using SD card as storage.");
-      result = execv("/usr/local/packages/dockerdwrapper/dockerd",
-                     (char *[]){"dockerd",
-                                "-H",
-                                "tcp://0.0.0.0:2375",
-                                "--data-root",
-                                "/var/spool/storage/SD_DISK/dockerd/data",
-                                "--exec-root",
-                                "/var/spool/storage/SD_DISK/dockerd/exec",
-                                "--tls=false",
-                                (char *)NULL});
+      result = execv(
+          "/usr/local/packages/dockerdwrapper/dockerd",
+          (char *[]){"dockerd",
+                     "-H",
+                     "tcp://0.0.0.0:2375",
+                     "--config-file",
+                     "/usr/local/packages/dockerdwrapper/empty_config.json",
+                     "--data-root",
+                     "/var/spool/storage/SD_DISK/dockerd/data",
+                     "--exec-root",
+                     "/var/spool/storage/SD_DISK/dockerd/exec",
+                     "--tls=false",
+                     (char *)NULL});
       if (result != 0) {
         syslog(
             LOG_ERR,
@@ -368,12 +375,15 @@ start_dockerd(void)
       }
     } else {
       syslog(LOG_INFO, "Starting unsecured dockerd using internal storage.");
-      result = execv("/usr/local/packages/dockerdwrapper/dockerd",
-                     (char *[]){"dockerd",
-                                "-H",
-                                "tcp://0.0.0.0:2375",
-                                "--tls=false",
-                                (char *)NULL});
+      result = execv(
+          "/usr/local/packages/dockerdwrapper/dockerd",
+          (char *[]){"dockerd",
+                     "-H",
+                     "tcp://0.0.0.0:2375",
+                     "--config-file",
+                     "/usr/local/packages/dockerdwrapper/empty_config.json",
+                     "--tls=false",
+                     (char *)NULL});
       if (result != 0) {
         syslog(
             LOG_ERR,

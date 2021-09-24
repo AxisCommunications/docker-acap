@@ -15,5 +15,5 @@ COPY DOCKERVERSION /opt/app
 
 WORKDIR /opt/app
 
-RUN . /opt/axis/acapsdk/environment-setup* && acap-build . -a dockerd -a docker-init -a docker-proxy
+RUN . /opt/axis/acapsdk/environment-setup* && acap-build . -a dockerd -a docker-init -a docker-proxy -a empty_config.json
 ENTRYPOINT [ "/opt/axis/acapsdk/sysroots/x86_64-pokysdk-linux/usr/bin/eap-install.sh" ] 
