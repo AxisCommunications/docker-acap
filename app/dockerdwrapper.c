@@ -404,6 +404,12 @@ stop_dockerd(void)
 {
   bool killed = false;
 
+  if (dockerd_process_pid == -1) {
+    // Nothing to stop.
+    killed = true;
+    goto end;
+  }
+
   // Send SIGTERM to the process
   bool sigterm_successfully_sent = kill(dockerd_process_pid, SIGTERM) == 0;
   if (!sigterm_successfully_sent) {
@@ -413,31 +419,29 @@ stop_dockerd(void)
   }
 
   if (sigterm_successfully_sent) {
-    // Give the process 20 seconds to shut down
-    for (int i = 0; i < 20; i++) {
+    // Give the process 10 seconds to shut down
+    for (int i = 0; i < 10; i++) {
       int result = waitpid(dockerd_process_pid, NULL, WNOHANG);
       if (result == dockerd_process_pid) {
         killed = true;
-        break;
+        goto end;
       }
       sleep(1);
     }
   }
 
+  // SIGTERM failed, let's try SIGKILL
+  killed = kill(dockerd_process_pid, SIGKILL) == 0;
   if (!killed) {
-    killed = kill(dockerd_process_pid, SIGKILL) == 0;
-    if (!killed) {
-      syslog(LOG_ERR,
-             "Failed to send SIGKILL to child. Error: %s",
-             strerror(errno));
-    } else {
-      int result = waitpid(dockerd_process_pid, NULL, 0);
-      if (result != dockerd_process_pid) {
-        syslog(LOG_ERR, "Failed to wait for process.");
-      }
+    syslog(
+        LOG_ERR, "Failed to send SIGKILL to child. Error: %s", strerror(errno));
+  } else {
+    int result = waitpid(dockerd_process_pid, NULL, 0);
+    if (result != dockerd_process_pid) {
+      syslog(LOG_ERR, "Failed to wait for process.");
     }
   }
-
+end:
   // The lockfile might have been left behind if dockerd shut down in a bad
   // manner. Remove it manually.
   remove("/var/run/docker.pid");
@@ -458,6 +462,8 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
     syslog(LOG_ERR, "Dockerd process exited with error: %d", status);
     g_clear_error(&error);
 
+    exit_code = -1;
+    dockerd_process_pid = -1;
     // There has been an error, quit the main loop.
     g_main_loop_quit(loop);
   }
@@ -521,6 +527,7 @@ parameter_changed_callback(const gchar *name,
 end:
   if (!dockerd_started_correctly) {
     // Tell the main process to quit its loop.
+    exit_code = -1;
     syslog(LOG_INFO,
            "Parameter changed but dockerd did not start correctly, quitting.");
     g_main_loop_quit(loop);
@@ -532,7 +539,7 @@ main(void)
 {
   GError *error = NULL;
   AXParameter *ax_parameter = NULL;
-  int exit_code = 0;
+  exit_code = 0;
 
   openlog(NULL, LOG_PID, LOG_USER);
   syslog(LOG_INFO, "Started logging.");
