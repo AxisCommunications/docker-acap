@@ -530,6 +530,7 @@ end:
     exit_code = -1;
     syslog(LOG_INFO,
            "Parameter changed but dockerd did not start correctly, quitting.");
+    dockerd_process_pid = -1;
     g_main_loop_quit(loop);
   }
 }
