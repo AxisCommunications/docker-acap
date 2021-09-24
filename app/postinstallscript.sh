@@ -1,4 +1,5 @@
 #!/bin/sh
+mv daemon.json localdata/
 
 # Make sure containerd is started before dockerd and set PATH
 cat >> /etc/systemd/system/sdkdockerdwrapper.service << EOF
