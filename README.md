@@ -1,62 +1,20 @@
-# The Docker Engine ACAP
+# The Docker ACAP
 
 This is the ACAP packaging of the Docker Engine to be run on Axis devices with container support.
 
-## Building
-
-### armv7hf
-
-```sh
-./build.sh armv7hf
-```
-
-### aarch64
-
-```sh
-./build.sh aarch64
-```
-
 ## Installing
 
-Installation can be done in two ways. Either by using the built docker image:
+The recommended way to install this acap is to use the pre-built
+[docker hub](https://hub.docker.com/r/axisecp/docker-acap) image:
 
 ```sh
-docker run --rm docker-acap:1.0 <camera ip> <rootpasswd> install
+docker run --rm axisecp/docker-acap:latest-<ARCH> <camera ip> <rootpasswd> install
 ```
 
-Or by manually navigating to device GUI by browsing to the following page
-(replace <axis_device_ip> with the IP number of your Axis video device)
+Where \<ARCH\> is either "armv7hf" or "aarch64" depending on camera architecture.
 
-```sh
-http://<axis_device_ip>/#settings/apps
-```
-
-Go to your device web page above > Click on the tab **App** in the device GUI >
-Add **(+)** sign and browse to the newly built
-**Docker_Daemon_1_1_0_<arch>.eap** > Click **Install** > Run the application by
-enabling the **Start** switch.
-
-## Using the Docker ACAP
-
-The Docker ACAP does not contain the docker client binary. This means that all
-calls need to be done from a separate machine. This can be achieved by using
-the -H flag when running the docker command.
-
-The port used will change depending on if the Docker ACAP runs using TLS or not.
-The Docker ACAP will be reachable on port 2375 when running unsecured, and on
-port 2376 when running secured using TLS. Please read section
-[Securing the Docker ACAP using TLS](#securing-the-docker-acap-using-tls) for
-more information.
-Below is an example of how to remotely run a docker command on a camera running
-the Docker ACAP in unsecured mode:
-
-```sh
-docker -H=<axis_device_ip>:2375 version
-```
-
-See [Client keys and certificates](#client-keys-and-certificates) for an example
-of how to remotely run docker commands on a camera running a secured Docker ACAP
-using TLS.
+It's also possible to build and use a locally built image. See the
+[Building the Docker ACAP](#building-the-docker-acap) section for more information.
 
 ## Securing the Docker ACAP using TLS
 
@@ -74,10 +32,11 @@ deactivated. Running the ACAP using TLS requires some additional setup, see
 ### TLS Setup
 
 TLS requires a few keys and certificates to work, which are listed in the
-subsections below. Most of these needs to be moved to the camera. There are
-mutliple ways of achieveing this, for example by using `scp` to copy the files
-from a remote machine onto the camera. This can be done by running the following
-command on the remote machine:
+subsections below. For more information on how to generate these files, please
+consult the official [docker documentation](https://docs.docker.com/engine/security/protect-access/).
+Most of these keys and certificates need to be moved to the camera. There are multiple ways to
+achieve this, for example by using `scp` to copy the files from a remote machine onto the camera.
+This can be done by running the following command on the remote machine:
 
 ```sh
 scp ca.pem server-cert.pem server-key.pem root@<axis_device_ip>:/usr/local/packages/dockerdwrapper/
@@ -137,3 +96,59 @@ Note that dockerdwrapper requires that Unix permissions are supported by the
 file system. Examples of file systems which support this are ext4, ext3 and xfs.
 It might be necessary to reformat the SD card to one of these file systems, for
 example if the original file system of the SD card is vfat.
+
+## Using the Docker ACAP
+
+The Docker ACAP does not contain the docker client binary. This means that all
+calls need to be done from a separate machine. This can be achieved by using
+the -H flag when running the docker command.
+
+The port used will change depending on if the Docker ACAP runs using TLS or not.
+The Docker ACAP will be reachable on port 2375 when running unsecured, and on
+port 2376 when running secured using TLS. Please read section
+[Securing the Docker ACAP using TLS](#securing-the-docker-acap-using-tls) for
+more information.
+Below is an example of how to remotely run a docker command on a camera running
+the Docker ACAP in unsecured mode:
+
+```sh
+docker -H=<axis_device_ip>:2375 version
+```
+
+See [Client keys and certificates](#client-keys-and-certificates) for an example
+of how to remotely run docker commands on a camera running a secured Docker ACAP
+using TLS.
+
+## Building the Docker ACAP
+
+### armv7hf
+
+```sh
+./build.sh armv7hf
+```
+
+### aarch64
+
+```sh
+./build.sh aarch64
+```
+
+## Installing a locally built Docker ACAP
+
+Installation can be done in two ways. Either by using the locally built docker image:
+
+```sh
+docker run --rm docker-acap:1.0 <camera ip> <rootpasswd> install
+```
+
+Or by manually navigating to device GUI by browsing to the following page
+(replace <axis_device_ip> with the IP number of your Axis video device)
+
+```sh
+http://<axis_device_ip>/#settings/apps
+```
+
+Go to your device web page above > Click on the tab **App** in the device GUI >
+Add **(+)** sign and browse to the newly built
+**Docker_Daemon_1_1_0_<arch>.eap** > Click **Install** > Run the application by
+enabling the **Start** switch.
