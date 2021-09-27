@@ -466,9 +466,9 @@ stop_dockerd(void)
 
   // Wait before sending a SIGKILL.
   // The sleep will be interrupted when the dockerd_process_callback arrives,
-  // so we will essentially sleep until dockerd has shut down or 5 seconds
+  // so we will essentially sleep until dockerd has shut down or 10 seconds
   // passed.
-  sleep(5);
+  sleep(10);
 
   if (dockerd_process_pid == -1) {
     killed = true;
