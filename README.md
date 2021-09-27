@@ -13,8 +13,8 @@ docker run --rm axisecp/docker-acap:latest-<ARCH> <camera ip> <rootpasswd> insta
 
 Where \<ARCH\> is either "armv7hf" or "aarch64" depending on camera architecture.
 
-It's also possible to build and use a locally built image. see the
-[Building the Docker ACAP](#building-the-docker-acap) chapter for more information.
+It's also possible to build and use a locally built image. See the
+[Building the Docker ACAP](#building-the-docker-acap) section for more information.
 
 ## Securing the Docker ACAP using TLS
 
@@ -32,9 +32,9 @@ deactivated. Running the ACAP using TLS requires some additional setup, see
 ### TLS Setup
 
 TLS requires a few keys and certificates to work, which are listed in the
-subsections below. For more detailed information about these settings, please
+subsections below. For more information on how to generate these files, please
 consult the official [docker documentation](https://docs.docker.com/engine/security/protect-access/).
-Most of these keys and certificates needs to be moved to the camera. There are multiple ways to
+Most of these keys and certificates need to be moved to the camera. There are multiple ways to
 achieve this, for example by using `scp` to copy the files from a remote machine onto the camera.
 This can be done by running the following command on the remote machine:
 
