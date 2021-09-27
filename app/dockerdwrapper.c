@@ -16,32 +16,37 @@
 
 #include <axsdk/ax_parameter.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <glib.h>
-#include <linux/limits.h>
 #include <mntent.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/stat.h>
-#include <sys/syscall.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <syslog.h>
 #include <unistd.h>
 
-// Loop run on the main process.
+/**
+ * @brief Callback called when the dockerd process exits.
+ */
+static void dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
+                                            gint status,
+                                            __attribute__((unused))
+                                            gpointer user_data);
+
+// Loop run on the main process
 static GMainLoop *loop = NULL;
 
-// Exit code.
+// Exit code
 static int exit_code = 0;
 
-// Pid of the running dockerd process.
+// Pid of the running dockerd process
 static pid_t dockerd_process_pid = -1;
 
 // Full path to the SD card
 static const char *sd_card_path = "/var/spool/storage/SD_DISK";
+
+// True if the dockerd_exited_callback should restart dockerd
+static bool restart_dockerd = false;
 
 /**
  * @brief Signals handling
@@ -105,10 +110,11 @@ static char *
 get_parameter_value(const char *parameter_name)
 {
   GError *error = NULL;
-  char *parameter_value = NULL;
   AXParameter *ax_parameter = ax_parameter_new("dockerdwrapper", &error);
+  char *parameter_value = NULL;
+
   if (ax_parameter == NULL) {
-    syslog(LOG_ERR, "Error when creating AXParameter: %s", error->message);
+    syslog(LOG_ERR, "Error when creating axparameter: %s", error->message);
     goto end;
   }
 
@@ -127,7 +133,6 @@ end:
   if (ax_parameter != NULL) {
     ax_parameter_free(ax_parameter);
   }
-
   g_clear_error(&error);
 
   return parameter_value;
@@ -228,8 +233,10 @@ end:
 static bool
 start_dockerd(void)
 {
+  GError *error = NULL;
+
   bool return_value = false;
-  int result = 0;
+  bool result = false;
 
   // Read parameters
   char *use_sd_card_value = get_parameter_value("SDCardSupport");
@@ -300,9 +307,9 @@ start_dockerd(void)
     if (use_sdcard) {
       syslog(LOG_INFO,
              "Starting dockerd in TLS mode using SD card as storage.");
-      result = execv(
-          "/usr/local/packages/dockerdwrapper/dockerd",
-          (char *[]){
+      result = g_spawn_async(
+          NULL,
+          (gchar *[]){
               "dockerd",
               "-H",
               "tcp://0.0.0.0:2376",
@@ -316,8 +323,14 @@ start_dockerd(void)
               "--tlscacert=/usr/local/packages/dockerdwrapper/ca.pem",
               "--tlscert=/usr/local/packages/dockerdwrapper/server-cert.pem",
               "--tlskey=/usr/local/packages/dockerdwrapper/server-key.pem",
-              (char *)NULL});
-      if (result != 0) {
+              (char *)NULL},
+          NULL,
+          G_SPAWN_DO_NOT_REAP_CHILD | G_SPAWN_SEARCH_PATH,
+          NULL,
+          NULL,
+          &dockerd_process_pid,
+          &error);
+      if (!result) {
         syslog(
             LOG_ERR,
             "Could not execv the dockerd process. Return value: %d, error: %s",
@@ -327,9 +340,9 @@ start_dockerd(void)
       }
     } else {
       syslog(LOG_INFO, "Starting dockerd in TLS mode using internal storage.");
-      result = execv(
-          "/usr/local/packages/dockerdwrapper/dockerd",
-          (char *[]){
+      result = g_spawn_async(
+          NULL,
+          (gchar *[]){
               "dockerd",
               "-H",
               "tcp://0.0.0.0:2376",
@@ -339,8 +352,14 @@ start_dockerd(void)
               "--tlscacert=/usr/local/packages/dockerdwrapper/ca.pem",
               "--tlscert=/usr/local/packages/dockerdwrapper/server-cert.pem",
               "--tlskey=/usr/local/packages/dockerdwrapper/server-key.pem",
-              (char *)NULL});
-      if (result != 0) {
+              (char *)NULL},
+          NULL,
+          G_SPAWN_DO_NOT_REAP_CHILD | G_SPAWN_SEARCH_PATH,
+          NULL,
+          NULL,
+          &dockerd_process_pid,
+          &error);
+      if (!result) {
         syslog(
             LOG_ERR,
             "Could not execv the dockerd process. Return value: %d, error: %s",
@@ -352,20 +371,24 @@ start_dockerd(void)
   } else {
     if (use_sdcard) {
       syslog(LOG_INFO, "Starting unsecured dockerd using SD card as storage.");
-      result = execv(
-          "/usr/local/packages/dockerdwrapper/dockerd",
-          (char *[]){"dockerd",
-                     "-H",
-                     "tcp://0.0.0.0:2375",
-                     "--config-file",
-                     "/usr/local/packages/dockerdwrapper/localdata/daemon.json",
-                     "--data-root",
-                     "/var/spool/storage/SD_DISK/dockerd/data",
-                     "--exec-root",
-                     "/var/spool/storage/SD_DISK/dockerd/exec",
-                     "--tls=false",
-                     (char *)NULL});
-      if (result != 0) {
+      result =
+          g_spawn_async(NULL,
+                        (gchar *[]){"dockerd",
+                                    "-H",
+                                    "tcp://0.0.0.0:2375",
+                                    "--data-root",
+                                    "/var/spool/storage/SD_DISK/dockerd/data",
+                                    "--exec-root",
+                                    "/var/spool/storage/SD_DISK/dockerd/exec",
+                                    "--tls=false",
+                                    (char *)NULL},
+                        NULL,
+                        G_SPAWN_DO_NOT_REAP_CHILD | G_SPAWN_SEARCH_PATH,
+                        NULL,
+                        NULL,
+                        &dockerd_process_pid,
+                        &error);
+      if (!result) {
         syslog(
             LOG_ERR,
             "Could not execv the dockerd process. Return value: %d, error: %s",
@@ -375,16 +398,19 @@ start_dockerd(void)
       }
     } else {
       syslog(LOG_INFO, "Starting unsecured dockerd using internal storage.");
-      result = execv(
-          "/usr/local/packages/dockerdwrapper/dockerd",
-          (char *[]){"dockerd",
-                     "-H",
-                     "tcp://0.0.0.0:2375",
-                     "--config-file",
-                     "/usr/local/packages/dockerdwrapper/localdata/daemon.json",
-                     "--tls=false",
-                     (char *)NULL});
-      if (result != 0) {
+      result = g_spawn_async(NULL,
+                             (gchar *[]){"dockerd",
+                                         "-H",
+                                         "tcp://0.0.0.0:2375",
+                                         "--tls=false",
+                                         (char *)NULL},
+                             NULL,
+                             G_SPAWN_DO_NOT_REAP_CHILD | G_SPAWN_SEARCH_PATH,
+                             NULL,
+                             NULL,
+                             &dockerd_process_pid,
+                             &error);
+      if (!result) {
         syslog(
             LOG_ERR,
             "Could not execv the dockerd process. Return value: %d, error: %s",
@@ -395,11 +421,22 @@ start_dockerd(void)
     }
   }
 
+  // Watch the child process.
+  g_child_watch_add(dockerd_process_pid, dockerd_process_exited_callback, NULL);
+
+  if (!is_process_alive(dockerd_process_pid)) {
+    // The process died during adding of callback, tell loop to quit.
+    exit_code = -1;
+    g_main_loop_quit(loop);
+    goto end;
+  }
+
   return_value = true;
 
 end:
   free(use_sd_card_value);
   free(use_tls_value);
+  g_clear_error(&error);
 
   return return_value;
 }
@@ -413,6 +450,11 @@ static bool
 stop_dockerd(void)
 {
   bool killed = false;
+  if (dockerd_process_pid == -1) {
+    // Nothing to stop.
+    killed = true;
+    goto end;
+  }
 
   // Send SIGTERM to the process
   bool sigterm_successfully_sent = kill(dockerd_process_pid, SIGTERM) == 0;
@@ -422,36 +464,24 @@ stop_dockerd(void)
     errno = 0;
   }
 
-  if (sigterm_successfully_sent) {
-    // Give the process 20 seconds to shut down
-    for (int i = 0; i < 20; i++) {
-      int result = waitpid(dockerd_process_pid, NULL, WNOHANG);
-      if (result == dockerd_process_pid) {
-        killed = true;
-        break;
-      }
-      sleep(1);
-    }
+  // Wait before sending a SIGKILL.
+  // The sleep will be interrupted when the dockerd_process_callback arrives,
+  // so we will essentially sleep until dockerd has shut down or 5 seconds
+  // passed.
+  sleep(5);
+
+  if (dockerd_process_pid == -1) {
+    killed = true;
+    goto end;
   }
 
+  // SIGTERM failed, let's try SIGKILL
+  killed = kill(dockerd_process_pid, SIGKILL) == 0;
   if (!killed) {
-    killed = kill(dockerd_process_pid, SIGKILL) == 0;
-    if (!killed) {
-      syslog(LOG_ERR,
-             "Failed to send SIGKILL to child. Error: %s",
-             strerror(errno));
-    } else {
-      int result = waitpid(dockerd_process_pid, NULL, 0);
-      if (result != dockerd_process_pid) {
-        syslog(LOG_ERR, "Failed to wait for process.");
-      }
-    }
+    syslog(
+        LOG_ERR, "Failed to send SIGKILL to child. Error: %s", strerror(errno));
   }
-
-  // The lockfile might have been left behind if dockerd shut down in a bad
-  // manner. Remove it manually.
-  remove("/var/run/docker.pid");
-  dockerd_process_pid = -1;
+end:
   return killed;
 }
 
@@ -468,7 +498,25 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
     syslog(LOG_ERR, "Dockerd process exited with error: %d", status);
     g_clear_error(&error);
 
-    // There has been an error, quit the main loop.
+    exit_code = -1;
+  }
+
+  dockerd_process_pid = -1;
+  g_spawn_close_pid(pid);
+
+  // The lockfile might have been left behind if dockerd shut down in a bad
+  // manner. Remove it manually.
+  remove("/var/run/docker.pid");
+
+  if (restart_dockerd) {
+    restart_dockerd = false;
+    if (!start_dockerd()) {
+      syslog(LOG_ERR, "Failed to restart dockerd, exiting.");
+      exit_code = -1;
+      g_main_loop_quit(loop);
+    }
+  } else {
+    // We shouldn't restart, stop instead.
     g_main_loop_quit(loop);
   }
 }
@@ -486,13 +534,16 @@ parameter_changed_callback(const gchar *name,
                            __attribute__((unused)) gpointer data)
 {
   const gchar *parname = name += strlen("root.dockerdwrapper.");
-  bool dockerd_started_correctly = false;
+  // bool dockerd_started_correctly = false;
   if (strcmp(parname, "SDCardSupport") == 0) {
     syslog(LOG_INFO, "SDCardSupport changed to: %s", value);
+    restart_dockerd = true;
   } else if (strcmp(parname, "UseTLS") == 0) {
     syslog(LOG_INFO, "UseTLS changed to: %s", value);
+    restart_dockerd = true;
   } else {
     syslog(LOG_WARNING, "Parameter %s is not recognized", name);
+    restart_dockerd = false;
 
     // No known parameter was changed, do not restart.
     return;
@@ -504,37 +555,56 @@ parameter_changed_callback(const gchar *name,
            "Failed to stop dockerd process. Please restart the acap "
            "manually.");
     exit_code = -1;
+  }
+}
+
+static AXParameter *
+setup_axparameter(void)
+{
+  bool success = false;
+  GError *error = NULL;
+  AXParameter *ax_parameter = ax_parameter_new("dockerdwrapper", &error);
+  if (ax_parameter == NULL) {
+    syslog(LOG_ERR, "Error when creating AXParameter: %s", error->message);
     goto end;
   }
 
-  // Start a new one.
-  dockerd_process_pid = fork();
-  if (dockerd_process_pid == 0) {
-    if (!start_dockerd()) {
-      syslog(LOG_ERR,
-             "Failed to start dockerd process. Please restart the acap "
-             "manually.");
-      exit_code = -1;
-      goto end;
-    }
-  }
+  gboolean geresult =
+      ax_parameter_register_callback(ax_parameter,
+                                     "root.dockerdwrapper.SDCardSupport",
+                                     parameter_changed_callback,
+                                     NULL,
+                                     &error);
 
-  // Watch the child process
-  g_child_watch_add(dockerd_process_pid, dockerd_process_exited_callback, NULL);
-
-  if (!is_process_alive(dockerd_process_pid)) {
-    // The child process died during adding of callback, tell loop to quit.
+  if (geresult == FALSE) {
+    syslog(LOG_ERR,
+           "Could not register SDCardSupport callback. Error: %s",
+           error->message);
     goto end;
   }
 
-  dockerd_started_correctly = true;
+  geresult = ax_parameter_register_callback(ax_parameter,
+                                            "root.dockerdwrapper.UseTLS",
+                                            parameter_changed_callback,
+                                            NULL,
+                                            &error);
+
+  if (geresult == FALSE) {
+    syslog(LOG_ERR,
+           "Could not register UseTLS callback. Error: %s",
+           error->message);
+    ax_parameter_unregister_callback(ax_parameter,
+                                     "root.dockerdwrapper.SDCardSupport");
+    goto end;
+  }
+
+  success = true;
+
 end:
-  if (!dockerd_started_correctly) {
-    // Tell the main process to quit its loop.
-    syslog(LOG_INFO,
-           "Parameter changed but dockerd did not start correctly, quitting.");
-    g_main_loop_quit(loop);
+  if (!success && ax_parameter != NULL) {
+    ax_parameter_free(ax_parameter);
   }
+  return ax_parameter;
 }
 
 int
@@ -542,93 +612,36 @@ main(void)
 {
   GError *error = NULL;
   AXParameter *ax_parameter = NULL;
-  int exit_code = 0;
+  exit_code = 0;
 
   openlog(NULL, LOG_PID, LOG_USER);
   syslog(LOG_INFO, "Started logging.");
 
-  dockerd_process_pid = fork();
+  // Setup signal handling.
+  init_signals();
 
-  if (dockerd_process_pid == -1) {
-    syslog(LOG_ERR, "Fork failed.");
-
-    exit_code = -1;
-    goto end_main_thread;
-  } else if (dockerd_process_pid == 0) {
-    bool dockerd_started_correctly = start_dockerd();
-    if (!dockerd_started_correctly) {
-      syslog(LOG_ERR, "Starting dockerd failed with error %s", strerror(errno));
-      exit_code = -1;
-    } else {
-      syslog(LOG_ERR, "Dockerd exited.");
-    }
-
-    // This is the child process. Skip the cleanup the main process does.
+  // Setup ax_parameter
+  ax_parameter = setup_axparameter();
+  if (ax_parameter == NULL) {
+    syslog(LOG_ERR, "Error in setup_axparameter: %s", error->message);
     goto end;
-  } else {
-    ax_parameter = ax_parameter_new("dockerdwrapper", &error);
-    if (ax_parameter == NULL) {
-      syslog(LOG_ERR, "Error when creating AXParameter: %s", error->message);
-      exit_code = -1;
-      goto end_main_thread;
-    }
-
-    gboolean geresult =
-        ax_parameter_register_callback(ax_parameter,
-                                       "root.dockerdwrapper.SDCardSupport",
-                                       parameter_changed_callback,
-                                       NULL,
-                                       &error);
-
-    if (geresult == FALSE) {
-      syslog(LOG_ERR,
-             "Could not register SDCardSupport callback. Error: %s",
-             error->message);
-      exit_code = -1;
-      goto end_main_thread;
-    }
-
-    geresult = ax_parameter_register_callback(ax_parameter,
-                                              "root.dockerdwrapper.UseTLS",
-                                              parameter_changed_callback,
-                                              NULL,
-                                              &error);
-
-    if (geresult == FALSE) {
-      syslog(LOG_ERR,
-             "Could not register UseTLS callback. Error: %s",
-             error->message);
-      exit_code = -1;
-      goto end_main_thread;
-    }
-
-    /* Create the GLib event loop. */
-    loop = g_main_loop_new(NULL, FALSE);
-    loop = g_main_loop_ref(loop);
-
-    if (!is_process_alive(dockerd_process_pid)) {
-      // The process died during adding of callback, tell loop to quit.
-      goto end_main_thread;
-    }
-
-    // Watch the child process.
-    g_child_watch_add(
-        dockerd_process_pid, dockerd_process_exited_callback, NULL);
-
-    if (!is_process_alive(dockerd_process_pid)) {
-      // The process died during adding of callback, tell loop to quit.
-      g_main_loop_quit(loop);
-    }
-
-    // Start the main loop and setup signal handling.
-    init_signals();
-
-    /* Run the GLib event loop. */
-    g_main_loop_run(loop);
-    g_main_loop_unref(loop);
   }
 
-end_main_thread:
+  /* Create the GLib event loop. */
+  loop = g_main_loop_new(NULL, FALSE);
+  loop = g_main_loop_ref(loop);
+
+  if (!start_dockerd()) {
+    syslog(LOG_ERR, "Starting dockerd failed with error %s", strerror(errno));
+    exit_code = -1;
+    goto end;
+  }
+
+  /* Run the GLib event loop. */
+  g_main_loop_run(loop);
+  g_main_loop_unref(loop);
+
+end:
   if (stop_dockerd()) {
     syslog(LOG_INFO, "Shutting down. dockerd shut down successfully.");
   } else {
@@ -643,7 +656,6 @@ end_main_thread:
     ax_parameter_free(ax_parameter);
   }
 
-end:
   g_clear_error(&error);
   return exit_code;
 }
