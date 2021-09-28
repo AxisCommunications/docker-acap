@@ -365,8 +365,8 @@ start_dockerd(void)
             "Could not execv the dockerd process. Return value: %d, error: %s",
             result,
             strerror(errno));
+        goto end;
       }
-      goto end;
     }
   } else {
     if (use_sdcard) {
