@@ -371,23 +371,26 @@ start_dockerd(void)
   } else {
     if (use_sdcard) {
       syslog(LOG_INFO, "Starting unsecured dockerd using SD card as storage.");
-      result =
-          g_spawn_async(NULL,
-                        (gchar *[]){"dockerd",
-                                    "-H",
-                                    "tcp://0.0.0.0:2375",
-                                    "--data-root",
-                                    "/var/spool/storage/SD_DISK/dockerd/data",
-                                    "--exec-root",
-                                    "/var/spool/storage/SD_DISK/dockerd/exec",
-                                    "--tls=false",
-                                    (char *)NULL},
-                        NULL,
-                        G_SPAWN_DO_NOT_REAP_CHILD | G_SPAWN_SEARCH_PATH,
-                        NULL,
-                        NULL,
-                        &dockerd_process_pid,
-                        &error);
+      result = g_spawn_async(
+          NULL,
+          (gchar *[]){
+              "dockerd",
+              "-H",
+              "tcp://0.0.0.0:2375",
+              "--config-file",
+              "/usr/local/packages/dockerdwrapper/localdata/daemon.json",
+              "--data-root",
+              "/var/spool/storage/SD_DISK/dockerd/data",
+              "--exec-root",
+              "/var/spool/storage/SD_DISK/dockerd/exec",
+              "--tls=false",
+              (char *)NULL},
+          NULL,
+          G_SPAWN_DO_NOT_REAP_CHILD | G_SPAWN_SEARCH_PATH,
+          NULL,
+          NULL,
+          &dockerd_process_pid,
+          &error);
       if (!result) {
         syslog(
             LOG_ERR,
@@ -398,18 +401,22 @@ start_dockerd(void)
       }
     } else {
       syslog(LOG_INFO, "Starting unsecured dockerd using internal storage.");
-      result = g_spawn_async(NULL,
-                             (gchar *[]){"dockerd",
-                                         "-H",
-                                         "tcp://0.0.0.0:2375",
-                                         "--tls=false",
-                                         (char *)NULL},
-                             NULL,
-                             G_SPAWN_DO_NOT_REAP_CHILD | G_SPAWN_SEARCH_PATH,
-                             NULL,
-                             NULL,
-                             &dockerd_process_pid,
-                             &error);
+      result = g_spawn_async(
+          NULL,
+          (gchar *[]){
+              "dockerd",
+              "-H",
+              "tcp://0.0.0.0:2375",
+              "--config-file",
+              "/usr/local/packages/dockerdwrapper/localdata/daemon.json",
+              "--tls=false",
+              (char *)NULL},
+          NULL,
+          G_SPAWN_DO_NOT_REAP_CHILD | G_SPAWN_SEARCH_PATH,
+          NULL,
+          NULL,
+          &dockerd_process_pid,
+          &error);
       if (!result) {
         syslog(
             LOG_ERR,
