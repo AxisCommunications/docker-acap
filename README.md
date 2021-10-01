@@ -2,6 +2,15 @@
 
 This is the ACAP packaging of the Docker Engine to be run on Axis devices with container support.
 
+## Compatability
+
+The Docker ACAP is compatible with most ARTPEC-7 TPU and ARTPEC-8 cameras. It is recommended
+to run this script to check for compatability before installing the Docker ACAP:
+
+```sh
+ssh root@<axis_device_ip> "if command -v containerd >/dev/null 2>&1; then echo "Compatible with Docker ACAP"; else echo "Not compatible with Docker ACAP"; fi"
+```
+
 ## Installing
 
 The recommended way to install this acap is to use the pre-built
