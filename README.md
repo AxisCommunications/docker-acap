@@ -2,6 +2,15 @@
 
 This is the ACAP packaging of the Docker Engine to be run on Axis devices with container support.
 
+## Compatability
+
+The Docker ACAP requires a container capable device. You may check the compatibility of your device
+by running:
+
+```sh
+ssh root@<axis_device_ip> "if command -v containerd >/dev/null 2>&1; then echo "Compatible with Docker ACAP"; else echo "Not compatible with Docker ACAP"; fi"
+```
+
 ## Installing
 
 The recommended way to install this acap is to use the pre-built
