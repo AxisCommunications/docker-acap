@@ -9,7 +9,6 @@ else
 endif
 
 all: dockerd
-	$(STRIP) dockerd
 
 moby-$(DOCKERVERSION):
 	curl -L https://github.com/moby/moby/archive/refs/tags/v$(DOCKERVERSION).tar.gz | tar xz && \

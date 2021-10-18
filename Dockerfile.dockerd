@@ -19,8 +19,6 @@ COPY 0001-Set-docker-proxy-via-build-arg.patch .
 # Install the packages we use
 RUN apk add --update \
     bash \
-    binutils-aarch64-none-elf \
-    binutils-arm-none-eabi \
     curl \
     git \
     make \
@@ -28,8 +26,6 @@ RUN apk add --update \
 
 # Setup the environment
 ARG ACAPARCH=armv7hf
-ARG STRIP=arm-none-eabi-strip
 ENV ARCH ${ACAPARCH}
-ENV STRIP ${STRIP}
 
 ENTRYPOINT [ "make", "-f", "Makefile.dockerd" ] 
