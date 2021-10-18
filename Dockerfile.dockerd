@@ -4,6 +4,9 @@ FROM docker:$DOCKERVERSION
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
 
+ENV HTTPS_PROXY ${HTTPS_PROXY}
+ENV HTTP_PROXY ${HTTP_PROXY}
+
 RUN mkdir /opt/dockerd
 WORKDIR /opt/dockerd
 
@@ -11,6 +14,7 @@ WORKDIR /opt/dockerd
 COPY Makefile.dockerd .
 COPY DOCKERVERSION .
 COPY 0001-Use-stretch-as-base-to-work-on-ARTPEC-6-7.patch .
+COPY 0001-Set-docker-proxy-via-build-arg.patch .
 
 # Install the packages we use
 RUN apk add --update \
