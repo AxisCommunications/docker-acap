@@ -335,7 +335,7 @@ start_dockerd(void)
             LOG_ERR,
             "Could not execv the dockerd process. Return value: %d, error: %s",
             result,
-            strerror(errno));
+            error->message);
         goto end;
       }
     } else {
@@ -364,7 +364,7 @@ start_dockerd(void)
             LOG_ERR,
             "Could not execv the dockerd process. Return value: %d, error: %s",
             result,
-            strerror(errno));
+            error->message);
         goto end;
       }
     }
@@ -396,7 +396,7 @@ start_dockerd(void)
             LOG_ERR,
             "Could not execv the dockerd process. Return value: %d, error: %s",
             result,
-            strerror(errno));
+            error->message);
         goto end;
       }
     } else {
@@ -422,7 +422,7 @@ start_dockerd(void)
             LOG_ERR,
             "Could not execv the dockerd process. Return value: %d, error: %s",
             result,
-            strerror(errno));
+            error->message);
         goto end;
       }
     }
@@ -639,7 +639,7 @@ main(void)
   loop = g_main_loop_ref(loop);
 
   if (!start_dockerd()) {
-    syslog(LOG_ERR, "Starting dockerd failed with error %s", strerror(errno));
+    syslog(LOG_ERR, "Starting dockerd failed");
     exit_code = -1;
     goto end;
   }
