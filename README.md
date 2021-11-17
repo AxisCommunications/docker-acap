@@ -79,8 +79,8 @@ below for an example:
 ```sh
 docker --tlsverify \
        --tlscacert=ca.pem \
-       --tlscert=client-cert.pem \
-       --tlskey=client-key.pem \
+       --tlscert=cert.pem \
+       --tlskey=key.pem \
        -H=<axis_device_ip>:2376 \
        version
 ```
