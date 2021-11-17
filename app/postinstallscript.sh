@@ -15,5 +15,5 @@ BindsTo=containerd.service
 After=network-online.target containerd.service var-spool-storage-SD_DISK.mount
 Wants=network-online.target
 [Service]
-Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/usr/local/packages/dockerdwrapper
+Environment=PATH=/usr/local/packages/dockerdwrapper:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 EOF
