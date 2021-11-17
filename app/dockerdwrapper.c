@@ -238,6 +238,13 @@ start_dockerd(void)
   bool return_value = false;
   bool result = false;
 
+  gsize args_len = 1024;
+  gsize msg_len = 128;
+  gchar args[args_len];
+  gchar msg[msg_len];
+  guint args_offset = 0;
+  gchar **args_split = NULL;
+
   // Read parameters
   char *use_sd_card_value = get_parameter_value("SDCardSupport");
   char *use_tls_value = get_parameter_value("UseTLS");
@@ -273,6 +280,12 @@ start_dockerd(void)
       goto end;
     }
   }
+  args_offset += g_snprintf(args + args_offset, args_len - args_offset, "%s %s %s",
+      "dockerd",
+      "-H tcp://0.0.0.0:2375",
+      "--config-file /usr/local/packages/dockerdwrapper/localdata/daemon.json");
+
+  g_strlcpy(msg, "Starting dockerd", msg_len);
 
   if (use_tls) {
     const char *ca_path = "/usr/local/packages/dockerdwrapper/ca.pem";
@@ -304,128 +317,47 @@ start_dockerd(void)
       goto end;
     }
 
-    if (use_sdcard) {
-      syslog(LOG_INFO,
-             "Starting dockerd in TLS mode using SD card as storage.");
-      result = g_spawn_async(
-          NULL,
-          (gchar *[]){
-              "dockerd",
-              "-H",
-              "tcp://0.0.0.0:2376",
-              "--config-file",
-              "/usr/local/packages/dockerdwrapper/localdata/daemon.json",
-              "--data-root",
-              "/var/spool/storage/SD_DISK/dockerd/data",
-              "--exec-root",
-              "/var/spool/storage/SD_DISK/dockerd/exec",
-              "--tlsverify",
-              "--tlscacert=/usr/local/packages/dockerdwrapper/ca.pem",
-              "--tlscert=/usr/local/packages/dockerdwrapper/server-cert.pem",
-              "--tlskey=/usr/local/packages/dockerdwrapper/server-key.pem",
-              (char *)NULL},
-          NULL,
-          G_SPAWN_DO_NOT_REAP_CHILD | G_SPAWN_SEARCH_PATH,
-          NULL,
-          NULL,
-          &dockerd_process_pid,
-          &error);
-      if (!result) {
-        syslog(
-            LOG_ERR,
-            "Could not execv the dockerd process. Return value: %d, error: %s",
-            result,
-            error->message);
-        goto end;
-      }
-    } else {
-      syslog(LOG_INFO, "Starting dockerd in TLS mode using internal storage.");
-      result = g_spawn_async(
-          NULL,
-          (gchar *[]){
-              "dockerd",
-              "-H",
-              "tcp://0.0.0.0:2376",
-              "--config-file",
-              "/usr/local/packages/dockerdwrapper/localdata/daemon.json",
-              "--tlsverify",
-              "--tlscacert=/usr/local/packages/dockerdwrapper/ca.pem",
-              "--tlscert=/usr/local/packages/dockerdwrapper/server-cert.pem",
-              "--tlskey=/usr/local/packages/dockerdwrapper/server-key.pem",
-              (char *)NULL},
-          NULL,
-          G_SPAWN_DO_NOT_REAP_CHILD | G_SPAWN_SEARCH_PATH,
-          NULL,
-          NULL,
-          &dockerd_process_pid,
-          &error);
-      if (!result) {
-        syslog(
-            LOG_ERR,
-            "Could not execv the dockerd process. Return value: %d, error: %s",
-            result,
-            error->message);
-        goto end;
-      }
-    }
+    args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s %s %s %s %s %s %s",
+        "--tlsverify",
+        "--tlscacert", ca_path,
+        "--tlscert", cert_path,
+        "--tlskey", key_path);
+
+    g_strlcat (msg, " in TLS mode", msg_len);
   } else {
-    if (use_sdcard) {
-      syslog(LOG_INFO, "Starting unsecured dockerd using SD card as storage.");
-      result = g_spawn_async(
-          NULL,
-          (gchar *[]){
-              "dockerd",
-              "-H",
-              "tcp://0.0.0.0:2375",
-              "--config-file",
-              "/usr/local/packages/dockerdwrapper/localdata/daemon.json",
-              "--data-root",
-              "/var/spool/storage/SD_DISK/dockerd/data",
-              "--exec-root",
-              "/var/spool/storage/SD_DISK/dockerd/exec",
-              "--tls=false",
-              (char *)NULL},
-          NULL,
-          G_SPAWN_DO_NOT_REAP_CHILD | G_SPAWN_SEARCH_PATH,
-          NULL,
-          NULL,
-          &dockerd_process_pid,
-          &error);
-      if (!result) {
-        syslog(
-            LOG_ERR,
-            "Could not execv the dockerd process. Return value: %d, error: %s",
-            result,
-            error->message);
-        goto end;
-      }
-    } else {
-      syslog(LOG_INFO, "Starting unsecured dockerd using internal storage.");
-      result = g_spawn_async(
-          NULL,
-          (gchar *[]){
-              "dockerd",
-              "-H",
-              "tcp://0.0.0.0:2375",
-              "--config-file",
-              "/usr/local/packages/dockerdwrapper/localdata/daemon.json",
-              "--tls=false",
-              (char *)NULL},
-          NULL,
-          G_SPAWN_DO_NOT_REAP_CHILD | G_SPAWN_SEARCH_PATH,
-          NULL,
-          NULL,
-          &dockerd_process_pid,
-          &error);
-      if (!result) {
-        syslog(
-            LOG_ERR,
-            "Could not execv the dockerd process. Return value: %d, error: %s",
-            result,
-            error->message);
-        goto end;
-      }
-    }
+    args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s",
+        "--tls=false");
+
+    g_strlcat (msg, " in unsecured mode", msg_len);
+  }
+
+  if (use_sdcard) {
+    args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s %s",
+        "--data-root /var/spool/storage/SD_DISK/dockerd/data",
+        "--exec-root /var/spool/storage/SD_DISK/dockerd/exec");
+
+    g_strlcat (msg, " using SD card as storage", msg_len);
+  } else {
+    g_strlcat (msg, " using internal storage", msg_len);
+  }
+
+  args_split = g_strsplit(args, " ", 0),
+  result = g_spawn_async(
+      NULL,
+      args_split,
+      NULL,
+      G_SPAWN_DO_NOT_REAP_CHILD | G_SPAWN_SEARCH_PATH,
+      NULL,
+      NULL,
+      &dockerd_process_pid,
+      &error);
+  if (!result) {
+    syslog(
+        LOG_ERR,
+        "Could not execv the dockerd process. Return value: %d, error: %s",
+        result,
+        error->message);
+    goto end;
   }
 
   // Watch the child process.
@@ -441,6 +373,7 @@ start_dockerd(void)
   return_value = true;
 
 end:
+  g_strfreev(args_split);
   free(use_sd_card_value);
   free(use_tls_value);
   g_clear_error(&error);
