@@ -1,6 +1,36 @@
 ARG ACAPARCH=armv7hf
+ARG BUILD_IMAGE=axisecp/acap-native-sdk:1.0_beta2-${ACAPARCH}-ubuntu20.04
+
+FROM $BUILD_IMAGE AS ps
+ARG PROCPS_VERSION=v3.3.17
+ARG BUILD_DIR=/build
+ARG EXPORT_DIR=/export
+RUN apt-get update \
+ && apt-get -q install -y -f --no-install-recommends \
+        automake \
+        autopoint \
+        gettext \
+        git \
+        libtool
+RUN ln -s /usr/bin/libtoolize /usr/bin/libtool
+WORKDIR $BUILD_DIR
+RUN git clone --depth 1 -b $PROCPS_VERSION 'https://gitlab.com/procps-ng/procps' .
+ARG BUILD_CACHE=build.cache
+RUN echo ac_cv_func_realloc_0_nonnull=yes >$BUILD_CACHE \
+ && echo ac_cv_func_malloc_0_nonnull=yes >>$BUILD_CACHE
+RUN . /opt/axis/acapsdk/environment-setup* \
+ && ./autogen.sh \
+ && ./configure --host=${TARGET_PREFIX%*-} \
+                --disable-shared \
+                --without-ncurses  \
+                --cache-file=$BUILD_CACHE \
+ && make ps/pscommand \
+ && $STRIP ps/pscommand
+WORKDIR $EXPORT_DIR
+RUN cp $BUILD_DIR/ps/pscommand ps
+
 FROM axisecp/acap-sdk:3.4.2-${ACAPARCH}-ubuntu20.04 as acap-sdk
-FROM axisecp/acap-native-sdk:1.0_beta2-${ACAPARCH}-ubuntu20.04
+FROM $BUILD_IMAGE as build
 
 ARG ACAPARCH
 # Copy over axparameter from the acap-sdk
@@ -12,8 +42,9 @@ COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/pkgconfig/ax
 
 COPY app /opt/app
 COPY DOCKERVERSION /opt/app
+COPY --from=ps /export/ps /opt/app
 
 WORKDIR /opt/app
 
-RUN . /opt/axis/acapsdk/environment-setup* && acap-build . -a dockerd -a docker-init -a docker-proxy -a empty_daemon.json
-ENTRYPOINT [ "/opt/axis/acapsdk/sysroots/x86_64-pokysdk-linux/usr/bin/eap-install.sh" ] 
+RUN . /opt/axis/acapsdk/environment-setup* && acap-build . -a dockerd -a docker-init -a docker-proxy -a empty_daemon.json -a ps
+ENTRYPOINT [ "/opt/axis/acapsdk/sysroots/x86_64-pokysdk-linux/usr/bin/eap-install.sh" ]
