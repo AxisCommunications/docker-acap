@@ -488,15 +488,19 @@ parameter_changed_callback(const gchar *name,
                            const gchar *value,
                            __attribute__((unused)) gpointer data)
 {
+  const char* supported_parameters[]= {"IPC", "SDCardSupport", "UseTLS"};
   const gchar *parname = name += strlen("root.dockerdwrapper.");
-  // bool dockerd_started_correctly = false;
-  if (strcmp(parname, "SDCardSupport") == 0) {
-    syslog(LOG_INFO, "SDCardSupport changed to: %s", value);
-    restart_dockerd = true;
-  } else if (strcmp(parname, "UseTLS") == 0) {
-    syslog(LOG_INFO, "UseTLS changed to: %s", value);
-    restart_dockerd = true;
-  } else {
+
+  bool unknown_parameter = true;
+  for (size_t i = 0; i < sizeof(supported_parameters) / sizeof(supported_parameters[0]);++i){
+    if (strcmp(parname, supported_parameters[i]) == 0) {
+      syslog(LOG_INFO, "%s changed to: %s", supported_parameters[i], value);
+      restart_dockerd = true;
+      unknown_parameter = false;
+    }
+  }
+
+  if (unknown_parameter) {
     syslog(LOG_WARNING, "Parameter %s is not recognized", name);
     restart_dockerd = false;
 
