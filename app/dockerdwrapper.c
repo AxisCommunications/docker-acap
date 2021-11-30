@@ -353,7 +353,7 @@ start_dockerd(void)
   }
 
   // Log startup information to syslog.
-  syslog(LOG_INFO, msg);
+  syslog(LOG_INFO, "%s", msg);
 
   args_split = g_strsplit(args, " ", 0);
   result = g_spawn_async(
