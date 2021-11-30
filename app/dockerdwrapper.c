@@ -352,7 +352,10 @@ start_dockerd(void)
     g_strlcat (msg, " without IPC socket.", msg_len);
   }
 
-  args_split = g_strsplit(args, " ", 0),
+  // Log startup information to syslog.
+  syslog(LOG_INFO, msg);
+
+  args_split = g_strsplit(args, " ", 0);
   result = g_spawn_async(
       NULL,
       args_split,
