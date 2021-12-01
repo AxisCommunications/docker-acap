@@ -48,6 +48,9 @@ static const char *sd_card_path = "/var/spool/storage/SD_DISK";
 // True if the dockerd_exited_callback should restart dockerd
 static bool restart_dockerd = false;
 
+// All ax_parameters the acap has
+static const char* ax_parameters[]= {"IPCSocket", "SDCardSupport", "UseTLS"};
+
 /**
  * @brief Signals handling
  *
@@ -488,13 +491,12 @@ parameter_changed_callback(const gchar *name,
                            const gchar *value,
                            __attribute__((unused)) gpointer data)
 {
-  const char* supported_parameters[]= {"IPC", "SDCardSupport", "UseTLS"};
   const gchar *parname = name += strlen("root.dockerdwrapper.");
 
   bool unknown_parameter = true;
-  for (size_t i = 0; i < sizeof(supported_parameters) / sizeof(supported_parameters[0]);++i){
-    if (strcmp(parname, supported_parameters[i]) == 0) {
-      syslog(LOG_INFO, "%s changed to: %s", supported_parameters[i], value);
+  for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]);++i){
+    if (strcmp(parname, ax_parameters[i]) == 0) {
+      syslog(LOG_INFO, "%s changed to: %s", ax_parameters[i], value);
       restart_dockerd = true;
       unknown_parameter = false;
     }
@@ -528,33 +530,22 @@ setup_axparameter(void)
     goto end;
   }
 
-  gboolean geresult =
+  for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]);++i) {
+    char* parameter_path = g_strdup_printf("%s.%s", "root.dockerdwrapper", ax_parameters[i]);
+    gboolean geresult =
       ax_parameter_register_callback(ax_parameter,
-                                     "root.dockerdwrapper.SDCardSupport",
+                                     parameter_path,
                                      parameter_changed_callback,
                                      NULL,
                                      &error);
+    free(parameter_path);
 
-  if (geresult == FALSE) {
-    syslog(LOG_ERR,
-           "Could not register SDCardSupport callback. Error: %s",
-           error->message);
-    goto end;
-  }
-
-  geresult = ax_parameter_register_callback(ax_parameter,
-                                            "root.dockerdwrapper.UseTLS",
-                                            parameter_changed_callback,
-                                            NULL,
-                                            &error);
-
-  if (geresult == FALSE) {
-    syslog(LOG_ERR,
-           "Could not register UseTLS callback. Error: %s",
-           error->message);
-    ax_parameter_unregister_callback(ax_parameter,
-                                     "root.dockerdwrapper.SDCardSupport");
-    goto end;
+    if (geresult == FALSE) {
+      syslog(LOG_ERR,
+             "Could not register %s callback. Error: %s",
+             ax_parameters[i], error->message);
+      goto end;
+    }
   }
 
   success = true;
@@ -608,10 +599,12 @@ end:
   }
 
   if (ax_parameter != NULL) {
-    ax_parameter_unregister_callback(ax_parameter,
-                                     "root.dockerdwrapper.SDCardSupport");
-    ax_parameter_unregister_callback(ax_parameter,
-                                     "root.dockerdwrapper.UseTLS");
+    for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]);++i){
+      char* parameter_path = g_strdup_printf("%s.%s", "root.dockerdwrapper", ax_parameters[i]);
+      ax_parameter_unregister_callback(ax_parameter,
+                                       parameter_path);
+      free(parameter_path);
+    }
     ax_parameter_free(ax_parameter);
   }
 
