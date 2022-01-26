@@ -2,7 +2,7 @@
 
 This is the ACAP packaging of the Docker Engine to be run on Axis devices with container support.
 
-## Compatability
+## Compatibility
 
 The Docker ACAP requires a container capable device. You may check the compatibility of your device
 by running:
