@@ -28,4 +28,4 @@ RUN apk add --update \
 ARG ACAPARCH=armv7hf
 ENV ARCH ${ACAPARCH}
 
-ENTRYPOINT [ "make", "-f", "Makefile.dockerd" ] 
+ENTRYPOINT [ "make", "-f", "Makefile.dockerd" ]
