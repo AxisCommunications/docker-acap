@@ -1,5 +1,15 @@
 ARG ACAPARCH=armv7hf
-ARG BUILD_IMAGE=axisecp/acap-native-sdk:1.0_beta2-${ACAPARCH}-ubuntu20.04
+ARG VERSION=1.0
+ARG UBUNTU_VERSION=20.04
+ARG REPO=axisecp
+ARG NATIVE_SDK=acap-native-sdk
+
+ARG ACAP3_SDK_VERSION=3.4.2
+ARG ACAP3_SDK=acap-sdk
+
+ARG BUILD_IMAGE=${REPO}/${NATIVE_SDK}:${VERSION}-${ACAPARCH}-ubuntu${UBUNTU_VERSION}
+
+FROM ${REPO}/${ACAP3_SDK}:${ACAP3_SDK_VERSION}-${ACAPARCH}-ubuntu${UBUNTU_VERSION} as acap-sdk
 
 FROM $BUILD_IMAGE AS ps
 ARG PROCPS_VERSION=v3.3.17
@@ -29,7 +39,6 @@ RUN . /opt/axis/acapsdk/environment-setup* \
 WORKDIR $EXPORT_DIR
 RUN cp $BUILD_DIR/ps/pscommand ps
 
-FROM axisecp/acap-sdk:3.4.2-${ACAPARCH}-ubuntu20.04 as acap-sdk
 FROM $BUILD_IMAGE as build
 
 ARG ACAPARCH
@@ -45,6 +54,11 @@ COPY DOCKERVERSION /opt/app
 COPY --from=ps /export/ps /opt/app
 
 WORKDIR /opt/app
-
-RUN . /opt/axis/acapsdk/environment-setup* && acap-build . -a dockerd -a docker-init -a docker-proxy -a empty_daemon.json -a ps
+RUN . /opt/axis/acapsdk/environment-setup* && \
+    acap-build . \
+        -a dockerd \
+        -a docker-init \
+        -a docker-proxy \
+        -a empty_daemon.json \
+        -a ps
 ENTRYPOINT [ "/opt/axis/acapsdk/sysroots/x86_64-pokysdk-linux/usr/bin/eap-install.sh" ]
