@@ -1,0 +1,30 @@
+name: Control Dockerfiles
+on:
+  push:
+    paths:
+      - '*'
+      - '!README.md'
+      - '!LICENSE'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: ["armv7hf", "aarch64"]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Control that Dockerfile builds
+        uses: docker/build-push-action@v2
+        with:
+          file: "Dockerfile.${{ matrix.arch }}"
+          push: false
+    env:
+      EXREPO: build-test
+      EXNAME: docker-acap
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build ${{ env.example }} application
+        env:
+          exampletag: "${{ env.EXREPO}}_${{ env.EXNAME }}"
+        run: |
+          ./build.sh ${{ matrix.arch }} $exampletag
