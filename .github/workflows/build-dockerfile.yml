@@ -12,12 +12,12 @@ jobs:
       matrix:
         arch: ["armv7hf", "aarch64"]
     env:
-      EXREPO: build-test
-      EXNAME: docker-acap
+      exrepo: build-test
+      exname: docker-acap
     steps:
       - uses: actions/checkout@v2
       - name: Build ${{ env.example }} application
         env:
-          exampletag: "${{ env.EXREPO}}_${{ env.EXNAME }}"
+          exampletag: "${{ env.exrepo}}_${{ env.exname }}"
         run: |
           ./build.sh ${{ matrix.arch }} $exampletag
