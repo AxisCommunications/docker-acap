@@ -2,7 +2,7 @@ name: Control Dockerfiles
 on:
   push:
     paths:
-      - '*'
+      - '**'
       - '!README.md'
       - '!LICENSE'
 jobs:
