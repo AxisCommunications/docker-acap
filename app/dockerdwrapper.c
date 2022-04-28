@@ -338,9 +338,8 @@ start_dockerd(void)
   }
 
   if (use_sdcard) {
-    args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s %s",
-        "--data-root /var/spool/storage/SD_DISK/dockerd/data",
-        "--exec-root /var/spool/storage/SD_DISK/dockerd/exec");
+    args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s",
+        "--data-root /var/spool/storage/SD_DISK/dockerd/data");
 
     g_strlcat (msg, " using SD card as storage", msg_len);
   } else {
