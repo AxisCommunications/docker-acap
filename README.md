@@ -8,12 +8,21 @@ The Docker ACAP requires a container capable device. You may check the compatibi
 by running:
 
 ```sh
-ssh root@<axis_device_ip> 'command -v containerd >/dev/null 2>&1 && echo Compatible with Docker ACAP || echo Not compatible with Docker ACAP'
+CAMERA_IP=<camera ip>
+CAMERA_PASSWORD='<password>'
+
+curl -s --anyauth -u "root:$CAMERA_PASSWORD" \
+  "http://$CAMERA_IP/axis-cgi/param.cgi?action=update&root.Network.SSH.Enabled=yes"
+
+ssh root@$CAMERA_IP 'command -v containerd >/dev/null 2>&1 && echo Compatible with Docker ACAP || echo Not compatible with Docker ACAP'
 ```
+
+where `<camera ip>` is the IP address of the camera and `<password>` is the root password. Please
+note that you need to enclose your password with quotes (`'`) if it contains special characters.
 
 ## Installing
 
-The recommended way to install this acap is to use the pre-built
+The recommended way to install this ACAP is to use the pre-built
 [docker hub](https://hub.docker.com/r/axisecp/docker-acap) image:
 
 ```sh
