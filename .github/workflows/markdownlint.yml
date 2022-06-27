@@ -3,8 +3,6 @@ name: 'Trigger: Push action'
 
 on:
   push:
-    branches:
-      - '**'
 
 jobs:
   shellcheck:
