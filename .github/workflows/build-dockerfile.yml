@@ -15,7 +15,7 @@ jobs:
       exrepo: build-test
       exname: docker-acap
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Build ${{ env.example }} application
         env:
           exampletag: "${{ env.exrepo}}_${{ env.exname }}"
