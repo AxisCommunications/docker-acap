@@ -93,7 +93,7 @@ docker --tlsverify \
 ```
 
 Specifying the files on each Docker command will soon become tedious. To configure Docker to
-automatically use your key and certificate, please run the following commands:
+automatically use your key and certificate, please export the `DOCKER_CERT_PATH` environment variable:
 
 ```sh
 export DOCKER_CERT_PATH=<client certificate directory>
