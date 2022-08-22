@@ -40,7 +40,15 @@ The Docker ACAP can be run either unsecured or in TLS mode. The Docker ACAP uses
 TLS as default. Use the "Use TLS" dropdown in the web interface to switch
 between the two different modes. It's also possible to toggle this option by
 calling the parameter management API in [VAPIX](https://www.axis.com/vapix-library/) and setting the
-`root.dockerdwrapper.UseTLS` parameter to `yes` or `no`.
+`root.dockerdwrapper.UseTLS` parameter to `yes` or `no`. The following commands will enable TLS:
+
+```sh
+DEVICE_IP=<device ip>
+DEVICE_PASSWORD='<password>'
+
+curl -s --anyauth -u "root:$DEVICE_PASSWORD" \
+  "http://$DEVICE_IP/axis-cgi/param.cgi?action=update&root.dockerdwrapper.UseTLS=yes"
+```
 
 Note that the dockerd service will be restarted every time TLS is activated or
 deactivated. Running the ACAP using TLS requires some additional setup, see next chapter.
