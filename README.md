@@ -92,11 +92,12 @@ Key, certificate and CA shall be used when running Docker against the dockerd da
 the Axis device. See below for an example:
 
 ```sh
+DOCKER_PORT=2376
 docker --tlsverify \
        --tlscacert=ca.pem \
        --tlscert=cert.pem \
        --tlskey=key.pem \
-       -H=<device ip>:2376 \
+       -H=<device ip>:$DOCKER_PORT \
        version
 ```
 
@@ -105,8 +106,9 @@ automatically use your key and certificate, please export the `DOCKER_CERT_PATH`
 
 ```sh
 export DOCKER_CERT_PATH=<client certificate directory>
+DOCKER_PORT=2376
 docker --tlsverify \
-       -H=<device ip>:2376 \
+       -H=<device ip>:$DOCKER_PORT \
        version
 ```
 
@@ -148,7 +150,8 @@ Below is an example of how to remotely run a docker command on an Axis device ru
 the Docker ACAP in unsecured mode:
 
 ```sh
-docker -H=<device ip>:2375 version
+DOCKER_INSECURE_PORT=2375
+docker -H=<device ip>:$DOCKER_INSECURE_PORT version
 ```
 
 See [Client key and certificate](#client-key-and-certificate) for an example
