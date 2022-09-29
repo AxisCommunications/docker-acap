@@ -135,6 +135,14 @@ file system. Examples of file systems which support this are ext4, ext3 and xfs.
 It might be necessary to reformat the SD card to one of these file systems, for
 example if the original file system of the SD card is vfat.
 
+Make sure to use an SD card that has enough capacity to hold your applications.
+Other properties of the SD card, like the speed, might also affect the performance of your
+applications. For example, the Computer Vision SDK example
+[object-detector-python](https://github.com/AxisCommunications/acap-computer-vision-sdk-examples/tree/main/object-detector-python)
+has a significantly higher inference time when using a small and slow SD card.
+To get more informed about specifications, check the
+[SD Card Standards](https://www.sdcard.org/developers/sd-standard-overview/).
+
 ## Using the Docker ACAP
 
 The Docker ACAP does not contain the docker client binary. This means that all
