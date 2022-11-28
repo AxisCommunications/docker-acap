@@ -1,8 +1,9 @@
 {
-    "schemaVersion": "1.1",
+    "schemaVersion": "1.3",
     "acapPackageConf": {
         "setup": {
             "friendlyName": "Docker Daemon",
+            "appId": "414120",
             "appName": "dockerdwrapper",
             "vendor": "Axis Communications",
             "embeddedSdkVersion": "3.0",
