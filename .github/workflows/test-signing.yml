@@ -1,0 +1,44 @@
+# yamllint disable rule:line-length
+---
+name: Workflow for signing
+
+# Run the workflow on when code is pushed
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# Environment variables that are valid for all jobs
+env:
+  DOCKER_HUB_REPOSITORY: 'axisecp/docker-acap'
+  ACAP_TO_SIGN_NAME: Docker_Daemon_1_3_0_aarch64.eap
+
+jobs:
+  # Build and run the test suite
+  pull_sign_push:
+    name: Test signing ACAP Runtime
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [aarch64]
+
+    steps:
+      - name: Pull image and fetch eap-file
+        run: |
+          docker pull axisecp/docker-acap:1.3.0-aarch64
+          docker cp $(docker create axisecp/docker-acap:1.3.0-aarch64):/opt/app .build
+          realpath -s Docker_Daemon_1_3_0_aarch64.eap
+
+      - name: Sign and upload ACAP
+        run: |
+          cd /home/runner/work/docker-acap/docker-acap/.build
+          pwd
+          ls -la
+          curl -XPOST -H 'accept: */*' -H 'Content-Type: multipart/form-data' -H 'Authorization: Bearer ${{secrets.ACAP_PORTAL_SIGNING_BEARER_TOKEN}}' \
+          'https://gw.ext.csi-api.axis.com/ext/acap/admin/application/${{secrets.ACAP_PORTAL_SIGNING_ID}}/sign/binary' -F uploadedFile=@"Docker_Daemon_1_3_0_aarch64.eap" --output Signed_Docker_Daemon_1_3_0_aarch64.eap
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: signed-ACAP
+          path: /home/runner/work/acap-runtime/acap-runtime/.build/Signed_Docker_Daemon_1_3_0_aarch64.eap
