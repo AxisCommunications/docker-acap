@@ -1,8 +1,11 @@
 ---
-name: 'Trigger: Push action'
+name: 'Run ShellCheck'
 
 on:
   push:
+  pull_request:
+    branches:
+      - 'main'
 
 jobs:
   shellcheck:

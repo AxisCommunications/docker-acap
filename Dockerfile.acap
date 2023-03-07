@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 ARG REPO=axisecp
 ARG ACAPARCH=armv7hf
 
@@ -17,27 +19,35 @@ FROM $BUILD_IMAGE AS ps
 ARG PROCPS_VERSION=v3.3.17
 ARG BUILD_DIR=/build
 ARG EXPORT_DIR=/export
-RUN apt-get update \
- && apt-get -q install -y -f --no-install-recommends \
+
+RUN <<EOF
+    apt-get update
+    apt-get -q install -y -f --no-install-recommends \
         automake \
         autopoint \
         gettext \
         git \
         libtool
-RUN ln -s /usr/bin/libtoolize /usr/bin/libtool
+    ln -s /usr/bin/libtoolize /usr/bin/libtool
+EOF
+
 WORKDIR $BUILD_DIR
 RUN git clone --depth 1 -b $PROCPS_VERSION 'https://gitlab.com/procps-ng/procps' .
+
 ARG BUILD_CACHE=build.cache
 RUN echo ac_cv_func_realloc_0_nonnull=yes >$BUILD_CACHE \
  && echo ac_cv_func_malloc_0_nonnull=yes >>$BUILD_CACHE
-RUN . /opt/axis/acapsdk/environment-setup* \
- && ./autogen.sh \
- && ./configure --host=${TARGET_PREFIX%*-} \
+RUN <<EOF
+    . /opt/axis/acapsdk/environment-setup*
+    ./autogen.sh
+    ./configure --host=${TARGET_PREFIX%*-} \
                 --disable-shared \
                 --without-ncurses  \
-                --cache-file=$BUILD_CACHE \
- && make ps/pscommand \
- && $STRIP ps/pscommand
+                --cache-file=$BUILD_CACHE
+    make ps/pscommand
+    $STRIP ps/pscommand
+EOF
+
 WORKDIR $EXPORT_DIR
 RUN cp $BUILD_DIR/ps/pscommand ps
 
@@ -56,11 +66,14 @@ COPY DOCKERVERSION /opt/app
 COPY --from=ps /export/ps /opt/app
 
 WORKDIR /opt/app
-RUN . /opt/axis/acapsdk/environment-setup* && \
+RUN <<EOF
+    . /opt/axis/acapsdk/environment-setup*
     acap-build . \
         -a dockerd \
         -a docker-init \
         -a docker-proxy \
         -a empty_daemon.json \
         -a ps
+EOF
+
 ENTRYPOINT [ "/opt/axis/acapsdk/sysroots/x86_64-pokysdk-linux/usr/bin/eap-install.sh" ]
