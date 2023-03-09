@@ -24,10 +24,9 @@ note that you need to enclose your password with quotes (`'`) if it contains spe
 
 ### Host
 
-The host machine is required to have either [Docker Desktop](https://docs.docker.com/desktop/)
-minimum version 4.11.1, or [Docker Engine](https://docs.docker.com/engine/) minimum version
-20.10.17 installed. To build Docker ACAP locally it is required have
-[BuildKit](https://docs.docker.com/build/buildkit/) enabled.
+TThe host machine is required to have [Docker](https://docs.docker.com/get-docker/) and
+[Docker Compose](https://docs.docker.com/compose/install/) installed. To build Docker ACAP locally
+it is required to also have [Buildx](https://docs.docker.com/build/install-buildx/) installed.
 
 ## Installing
 
@@ -177,9 +176,9 @@ using TLS.
 
 ## Building the Docker ACAP
 
-Docker ACAP is built in two steps using two Dockerfiles. Too simplify the process a handy shell
-script is provided. Note that since buildx is used, Buildkit is required to be installed and
-enabled for the build to work.
+Docker ACAP is built in two steps using two Dockerfiles. Too simplify the process a
+handy shell script is provided. Note that Buildx is used and therefore required to be
+installed.
 
 ```sh
 # Build Docker ACAP image

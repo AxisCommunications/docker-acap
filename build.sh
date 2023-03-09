@@ -9,7 +9,6 @@ case "$1" in
        ;;
 esac
 
-export DOCKER_BUILDKIT=1
 dockerdtag=dockerd:1.0
 imagetag="${2:-docker-acap:1.0}"
 dockerdname=dockerd_name
