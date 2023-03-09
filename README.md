@@ -178,7 +178,8 @@ using TLS.
 ## Building the Docker ACAP
 
 Docker ACAP is built in two steps using two Dockerfiles. Too simplify the process a handy shell
-script is provided. Note that Buildkit is required to be enabled for the build.
+script is provided. Note that since buildx is used, Buildkit is required to be installed and
+enabled for the build to work.
 
 ```sh
 # Build Docker ACAP image

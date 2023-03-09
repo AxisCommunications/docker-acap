@@ -37,7 +37,7 @@ docker-proxy: download_docker_binaries
 	tar xz -f docker_binaries.tgz --strip-components=1 docker/$@ && $(STRIP) $@
 
 acap: dockerd
-	docker build --build-arg ACAPARCH=$(ACAPARCH) . -t axisecp/docker-acap-$(ACAPARCH):latest
+	docker buildx build --build-arg ACAPARCH=$(ACAPARCH) . -t axisecp/docker-acap-$(ACAPARCH):latest
 
 clean:
 	mv package.conf.orig package.conf || :
