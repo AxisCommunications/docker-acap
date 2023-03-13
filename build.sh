@@ -41,4 +41,4 @@ docker build --build-arg ACAPARCH="$1" \
              --no-cache \
              --tag "$imagetag" . 
 
-docker cp "$(docker create "$imagetag")":/opt/app/ ./build
+docker cp "$(docker create "$imagetag")":/opt/app/ ./build-$1
