@@ -4,6 +4,8 @@ This is the ACAP packaging of the Docker Engine to be run on Axis devices with c
 
 ## Compatibility
 
+### Device
+
 The Docker ACAP requires a container capable device. You may check the compatibility of your device
 by running:
 
@@ -19,6 +21,12 @@ ssh root@$DEVICE_IP 'command -v containerd >/dev/null 2>&1 && echo Compatible wi
 
 where `<device ip>` is the IP address of the Axis device and `<password>` is the root password. Please
 note that you need to enclose your password with quotes (`'`) if it contains special characters.
+
+### Host
+
+TThe host machine is required to have [Docker](https://docs.docker.com/get-docker/) and
+[Docker Compose](https://docs.docker.com/compose/install/) installed. To build Docker ACAP locally
+it is required to also have [Buildx](https://docs.docker.com/build/install-buildx/) installed.
 
 ## Installing
 
@@ -168,34 +176,33 @@ using TLS.
 
 ## Building the Docker ACAP
 
-### armv7hf
+Docker ACAP is built in two steps using two Dockerfiles. Too simplify the process a
+handy shell script is provided. Note that Buildx is used and therefore required to be
+installed.
 
 ```sh
-./build.sh armv7hf
+# Build Docker ACAP image
+./build.sh <ARCH> docker-acap:<ARCH>
 ```
 
-### aarch64
-
-```sh
-./build.sh aarch64
-```
+where `<ARCH>` is either `armv7hf` or `aarch64`. The script will produce a Docker image,
+`docker-acap:<ARCH>`, and also a folder, `build`, containing artifacts from the build, among them
+the Docker ACAP as an .eap file.
 
 ## Installing a locally built Docker ACAP
 
 Installation can be done in two ways. Either by using the locally built docker image:
 
 ```sh
-docker run --rm docker-acap:1.0 <device ip> <rootpasswd> install
+docker run --rm docker-acap:<ARCH> <device ip> <rootpasswd> install
 ```
 
-Or by manually navigating to device GUI by browsing to the following page
-(replace `<device ip>` with the IP number of your Axis video device)
+Or by manually installing the .eap file from the `build` folder by using the Web GUI in the device:
 
 ```sh
-http://<axis_device_ip>/#settings/apps
+http://<device ip>/#settings/apps
 ```
 
 Go to your device web page above > Click on the tab **App** in the device GUI >
-Add **(+)** sign and browse to the newly built
-**Docker_Daemon_1_1_0_<arch>.eap** > Click **Install** > Run the application by
+Add **(+)** sign and browse to the newly built .eap-file > Click **Install** > Run the application by
 enabling the **Start** switch.

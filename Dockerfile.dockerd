@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 ARG DOCKER_IMAGE_VERSION=20.10.9
 
 FROM docker:$DOCKER_IMAGE_VERSION
@@ -17,12 +19,14 @@ COPY 0001-Use-stretch-as-base-to-work-on-ARTPEC-6-7.patch .
 COPY 0001-Set-docker-proxy-via-build-arg.patch .
 
 # Install the packages we use
-RUN apk add --update \
-    bash \
-    curl \
-    git \
-    make \
-    patch
+RUN <<EOF
+    apk add --update \
+        bash \
+        curl \
+        git \
+        make \
+        patch
+EOF
 
 # Setup the environment
 ARG ACAPARCH=armv7hf
