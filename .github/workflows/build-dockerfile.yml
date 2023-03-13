@@ -6,6 +6,13 @@ on:
       - '**'
       - '!README.md'
       - '!LICENSE'
+  pull_request:
+    branches:
+      - 'main'
+    paths:
+      - '**'
+      - '!README.md'
+      - '!LICENSE'
 
 jobs:
   build:
