@@ -52,14 +52,14 @@ jobs:
       - name: Get EAP from base image
         id: get_artifact
         run: |
-          export EAP_FILE=$(find .build-${{ matrix.arch }} -type f -name "*.eap" -printf "%f\n")
+          export EAP_FILE=$(find build-${{ matrix.arch }} -type f -name "*.eap" -printf "%f\n")
           delimiter="$(openssl rand -hex 8)"
           echo "EAP_FILE<<${delimiter}" >> ${GITHUB_OUTPUT}
           echo "${EAP_FILE}" >> ${GITHUB_OUTPUT}
           echo "${delimiter}" >> ${GITHUB_OUTPUT}
       - name: Sign eap-file
         run: |
-          cd .build-${{ matrix.arch }}
+          cd build-${{ matrix.arch }}
           curl -XPOST -H 'accept: */*' -H 'Content-Type: multipart/form-data' -H 'Authorization: Bearer ${{secrets.ACAP_PORTAL_SIGNING_BEARER_TOKEN}}' \
           'https://gw.ext.csi-api.axis.com/ext/acap/admin/application/${{secrets.ACAP_PORTAL_SIGNING_ID}}/sign/binary' -F uploadedFile=@"${{ steps.get_artifact.outputs.EAP_FILE }}" --output Signed_${{ steps.get_artifact.outputs.EAP_FILE }}
       - name: Upload artifact
