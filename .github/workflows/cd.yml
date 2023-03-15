@@ -1,0 +1,177 @@
+name: ACAP Signing and upload prerelease
+
+on:
+  push:
+    paths:
+      - '**'
+      - '!README.md'
+      - '!LICENSE'
+  pull_request:
+    branches:
+      - 'main'
+    paths:
+      - '**'
+      - '!README.md'
+      - '!LICENSE'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: ["armv7hf", "aarch64"]
+    outputs:
+      TAG: ${{ steps.vars.outputs.TAG }}
+      EAP_FILE: ${{ steps.get_artifact.outputs.EAP_FILE }}
+      EAP_FILE_ARMV7HF: ${{ steps.save_full_file_name.outputs.EAP_FILE_ARMV7HF }}
+      EAP_FILE_AARCH64: ${{ steps.save_full_file_name.outputs.EAP_FILE_AARCH64 }}
+    env:
+      exrepo: build-test
+      exname: docker-acap
+    steps:
+        # sha for actions/checkout@v3 at time of commit.
+      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
+      - name: Build ${{ env.example }} application
+        env:
+          exampletag: "${{ env.exrepo }}_${{ env.exname }}"
+        run: ./build.sh ${{ matrix.arch }} ${{ steps.meta.outputs.full_name }}
+      - name: Create base image metadata
+        id: meta
+        uses: ./.github/actions/metadata-action
+        with:
+          suffix: -${{ matrix.arch }}
+          repository: ${{ env.DOCKER_HUB_REPOSITORY }}
+          get_version: 'true'
+      - name: Update manifest file
+        if: ( github.ref_type == 'tag')
+        uses: ./.github/actions/update-acap-manifest-action
+        with:
+          manifest_file: ./manifest-${{ matrix.arch }}.json
+          value: ${{ steps.meta.outputs.version }}
+      - name: Build and push base image
+        uses: ./.github/actions/docker-build-push-action
+        with:
+          dockerfile: Dockerfile.${{ matrix.arch }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          target: runtime-base
+          push: false
+          load: true
+      - name: Get EAP from base image
+        id: get_artifact
+        run: |
+          docker cp $(docker create "${{ steps.meta.outputs.full_name }}"):/opt/app .build
+          export EAP_FILE=$(find .build -type f -name "*.eap" -printf "%f\n")
+          delimiter="$(openssl rand -hex 8)"
+          echo "EAP_FILE<<${delimiter}" >> ${GITHUB_OUTPUT}
+          echo "${EAP_FILE}" >> ${GITHUB_OUTPUT}
+          echo "${delimiter}" >> ${GITHUB_OUTPUT}
+      - name: Sign eap-file
+        run: |
+          cd .build
+          curl -XPOST -H 'accept: */*' -H 'Content-Type: multipart/form-data' -H 'Authorization: Bearer ${{secrets.ACAP_PORTAL_SIGNING_BEARER_TOKEN}}' \
+          'https://gw.ext.csi-api.axis.com/ext/acap/admin/application/${{secrets.ACAP_PORTAL_SIGNING_ID}}/sign/binary' -F uploadedFile=@"${{ steps.get_artifact.outputs.EAP_FILE }}" --output Signed_${{ steps.get_artifact.outputs.EAP_FILE }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
+        with:
+          name: Signed_${{ steps.get_artifact.outputs.EAP_FILE }}
+          path: .build/Signed_${{ steps.get_artifact.outputs.EAP_FILE }}
+      - name: Save file name
+        id: save_full_file_name
+        run: |
+          if [ ${{ matrix.arch }} = armv7hf ]
+          then
+            echo "EAP_FILE_ARMV7HF=Signed_${{ steps.get_artifact.outputs.EAP_FILE }}" >> $GITHUB_OUTPUT
+          elif [ ${{ matrix.arch }} = aarch64 ]
+          then
+            echo "EAP_FILE_AARCH64=Signed_${{ steps.get_artifact.outputs.EAP_FILE }}" >> $GITHUB_OUTPUT
+          else
+            echo "::error::Non valid architecture '${{ matrix.arch }}' encountered"
+          fi
+
+  create_prerelease:
+    permissions: write-all
+    runs-on: ubuntu-latest
+    needs: build
+    outputs:
+      RELEASE_ID: ${{ steps.prerelease.outputs.RELEASE_ID }}
+    env:
+      TAG: ${{ needs.build.outputs.TAG }}
+    steps:
+    - name: Create prerelease
+      id: prerelease
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        export RELEASE_ID=$( jq -r '.id' <<< $(
+        gh api \
+        --method POST \
+        -H "Accept: application/vnd.github+json" \
+        -H "X-GitHub-Api-Version: 2022-11-28" \
+        /repos/AxisCommunications/docker-acap/releases \
+        -f tag_name='${{ env.TAG }}' \
+        -f target_commitish='main' \
+        -f name='${{ env.TAG }}' \
+        -f body='Prerelease for ${{ env.TAG }}' \
+        -F draft=false \
+        -F prerelease=true \
+        -F generate_release_notes=false
+          ))
+        delimiter="$(openssl rand -hex 8)"
+        echo "RELEASE_ID<<${delimiter}" >> ${GITHUB_OUTPUT}
+        echo "${RELEASE_ID}" >> ${GITHUB_OUTPUT}
+        echo "${delimiter}" >> ${GITHUB_OUTPUT}
+        echo "RELEASE_ID ${RELEASE_ID}"
+
+  download-and-upload-artifacts:
+    permissions: write-all
+    runs-on: ubuntu-latest
+    needs: [create_prerelease, build]
+    strategy:
+      matrix:
+        arch: [armv7hf, aarch64]
+    env:
+      RELEASE_ID: ${{ needs.create_prerelease.outputs.RELEASE_ID }}
+      EAP_FILE_AARCH64: ${{ needs.build.outputs.EAP_FILE_AARCH64 }}
+      EAP_FILE_ARMV7HF: ${{ needs.build.outputs.EAP_FILE_ARMV7HF }}
+    steps:
+    - name: Get EAP file name
+      id: full_eap_name
+      run: |
+        if [ ${{ matrix.arch }} = armv7hf ]
+        then
+          echo "EAP_FILE=${{ needs.build.outputs.EAP_FILE_ARMV7HF }}" >> $GITHUB_ENV
+        elif [ ${{ matrix.arch }} = aarch64 ]
+        then
+          echo "EAP_FILE=${{ needs.build.outputs.EAP_FILE_AARCH64 }}" >> $GITHUB_ENV
+        else
+          echo "::error::Non valid architecture '${{ matrix.arch }}' encountered"
+        fi
+    - name: Download artifacts
+      uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a
+      with:
+        name: ${{ env.EAP_FILE }}
+        path: ./
+    - name: Upload file to GitHub release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        RESPONSE=$(curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          -H "Accept: application/vnd.github.manifold-preview" \
+          -H "Content-Type: application/zip" \
+          --data-binary @${{ env.EAP_FILE }} \
+          "https://uploads.github.com/repos/AxisCommunications/docker-acap/releases/${{env.RELEASE_ID}}/assets?name=${{ env.EAP_FILE }}" \
+          -w "%{http_code}\n" -o /dev/null)
+        echo "HTTP_RESPONSE=$RESPONSE" >> $GITHUB_ENV
+    - name: Check that asset has been uploaded correctly
+      run: |
+        if [[ -n "$HTTP_RESPONSE" && "$HTTP_RESPONSE" =~ ^[0-9]+$ ]]; then
+          if [ "$HTTP_RESPONSE" -eq 201 ]; then
+            echo "HTTP response code is 201, upload was succesful"
+          else
+            echo "HTTP response code is: $HTTP_RESPONSE, upload was not succesful"
+            exit 1
+          fi
+        else
+          echo "HTTP_RESPONSE is empty or not a valid integer: $HTTP_RESPONSE"
+        fi
