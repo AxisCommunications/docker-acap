@@ -66,7 +66,7 @@ jobs:
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
         with:
           name: Signed_${{ steps.get_artifact.outputs.EAP_FILE }}
-          path: ${{ matrix.arch }}/Signed_${{ steps.get_artifact.outputs.EAP_FILE }}
+          path: build-${{ matrix.arch }}/Signed_${{ steps.get_artifact.outputs.EAP_FILE }}
       - name: Save file name
         id: save_full_file_name
         run: |
