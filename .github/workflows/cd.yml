@@ -1,4 +1,4 @@
-name: ACAP Signing and upload prerelease
+name: Sign and prerelease
 
 on:
   push:
@@ -28,13 +28,9 @@ jobs:
     env:
       exrepo: build-test
       exname: docker-acap
+      DOCKER_HUB_REPOSITORY: 'axisecp/docker-acap'
     steps:
         # sha for actions/checkout@v3 at time of commit.
-      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
-      - name: Build ${{ env.example }} application
-        env:
-          exampletag: "${{ env.exrepo }}_${{ env.exname }}"
-        run: ./build.sh ${{ matrix.arch }} ${{ steps.meta.outputs.full_name }}
       - name: Create base image metadata
         id: meta
         uses: ./.github/actions/metadata-action
@@ -48,34 +44,29 @@ jobs:
         with:
           manifest_file: ./manifest-${{ matrix.arch }}.json
           value: ${{ steps.meta.outputs.version }}
-      - name: Build and push base image
-        uses: ./.github/actions/docker-build-push-action
-        with:
-          dockerfile: Dockerfile.${{ matrix.arch }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          target: runtime-base
-          push: false
-          load: true
+      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
+      - name: Build ${{ env.example }} application
+        env:
+          exampletag: "${{ env.exrepo }}_${{ env.exname }}"
+        run: ./build.sh ${{ matrix.arch }} ${{ steps.meta.outputs.full_name }}
       - name: Get EAP from base image
         id: get_artifact
         run: |
-          docker cp $(docker create "${{ steps.meta.outputs.full_name }}"):/opt/app .build
-          export EAP_FILE=$(find .build -type f -name "*.eap" -printf "%f\n")
+          export EAP_FILE=$(find .build-${{ matrix.arch }} -type f -name "*.eap" -printf "%f\n")
           delimiter="$(openssl rand -hex 8)"
           echo "EAP_FILE<<${delimiter}" >> ${GITHUB_OUTPUT}
           echo "${EAP_FILE}" >> ${GITHUB_OUTPUT}
           echo "${delimiter}" >> ${GITHUB_OUTPUT}
       - name: Sign eap-file
         run: |
-          cd .build
+          cd .build-${{ matrix.arch }}
           curl -XPOST -H 'accept: */*' -H 'Content-Type: multipart/form-data' -H 'Authorization: Bearer ${{secrets.ACAP_PORTAL_SIGNING_BEARER_TOKEN}}' \
           'https://gw.ext.csi-api.axis.com/ext/acap/admin/application/${{secrets.ACAP_PORTAL_SIGNING_ID}}/sign/binary' -F uploadedFile=@"${{ steps.get_artifact.outputs.EAP_FILE }}" --output Signed_${{ steps.get_artifact.outputs.EAP_FILE }}
       - name: Upload artifact
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
         with:
           name: Signed_${{ steps.get_artifact.outputs.EAP_FILE }}
-          path: .build/Signed_${{ steps.get_artifact.outputs.EAP_FILE }}
+          path: ${{ matrix.arch }}/Signed_${{ steps.get_artifact.outputs.EAP_FILE }}
       - name: Save file name
         id: save_full_file_name
         run: |

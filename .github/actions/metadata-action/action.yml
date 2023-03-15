@@ -18,7 +18,7 @@ inputs:
     default: 'auto'
   repository:
     description: Name of the repository of the image to build.
-    required: false
+    required: true
   get_version:
     description: Set to true if the action should return the version tag without
       suffix. Default false
