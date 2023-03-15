@@ -112,7 +112,14 @@ jobs:
         echo "RELEASE_ID<<${delimiter}" >> ${GITHUB_OUTPUT}
         echo "${RELEASE_ID}" >> ${GITHUB_OUTPUT}
         echo "${delimiter}" >> ${GITHUB_OUTPUT}
-        echo "RELEASE_ID ${RELEASE_ID}"
+
+        if [[ -z ${RELEASE_ID} ]]
+        then
+          echo "Create prerelease was not successful"
+          exit 1
+        else
+          echo "Create prerelease was successful, with id ${RELEASE_ID}"
+        fi
 
   download-and-upload-artifacts:
     permissions: write-all
@@ -157,7 +164,7 @@ jobs:
     - name: Check that asset has been uploaded correctly
       run: |
         if [[ -n "$HTTP_RESPONSE" && "$HTTP_RESPONSE" =~ ^[0-9]+$ ]]; then
-          if [ "$HTTP_RESPONSE" -eq 201 ]; then
+          if [ "$HTTP_RESPONSE" -eq 201 || 302 ]; then
             echo "HTTP response code is 201, upload was succesful"
           else
             echo "HTTP response code is: $HTTP_RESPONSE, upload was not succesful"
