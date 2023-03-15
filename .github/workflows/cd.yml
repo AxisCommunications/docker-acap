@@ -21,7 +21,6 @@ jobs:
       matrix:
         arch: ["armv7hf", "aarch64"]
     outputs:
-      TAG: ${{ steps.vars.outputs.TAG }}
       EAP_FILE: ${{ steps.get_artifact.outputs.EAP_FILE }}
       EAP_FILE_ARMV7HF: ${{ steps.save_full_file_name.outputs.EAP_FILE_ARMV7HF }}
       EAP_FILE_AARCH64: ${{ steps.save_full_file_name.outputs.EAP_FILE_AARCH64 }}
@@ -86,9 +85,10 @@ jobs:
     needs: build
     outputs:
       RELEASE_ID: ${{ steps.prerelease.outputs.RELEASE_ID }}
-    env:
-      TAG: ${{ needs.build.outputs.TAG }}
     steps:
+    - name: Set output
+      id: vars
+      run: echo "TAG=${GITHUB_REF#refs/*/}" >> ${GITHUB_ENV}
     - name: Create prerelease
       id: prerelease
       env:
