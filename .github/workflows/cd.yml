@@ -31,6 +31,7 @@ jobs:
       DOCKER_HUB_REPOSITORY: 'axisecp/docker-acap'
     steps:
         # sha for actions/checkout@v3 at time of commit.
+      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
       - name: Create base image metadata
         id: meta
         uses: ./.github/actions/metadata-action
@@ -44,7 +45,6 @@ jobs:
         with:
           manifest_file: ./manifest-${{ matrix.arch }}.json
           value: ${{ steps.meta.outputs.version }}
-      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
       - name: Build ${{ env.example }} application
         env:
           exampletag: "${{ env.exrepo }}_${{ env.exname }}"
