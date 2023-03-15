@@ -1,0 +1,29 @@
+---
+name: Update value in ACAP application manifest.json action
+description: >
+  A local composite action to update one key-value pair in an ACAP application
+  manifest.json file. The default usage is to update the version setting
+  (i.e. acapPackageConf.setup.version). Override the input parameter 'key' if
+  another setting should be updated.
+
+inputs:
+  manifest_file:
+    description: Path to the manifest file to update.
+    required: true
+  value:
+    description: The new value to set.
+    required: true
+  key:
+    description: The position in the file to update.
+      Defaults to .acapPackageConf.setup.version.
+    default: '.acapPackageConf.setup.version'
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        jq '${{ inputs.key }} = "${{ inputs.value }}"' \
+          "${{ inputs.manifest_file }}" > manifest_file.tmp
+        mv manifest_file.tmp "${{ inputs.manifest_file }}"
