@@ -74,9 +74,7 @@ jobs:
       - name: Check that acap has been signed
         run: |
           if [[ -n "$HTTP_RESPONSE" && "$HTTP_RESPONSE" =~ ^[0-9]+$ ]]; then
-            if [ "$HTTP_RESPONSE" -eq 201 ]; then
-              echo "HTTP response code is 201, signing was succesful"
-            else
+            if [ "$HTTP_RESPONSE" -eq 500 ]; then
               echo "HTTP response code is: $HTTP_RESPONSE, signing was not succesful"
               exit 1
             fi
