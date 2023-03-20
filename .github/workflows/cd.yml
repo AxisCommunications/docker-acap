@@ -29,7 +29,6 @@ jobs:
       matrix:
         arch: ["armv7hf", "aarch64"]
     outputs:
-      EAP_FILE: ${{ steps.get_eap_file_name.outputs.EAP_FILE }}
       EAP_FILE_ARMV7HF: ${{ steps.save_full_file_name.outputs.EAP_FILE_ARMV7HF }}
       EAP_FILE_AARCH64: ${{ steps.save_full_file_name.outputs.EAP_FILE_AARCH64 }}
     env:
@@ -50,7 +49,7 @@ jobs:
         if: ( github.ref_type == 'tag')
         uses: ./.github/actions/update-acap-manifest-action
         with:
-          manifest_file: ./manifest-${{ matrix.arch }}.json
+          manifest_file: ./app/manifest.json
           value: ${{ steps.meta.outputs.version }}
       - name: Build ${{ env.example }} application
         env:
@@ -61,9 +60,9 @@ jobs:
         run: |
           export EAP_FILE=$(find build-${{ matrix.arch }} -type f -name "*.eap" -printf "%f\n")
           delimiter="$(openssl rand -hex 8)"
-          echo "EAP_FILE<<${delimiter}" >> ${GITHUB_OUTPUT}
-          echo "${EAP_FILE}" >> ${GITHUB_OUTPUT}
-          echo "${delimiter}" >> ${GITHUB_OUTPUT}
+          echo "EAP_FILE<<${delimiter}" >> ${GITHUB_ENV}
+          echo "${EAP_FILE}" >> ${GITHUB_ENV}
+          echo "${delimiter}" >> ${GITHUB_ENV}
       - name: Sign eap-file
         run: |
           cd build-${{ matrix.arch }}
@@ -72,17 +71,17 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
         with:
-          name: Signed_${{ steps.get_eap_file_name.outputs.EAP_FILE }}
-          path: build-${{ matrix.arch }}/Signed_${{ steps.get_eap_file_name.outputs.EAP_FILE }}
+          name: Signed_${{ env.EAP_FILE }}
+          path: build-${{ matrix.arch }}/Signed_${{ env.EAP_FILE }}
       - name: Save full file name
         id: save_full_file_name
         run: |
           if [ ${{ matrix.arch }} = armv7hf ]
           then
-            echo "EAP_FILE_ARMV7HF=Signed_${{ steps.get_eap_file_name.outputs.EAP_FILE }}" >> $GITHUB_OUTPUT
+            echo "EAP_FILE_ARMV7HF=Signed_${{ env.EAP_FILE }}" >> $GITHUB_OUTPUT
           elif [ ${{ matrix.arch }} = aarch64 ]
           then
-            echo "EAP_FILE_AARCH64=Signed_${{ steps.get_eap_file_name.outputs.EAP_FILE }}" >> $GITHUB_OUTPUT
+            echo "EAP_FILE_AARCH64=Signed_${{ env.EAP_FILE }}" >> $GITHUB_OUTPUT
           else
             echo "::error::Non valid architecture '${{ matrix.arch }}' encountered"
           fi
@@ -95,9 +94,6 @@ jobs:
     outputs:
       RELEASE_ID: ${{ steps.prerelease.outputs.RELEASE_ID }}
     steps:
-    - name: Set output
-      id: vars
-      run: echo "TAG=${GITHUB_REF#refs/*/}" >> ${GITHUB_ENV}
     - name: Create prerelease
       id: prerelease
       env:
@@ -109,10 +105,10 @@ jobs:
         -H "Accept: application/vnd.github+json" \
         -H "X-GitHub-Api-Version: 2022-11-28" \
         /repos/AxisCommunications/docker-acap/releases \
-        -f tag_name='${{ env.TAG }}' \
+        -f tag_name='${GITHUB_REF#refs/*/}' \
         -f target_commitish='main' \
-        -f name='${{ env.TAG }}' \
-        -f body='Prerelease for ${{ env.TAG }}' \
+        -f name='${GITHUB_REF#refs/*/}' \
+        -f body='Prerelease for ${GITHUB_REF#refs/*/}' \
         -F draft=false \
         -F prerelease=true \
         -F generate_release_notes=false
