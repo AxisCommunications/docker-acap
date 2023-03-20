@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - 'main'
+      - 'acap-signing'
     tags:
       # semver, e.g. 1.2.0 (does no match 0.1.2)
       - '[1-9]+.[0-9]+.[0-9]+'
@@ -66,8 +67,22 @@ jobs:
       - name: Sign eap-file
         run: |
           cd build-${{ matrix.arch }}
-          curl -XPOST -H 'accept: */*' -H 'Content-Type: multipart/form-data' -H 'Authorization: Bearer ${{secrets.ACAP_PORTAL_SIGNING_BEARER_TOKEN}}' \
-          'https://gw.ext.csi-api.axis.com/ext/acap/admin/application/${{secrets.ACAP_PORTAL_SIGNING_ID}}/sign/binary' -F uploadedFile=@"${{ env.EAP_FILE }}" --output Signed_${{ env.EAP_FILE }}
+          RESPONSE=$(curl -XPOST -H 'accept: */*' -H 'Content-Type: multipart/form-data' -H 'Authorization: Bearer ${{secrets.ACAP_PORTAL_SIGNING_BEARER_TOKEN}}' \
+          'https://gw.ext.csi-api.axis.com/ext/acap/admin/application/${{secrets.ACAP_PORTAL_SIGNING_ID}}/sign/binary' -F uploadedFile=@"${{ env.EAP_FILE }}" --output Signed_${{ env.EAP_FILE }} \
+          -w "%{http_code}\n" -o /dev/null)
+          echo "HTTP_RESPONSE=$RESPONSE" >> $GITHUB_ENV
+      - name: Check that acap has been signed
+        run: |
+          if [[ -n "$HTTP_RESPONSE" && "$HTTP_RESPONSE" =~ ^[0-9]+$ ]]; then
+            if [ "$HTTP_RESPONSE" -eq 201 ]; then
+              echo "HTTP response code is 201, signing was succesful"
+            else
+              echo "HTTP response code is: $HTTP_RESPONSE, signing was not succesful"
+              exit 1
+            fi
+          else
+            echo "HTTP_RESPONSE is empty or not a valid integer: $HTTP_RESPONSE"
+          fi
       - name: Upload artifact
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
         with:
