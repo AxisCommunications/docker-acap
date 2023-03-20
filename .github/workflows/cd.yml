@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        arch: ["armv7hf", "aarch64"]
+        arch: ["aarch64"]
     outputs:
       EAP_FILE_ARMV7HF: ${{ steps.save_full_file_name.outputs.EAP_FILE_ARMV7HF }}
       EAP_FILE_AARCH64: ${{ steps.save_full_file_name.outputs.EAP_FILE_AARCH64 }}
