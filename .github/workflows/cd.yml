@@ -109,7 +109,7 @@ jobs:
     outputs:
       RELEASE_ID: ${{ steps.prerelease.outputs.RELEASE_ID }}
     steps:
-    - name: Set output
+    - name: Set TAG
       id: vars
       run: echo "TAG=${GITHUB_REF#refs/*/}" >> ${GITHUB_ENV}
     - name: Create prerelease
@@ -135,8 +135,9 @@ jobs:
         echo "RELEASE_ID<<${delimiter}" >> ${GITHUB_OUTPUT}
         echo "${RELEASE_ID}" >> ${GITHUB_OUTPUT}
         echo "${delimiter}" >> ${GITHUB_OUTPUT}
+        echo "RELEASE_ID ${RELEASE_ID}"
 
-        if [[ -z ${RELEASE_ID} ]] || [ "${RELEASE_ID}" = "null" ]
+        if [[ -z ${RELEASE_ID} ]]
         then
           echo "Create prerelease was not successful"
           exit 1
