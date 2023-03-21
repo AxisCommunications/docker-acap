@@ -123,10 +123,10 @@ jobs:
         -H "Accept: application/vnd.github+json" \
         -H "X-GitHub-Api-Version: 2022-11-28" \
         /repos/AxisCommunications/docker-acap/releases \
-        -f tag_name='${env.TAG}' \
+        -f tag_name='${{ env.TAG }}' \
         -f target_commitish='main' \
-        -f name='${env.TAG}' \
-        -f body='Prerelease for ${env.TAG}' \
+        -f name='${{ env.TAG }}' \
+        -f body='Prerelease for ${{ env.TAG }}' \
         -F draft=false \
         -F prerelease=true \
         -F generate_release_notes=false
@@ -136,7 +136,7 @@ jobs:
         echo "${RELEASE_ID}" >> ${GITHUB_OUTPUT}
         echo "${delimiter}" >> ${GITHUB_OUTPUT}
 
-        if [[ -z ${RELEASE_ID} ]]
+        if [[ -z ${RELEASE_ID} ]] || [ "${RELEASE_ID}" = "null" ]
         then
           echo "Create prerelease was not successful"
           exit 1
