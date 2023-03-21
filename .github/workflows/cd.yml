@@ -109,6 +109,9 @@ jobs:
     outputs:
       RELEASE_ID: ${{ steps.prerelease.outputs.RELEASE_ID }}
     steps:
+    - name: Set output
+      id: vars
+      run: echo "TAG=${GITHUB_REF#refs/*/}" >> ${GITHUB_ENV}
     - name: Create prerelease
       id: prerelease
       env:
@@ -120,10 +123,10 @@ jobs:
         -H "Accept: application/vnd.github+json" \
         -H "X-GitHub-Api-Version: 2022-11-28" \
         /repos/AxisCommunications/docker-acap/releases \
-        -f tag_name='${GITHUB_REF#refs/*/}' \
+        -f tag_name='${env.TAG}' \
         -f target_commitish='main' \
-        -f name='${GITHUB_REF#refs/*/}' \
-        -f body='Prerelease for ${GITHUB_REF#refs/*/}' \
+        -f name='${env.TAG}' \
+        -f body='Prerelease for ${env.TAG}' \
         -F draft=false \
         -F prerelease=true \
         -F generate_release_notes=false
