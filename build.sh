@@ -33,6 +33,12 @@ docker stop $dockerdname
 docker rm $dockerdname
 
 # Now build and copy out the acap
+
+# update the manifest.json file to list the correct architecture
+jq --arg arch "$1" '.acapPackageConf.setup.architecture = $arch' \
+app/manifest.json > manifest_file.tmp
+mv manifest_file.tmp app/manifest.json
+
 docker buildx build --build-arg ACAPARCH="$1" \
              --build-arg HTTP_PROXY="$HTTP_PROXY" \
              --build-arg HTTPS_PROXY="$HTTPS_PROXY" \
