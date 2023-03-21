@@ -137,7 +137,7 @@ jobs:
         echo "${delimiter}" >> ${GITHUB_OUTPUT}
         echo "RELEASE_ID ${RELEASE_ID}"
 
-        if [[ -z ${RELEASE_ID} ]]
+        if [[ -z ${RELEASE_ID} ]] || [ "${RELEASE_ID}" = "null" ]
         then
           echo "Create prerelease was not successful"
           exit 1
