@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        arch: ["aarch64"]
+        arch: ["armv7hf", "aarch64"]
     outputs:
       EAP_FILE_ARMV7HF: ${{ steps.save_full_file_name.outputs.EAP_FILE_ARMV7HF }}
       EAP_FILE_AARCH64: ${{ steps.save_full_file_name.outputs.EAP_FILE_AARCH64 }}
@@ -74,7 +74,9 @@ jobs:
       - name: Check that acap has been signed
         run: |
           if [[ -n "$HTTP_RESPONSE" && "$HTTP_RESPONSE" =~ ^[0-9]+$ ]]; then
-            if [ "$HTTP_RESPONSE" -eq 500 ]; then
+            if [ "$HTTP_RESPONSE" -eq 200 ]; then
+              echo "HTTP response code is 200, signing was succesful"
+            else
               echo "HTTP response code is: $HTTP_RESPONSE, signing was not succesful"
               exit 1
             fi
