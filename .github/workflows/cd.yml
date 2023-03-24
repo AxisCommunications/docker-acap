@@ -172,7 +172,7 @@ jobs:
         RESPONSE=$(curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
           -H "Accept: application/vnd.github.manifold-preview" \
           -H "Content-Type: application/zip" \
-          --data-binary @${{ env.EAP_FILE }} \
+          --data-binary @./${{ env.EAP_FILE }} \
           "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/${{env.RELEASE_ID}}/assets?name=${{ env.EAP_FILE }}" \
           -w "%{http_code}\n" -o /dev/null)
         echo "HTTP_RESPONSE=$RESPONSE" >> $GITHUB_ENV
