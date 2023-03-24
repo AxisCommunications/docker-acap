@@ -64,9 +64,11 @@ jobs:
           echo "${delimiter}" >> ${GITHUB_ENV}
       - name: Sign eap-file
         run: |
+          signed_output=$(echo "${{ env.EAP_FILE }}" | sed 's/\.eap/_signed.eap/')
+          echo "EAP_FILE=${signed_output}" >> $GITHUB_ENV
           cd build-${{ matrix.arch }}
           RESPONSE=$(curl -XPOST -H 'accept: */*' -H 'Content-Type: multipart/form-data' -H 'Authorization: Bearer ${{secrets.ACAP_PORTAL_SIGNING_BEARER_TOKEN}}' \
-          'https://gw.ext.csi-api.axis.com/ext/acap/admin/application/${{secrets.ACAP_PORTAL_SIGNING_ID}}/sign/binary' -F uploadedFile=@"${{ env.EAP_FILE }}" --output Signed_${{ env.EAP_FILE }} \
+          'https://gw.ext.csi-api.axis.com/ext/acap/admin/application/${{secrets.ACAP_PORTAL_SIGNING_ID}}/sign/binary' -F uploadedFile=@"${{ env.EAP_FILE }}" --output ${{ env.EAP_FILE }} \
           -w "%{http_code}\n" -o /dev/null)
           echo "HTTP_RESPONSE=$RESPONSE" >> $GITHUB_ENV
       - name: Check that acap has been signed
@@ -84,17 +86,17 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
         with:
-          name: Signed_${{ env.EAP_FILE }}
-          path: build-${{ matrix.arch }}/Signed_${{ env.EAP_FILE }}
+          name: ${{ env.EAP_FILE }}
+          path: build-${{ matrix.arch }}/${{ env.EAP_FILE }}
       - name: Save full file name
         id: save_full_file_name
         run: |
           if [ ${{ matrix.arch }} = armv7hf ]
           then
-            echo "EAP_FILE_ARMV7HF=Signed_${{ env.EAP_FILE }}" >> $GITHUB_OUTPUT
+            echo "EAP_FILE_ARMV7HF=${{ env.EAP_FILE }}" >> $GITHUB_OUTPUT
           elif [ ${{ matrix.arch }} = aarch64 ]
           then
-            echo "EAP_FILE_AARCH64=Signed_${{ env.EAP_FILE }}" >> $GITHUB_OUTPUT
+            echo "EAP_FILE_AARCH64=${{ env.EAP_FILE }}" >> $GITHUB_OUTPUT
           else
             echo "::error::Non valid architecture '${{ matrix.arch }}' encountered"
           fi
@@ -111,37 +113,26 @@ jobs:
       id: vars
       run: echo "TAG=${GITHUB_REF#refs/*/}" >> ${GITHUB_ENV}
     - name: Create prerelease
+      uses: "actions/github-script@v6"
       id: prerelease
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        export RELEASE_ID=$( jq -r '.id' <<< $(
-        gh api \
-        --method POST \
-        -H "Accept: application/vnd.github+json" \
-        -H "X-GitHub-Api-Version: 2022-11-28" \
-        /repos/$GITHUB_REPOSITORY/releases \
-        -f tag_name='${{ env.TAG }}' \
-        -f target_commitish='main' \
-        -f name='${{ env.TAG }}' \
-        -f body='Prerelease for ${{ env.TAG }}' \
-        -F draft=false \
-        -F prerelease=true \
-        -F generate_release_notes=false
-          ))
-        delimiter="$(openssl rand -hex 8)"
-        echo "RELEASE_ID<<${delimiter}" >> ${GITHUB_OUTPUT}
-        echo "${RELEASE_ID}" >> ${GITHUB_OUTPUT}
-        echo "${delimiter}" >> ${GITHUB_OUTPUT}
-        echo "RELEASE_ID ${RELEASE_ID}"
-
-        if [[ -z ${RELEASE_ID} ]] || [ "${RELEASE_ID}" = "null" ]
-        then
-          echo "Create prerelease was not successful"
-          exit 1
-        else
-          echo "Create prerelease was successful, with id ${RELEASE_ID}"
-        fi
+        script: |
+          try {
+            const response = await github.rest.repos.createRelease({
+              draft: false,
+              generate_release_notes: true,
+              name: ${{ env.TAG }},
+              owner: context.repo.owner,
+              prerelease: true,
+              repo: context.repo.repo,
+              tag_name: ${{ env.TAG }},
+            });
+            core.exportVariable('RELEASE_ID', response.data.id);
+            core.exportVariable('RELEASE_UPLOAD_URL', response.data.upload_url);
+          } catch (error) {
+            core.setFailed(error.message);
+          }
 
   download-and-upload-artifacts:
     if: (github.event_name != 'pull_request')
