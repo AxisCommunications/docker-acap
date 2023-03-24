@@ -165,6 +165,8 @@ jobs:
       with:
         name: ${{ env.EAP_FILE }}
         path: ./
+    - name: Display structure of downloaded files
+      run: ls -R
     - name: Upload file to GitHub release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -172,7 +174,7 @@ jobs:
         RESPONSE=$(curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
           -H "Accept: application/vnd.github.manifold-preview" \
           -H "Content-Type: application/zip" \
-          --data-binary @./${{ env.EAP_FILE }} \
+          --data-binary @/home/runner/work/docker-acap/docker-acap/${{ env.EAP_FILE }} \
           "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/${{env.RELEASE_ID}}/assets?name=${{ env.EAP_FILE }}" \
           -w "%{http_code}\n" -o /dev/null)
         echo "HTTP_RESPONSE=$RESPONSE" >> $GITHUB_ENV
