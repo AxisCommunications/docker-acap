@@ -161,16 +161,13 @@ jobs:
           echo "::error::Non valid architecture '${{ matrix.arch }}' encountered"
         fi
     - name: Download artifacts
-      uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a
+      uses: actions/download-artifact@v2
       with:
         name: ${{ env.EAP_FILE }}
-        path: ./
-    - name: Display structure of downloaded files
-      run: |
-        pwd
-        chmod +x ${{ env.EAP_FILE }}
-        ls -R
-        find / -name "Docker_Daemon_1_3_0_armv7hf_signed.eap" 2>/dev/null
+        path: $HOME
+    - run: chmod +x $HOME/${{ env.EAP_FILE }}
+    - run: ls -R $HOME
+
     - name: Upload file to GitHub release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
