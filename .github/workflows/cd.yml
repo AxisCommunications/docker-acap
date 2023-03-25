@@ -168,6 +168,7 @@ jobs:
     - name: Display structure of downloaded files
       run: |
         pwd
+        chmod +x ${{ env.EAP_FILE }}
         ls -R
         find / -name "Docker_Daemon_1_3_0_armv7hf_signed.eap" 2>/dev/null
     - name: Upload file to GitHub release
