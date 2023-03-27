@@ -63,10 +63,12 @@ jobs:
           echo "EAP_FILE<<${delimiter}" >> ${GITHUB_ENV}
           echo "${EAP_FILE}" >> ${GITHUB_ENV}
           echo "${delimiter}" >> ${GITHUB_ENV}
-      - name: Sign eap-file
+      - name: Refactor naming of eap-file
         run: |
           signed_output=$(echo "${{ env.EAP_FILE }}" | sed 's/\.eap/_signed.eap/')
           echo "SIGNED_EAP_FILE=${signed_output}" >> $GITHUB_ENV
+      - name: Sign eap-file
+        run: |
           cd build-${{ matrix.arch }}
           RESPONSE=$(curl -XPOST -H 'accept: */*' -H 'Content-Type: multipart/form-data' -H 'Authorization: Bearer ${{secrets.ACAP_PORTAL_SIGNING_BEARER_TOKEN}}' \
           'https://gw.ext.csi-api.axis.com/ext/acap/admin/application/${{secrets.ACAP_PORTAL_SIGNING_ID}}/sign/binary' -F uploadedFile=@"${{ env.EAP_FILE }}" --output ${{ env.SIGNED_EAP_FILE }} \
@@ -164,10 +166,7 @@ jobs:
       uses: actions/download-artifact@v2
       with:
         name: ${{ env.EAP_FILE }}
-        path: $HOME
-    - run: chmod +x $HOME/${{ env.EAP_FILE }}
-    - run: ls -R $HOME
-
+        path: ./
     - name: Upload file to GitHub release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
