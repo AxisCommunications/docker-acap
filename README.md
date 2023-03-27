@@ -37,19 +37,19 @@ The prebuilt Docker ACAP application is signed, read more about signing [here][s
 Install and use any image from [prereleases or releases][all-releases] with
 a tag on the form `<version>_<ARCH>`, where `<version>` is the docker-acap release
 version and `<ARCH>` is either `armv7hf` or `aarch64` depending on device architecture.
-E.g. `Signed_Docker_Daemon_1_3_0_aarch64.eap`.
+E.g. `Docker_Daemon_1_3_0_aarch64_signed.eap`.
 The eap-file can be installed as an ACAP application on the device,
 where it can be controlled in the device GUI **Apps** tab.
 
 ```sh
 # Get download url for a signed ACAP with curl
 # Where <ARCH> is the architecture
-curl -s https://api.github.com/repos/AxisCommunications/docker-acap/releases/latest | grep "browser_download_url.*Signed_Docker_Daemon_.*_<ARCH>\.eap"
+curl -s https://api.github.com/repos/AxisCommunications/docker-acap/releases/latest | grep "browser_download_url.*Docker_Daemon_.*_<ARCH>\_signed.eap"
 ```
 
-### Installation of version 1.2.0 and previous
+### Installation of version 1.3.0 and previous
 
-To install this ACAP for version 1.2.0 or previous use the pre-built
+To install this ACAP for version 1.3.0 or previous use the pre-built
 [docker hub](https://hub.docker.com/r/axisecp/docker-acap) image:
 
 ```sh

@@ -6,7 +6,6 @@ on:
   push:
     branches:
       - 'main'
-      - 'acap-signing'
     tags:
       # semver, e.g. 1.2.0 (does no match 0.1.2)
       - '[1-9]+.[0-9]+.[0-9]+'
@@ -32,8 +31,6 @@ jobs:
       EAP_FILE_ARMV7HF: ${{ steps.save_full_file_name.outputs.EAP_FILE_ARMV7HF }}
       EAP_FILE_AARCH64: ${{ steps.save_full_file_name.outputs.EAP_FILE_AARCH64 }}
     env:
-      exrepo: build-test
-      exname: docker-acap
       DOCKER_HUB_REPOSITORY: 'axisecp/docker-acap'
     steps:
         # sha for actions/checkout@v3 at time of commit.
@@ -52,10 +49,8 @@ jobs:
           manifest_file: ./app/manifest.json
           value: ${{ steps.meta.outputs.version }}
       - name: Build ${{ env.example }} application
-        env:
-          exampletag: "${{ env.exrepo }}_${{ env.exname }}"
         run: ./build.sh ${{ matrix.arch }} ${{ steps.meta.outputs.full_name }}
-      - name: Get EAP from base image
+      - name: Set name of EAP-file
         id: get_eap_file_name
         run: |
           export EAP_FILE=$(find build-${{ matrix.arch }} -type f -name "*.eap" -printf "%f\n")
@@ -63,7 +58,7 @@ jobs:
           echo "EAP_FILE<<${delimiter}" >> ${GITHUB_ENV}
           echo "${EAP_FILE}" >> ${GITHUB_ENV}
           echo "${delimiter}" >> ${GITHUB_ENV}
-      - name: Refactor naming of eap-file
+      - name: Refactor naming of EAP-file for signed output
         run: |
           signed_output=$(echo "${{ env.EAP_FILE }}" | sed 's/\.eap/_signed.eap/')
           echo "SIGNED_EAP_FILE=${signed_output}" >> $GITHUB_ENV
@@ -106,7 +101,8 @@ jobs:
 
   create_prerelease:
     if: (github.event_name != 'pull_request')
-    permissions: write-all
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     needs: build
     outputs:
@@ -139,7 +135,8 @@ jobs:
 
   download-and-upload-artifacts:
     if: (github.event_name != 'pull_request')
-    permissions: write-all
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     needs: [create_prerelease, build]
     strategy:
