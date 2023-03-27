@@ -66,7 +66,7 @@ jobs:
         run: |
           cd build-${{ matrix.arch }}
           RESPONSE=$(curl -XPOST -H 'accept: */*' -H 'Content-Type: multipart/form-data' -H 'Authorization: Bearer ${{secrets.ACAP_PORTAL_SIGNING_BEARER_TOKEN}}' \
-          'https://gw.ext.csi-api.axis.com/ext/acap/admin/application/${{secrets.ACAP_PORTAL_SIGNING_ID}}/sign/binary' -F uploadedFile=@"${{ env.EAP_FILE }}" --output ${{ env.SIGNED_EAP_FILE }} \
+          '${{ vars.ACAP_PORTAL_URL }}/${{secrets.ACAP_PORTAL_SIGNING_ID}}/sign/binary' -F uploadedFile=@"${{ env.EAP_FILE }}" --output ${{ env.SIGNED_EAP_FILE }} \
           -w "%{http_code}\n" -o /dev/null)
           echo "HTTP_RESPONSE=$RESPONSE" >> $GITHUB_ENV
       - name: Check that acap has been signed
