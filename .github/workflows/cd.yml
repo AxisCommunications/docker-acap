@@ -1,0 +1,189 @@
+name: Sign and prerelease
+
+# Run the workflow on when code or a semver tag is pushed to main branch,
+# and on pull requests towards main branch
+on:
+  push:
+    branches:
+      - 'main'
+    tags:
+      # semver, e.g. 1.2.0 (does no match 0.1.2)
+      - '[1-9]+.[0-9]+.[0-9]+'
+      # semver with prerelease info, e.g. 1.0.2-beta.1 or 1.2.3-rc.10
+      - '[1-9]+.[0-9]+.[0-9]+-[a-z]+.[0-9]+'
+      # do not match prerelease starting w/ 0, e.g. 1.0.2-beta.0 or 1.2.3-rc.01
+      - '![1-9]+.[0-9]+.[0-9]+-[a-z]+.[0]*'
+      # semver with date info, e.g. 1.0.2-20221125
+      - '[1-9]+.[0-9]+.[0-9]+-[0-9]+'
+      # do not match date starting w/ 0, e.g. 1.0.2-01232023
+      - '![1-9]+.[0-9]+.[0-9]+-[0]*'
+  pull_request:
+    branches:
+      - 'main'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: ["armv7hf", "aarch64"]
+    outputs:
+      EAP_FILE_ARMV7HF: ${{ steps.save_full_file_name.outputs.EAP_FILE_ARMV7HF }}
+      EAP_FILE_AARCH64: ${{ steps.save_full_file_name.outputs.EAP_FILE_AARCH64 }}
+    env:
+      DOCKER_HUB_REPOSITORY: 'axisecp/docker-acap'
+    steps:
+        # sha for actions/checkout@v3 at time of commit.
+      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
+      - name: Create base image metadata
+        id: meta
+        uses: ./.github/actions/metadata-action
+        with:
+          suffix: -${{ matrix.arch }}
+          repository: ${{ env.DOCKER_HUB_REPOSITORY }}
+          get_version: 'true'
+      - name: Update manifest file
+        if: ( github.ref_type == 'tag')
+        uses: ./.github/actions/update-acap-manifest-action
+        with:
+          manifest_file: ./app/manifest.json
+          value: ${{ steps.meta.outputs.version }}
+      - name: Build ${{ env.example }} application
+        run: ./build.sh ${{ matrix.arch }} ${{ steps.meta.outputs.full_name }}
+      - name: Set name of EAP-file
+        id: get_eap_file_name
+        run: |
+          export EAP_FILE=$(find build-${{ matrix.arch }} -type f -name "*.eap" -printf "%f\n")
+          delimiter="$(openssl rand -hex 8)"
+          echo "EAP_FILE<<${delimiter}" >> ${GITHUB_ENV}
+          echo "${EAP_FILE}" >> ${GITHUB_ENV}
+          echo "${delimiter}" >> ${GITHUB_ENV}
+      - name: Refactor naming of EAP-file for signed output
+        run: |
+          signed_output=$(echo "${{ env.EAP_FILE }}" | sed 's/\.eap/_signed.eap/')
+          echo "SIGNED_EAP_FILE=${signed_output}" >> $GITHUB_ENV
+      - name: Sign eap-file
+        run: |
+          cd build-${{ matrix.arch }}
+          RESPONSE=$(curl -XPOST -H 'accept: */*' -H 'Content-Type: multipart/form-data' -H 'Authorization: Bearer ${{secrets.ACAP_PORTAL_SIGNING_BEARER_TOKEN}}' \
+          '${{ vars.ACAP_PORTAL_URL }}/${{secrets.ACAP_PORTAL_SIGNING_ID}}/sign/binary' -F uploadedFile=@"${{ env.EAP_FILE }}" --output ${{ env.SIGNED_EAP_FILE }} \
+          -w "%{http_code}\n" -o /dev/null)
+          echo "HTTP_RESPONSE=$RESPONSE" >> $GITHUB_ENV
+      - name: Check that acap has been signed
+        run: |
+          if [[ -n "$HTTP_RESPONSE" && "$HTTP_RESPONSE" =~ ^[0-9]+$ ]]; then
+            if [ "$HTTP_RESPONSE" -eq 200 ]; then
+              echo "HTTP response code is 200, signing was succesful"
+            else
+              echo "HTTP response code is: $HTTP_RESPONSE, signing was not succesful"
+              exit 1
+            fi
+          else
+            echo "HTTP_RESPONSE is empty or not a valid integer: $HTTP_RESPONSE"
+          fi
+      - name: Upload artifact
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
+        with:
+          name: ${{ env.SIGNED_EAP_FILE }}
+          path: build-${{ matrix.arch }}/${{ env.SIGNED_EAP_FILE }}
+      - name: Save full file name
+        id: save_full_file_name
+        run: |
+          if [ ${{ matrix.arch }} = armv7hf ]
+          then
+            echo "EAP_FILE_ARMV7HF=${{ env.SIGNED_EAP_FILE }}" >> $GITHUB_OUTPUT
+          elif [ ${{ matrix.arch }} = aarch64 ]
+          then
+            echo "EAP_FILE_AARCH64=${{ env.SIGNED_EAP_FILE }}" >> $GITHUB_OUTPUT
+          else
+            echo "::error::Non valid architecture '${{ matrix.arch }}' encountered"
+          fi
+
+  create_prerelease:
+    if: (github.event_name != 'pull_request')
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    needs: build
+    outputs:
+      RELEASE_ID: ${{ steps.prerelease.outputs.RELEASE_ID }}
+    steps:
+    - name: Set TAG
+      id: vars
+      run: echo "TAG=${GITHUB_REF#refs/*/}" >> ${GITHUB_ENV}
+    - name: Create prerelease
+      uses: "actions/github-script@v6"
+      id: prerelease
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        script: |
+          try {
+            const response = await github.rest.repos.createRelease({
+              draft: false,
+              generate_release_notes: true,
+              name: '${{ env.TAG }}',
+              owner: context.repo.owner,
+              prerelease: true,
+              repo: context.repo.repo,
+              tag_name: '${{ env.TAG }}',
+            });
+            core.setOutput('RELEASE_ID', response.data.id);
+          } catch (error) {
+            core.setFailed(error.message);
+          }
+
+  download-and-upload-artifacts:
+    if: (github.event_name != 'pull_request')
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    needs: [create_prerelease, build]
+    strategy:
+      matrix:
+        arch: [armv7hf, aarch64]
+    env:
+      RELEASE_ID: ${{ needs.create_prerelease.outputs.RELEASE_ID }}
+      EAP_FILE_AARCH64: ${{ needs.build.outputs.EAP_FILE_AARCH64 }}
+      EAP_FILE_ARMV7HF: ${{ needs.build.outputs.EAP_FILE_ARMV7HF }}
+    steps:
+    - name: Get EAP file name
+      id: full_eap_name
+      run: |
+        if [ ${{ matrix.arch }} = armv7hf ]
+        then
+          echo "EAP_FILE=${{ needs.build.outputs.EAP_FILE_ARMV7HF }}" >> $GITHUB_ENV
+        elif [ ${{ matrix.arch }} = aarch64 ]
+        then
+          echo "EAP_FILE=${{ needs.build.outputs.EAP_FILE_AARCH64 }}" >> $GITHUB_ENV
+        else
+          echo "::error::Non valid architecture '${{ matrix.arch }}' encountered"
+        fi
+    - name: Download artifacts
+      uses: actions/download-artifact@v2
+      with:
+        name: ${{ env.EAP_FILE }}
+        path: ./
+    - name: Upload file to GitHub release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        RESPONSE=$(curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          -H "Accept: application/vnd.github.manifold-preview" \
+          -H "Content-Type: application/zip" \
+          --data-binary @${{ env.EAP_FILE }} \
+          "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/${{env.RELEASE_ID}}/assets?name=${{ env.EAP_FILE }}" \
+          -w "%{http_code}\n" -o /dev/null)
+        echo "HTTP_RESPONSE=$RESPONSE" >> $GITHUB_ENV
+    - name: Check that asset has been uploaded correctly
+      run: |
+        if [[ -n "$HTTP_RESPONSE" && "$HTTP_RESPONSE" =~ ^[0-9]+$ ]]; then
+          if [ "$HTTP_RESPONSE" -eq 201 ]; then
+            echo "HTTP response code is 201, upload was succesful"
+          else
+            echo "HTTP response code is: $HTTP_RESPONSE, upload was not succesful"
+            exit 1
+          fi
+        else
+          echo "HTTP_RESPONSE is empty or not a valid integer: $HTTP_RESPONSE"
+        fi

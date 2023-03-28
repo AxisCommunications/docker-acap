@@ -30,7 +30,26 @@ it is required to also have [Buildx](https://docs.docker.com/build/install-build
 
 ## Installing
 
-The recommended way to install this ACAP is to use the pre-built
+The Docker ACAP application is available as a **signed** eap-file in [Releases][latest-releases].
+
+The prebuilt Docker ACAP application is signed, read more about signing [here][signing-documentation].
+
+Install and use any image from [prereleases or releases][all-releases] with
+a tag on the form `<version>_<ARCH>`, where `<version>` is the docker-acap release
+version and `<ARCH>` is either `armv7hf` or `aarch64` depending on device architecture.
+E.g. `Docker_Daemon_1_3_0_aarch64_signed.eap`.
+The eap-file can be installed as an ACAP application on the device,
+where it can be controlled in the device GUI **Apps** tab.
+
+```sh
+# Get download url for a signed ACAP with curl
+# Where <ARCH> is the architecture
+curl -s https://api.github.com/repos/AxisCommunications/docker-acap/releases/latest | grep "browser_download_url.*Docker_Daemon_.*_<ARCH>\_signed.eap"
+```
+
+### Installation of version 1.3.0 and previous
+
+To install this ACAP for version 1.3.0 or previous use the pre-built
 [docker hub](https://hub.docker.com/r/axisecp/docker-acap) image:
 
 ```sh
@@ -206,3 +225,11 @@ http://<device ip>/#settings/apps
 Go to your device web page above > Click on the tab **App** in the device GUI >
 Add **(+)** sign and browse to the newly built .eap-file > Click **Install** > Run the application by
 enabling the **Start** switch.
+
+<!-- Links to external references -->
+<!-- markdownlint-disable MD034 -->
+[all-releases]: https://github.com/AxisCommunications/docker-acap/releases
+[latest-releases]: https://github.com/AxisCommunications/docker-acap/releases/latest
+[signing-documentation]: https://axiscommunications.github.io/acap-documentation/docs/faq/security.html#sign-acap-applications
+
+<!-- markdownlint-enable MD034 -->

@@ -1,0 +1,68 @@
+---
+name: Docker metadata action
+description: >
+  A local composite action for creating docker image metadata.
+  Uses docker/metadata-action and returns the tags and labels output.
+  If get_version is set to true it also returns the base version for the image,
+  i.e without suffix.
+
+inputs:
+  suffix:
+    description: The suffix to use when constructing the tag(s) for the image.
+      Could be used to add required image info like -<ARCH> or -<ARCH>-test.
+    required: false
+    default: ''
+  latest:
+    description: Set to allow creation of latest tags. Default auto.
+    required: false
+    default: 'auto'
+  repository:
+    description: Name of the repository of the image to build.
+    required: true
+  get_version:
+    description: Set to true if the action should return the version tag without
+      suffix. Default false
+    required: false
+    default: 'false'
+
+outputs:
+  tags:
+    description: The tags output from the metadata generation.
+    value: ${{ steps.meta.outputs.tags }}
+  labels:
+    description: The tags output from the metadata generation.
+    value: ${{ steps.meta.outputs.labels }}
+  full_name:
+    description: The name of the image (tags might be an array).
+    value: ${{ inputs.repository }}:${{ steps.meta.outputs.version }}
+  version:
+    description: Version tag of the image if get_version is set to true
+    value: ${{ steps.return_version.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Create metadata for docker image
+      id: meta
+      # sha for docker/metadata-action@v4 at time of commit.
+      uses: docker/metadata-action@507c2f2dc502c992ad446e3d7a5dfbe311567a96
+      with:
+        images: ${{ inputs.repository }}
+        # adds the suffix for all tags, even latest.
+        flavor: |
+          latest=${{ inputs.latest }}
+          suffix=${{ inputs.suffix }}, onlatest=true
+        tags: |
+          type=ref, event=branch
+          type=ref, event=pr
+          type=semver, pattern={{version}}, event=tag
+          type=semver, pattern={{major}}.{{minor}}
+          type=semver, pattern={{major}}
+    - name: Get base version without suffix
+      id: return_version
+      if: ${{ inputs.get_version == 'true'}}
+      shell: bash
+      run: |
+        tmp_version=${{ steps.meta.outputs.version }}
+        base_version=$(echo $tmp_version | sed -e "s/${{ inputs.suffix }}$//")
+        echo "version=$base_version" >> $GITHUB_OUTPUT
