@@ -100,7 +100,7 @@ jobs:
           fi
 
   create_prerelease:
-    if: (github.event_name != 'pull_request')
+    if: (github.ref_type == 'tag')
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -134,7 +134,7 @@ jobs:
           }
 
   download-and-upload-artifacts:
-    if: (github.event_name != 'pull_request')
+    if: (github.ref_type == 'tag')
     permissions:
       contents: write
     runs-on: ubuntu-latest
