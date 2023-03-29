@@ -1,0 +1,25 @@
+---
+# Please see the documentation for all configuration options:
+# https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+
+version: 2
+updates:
+  # Check status of workflows
+  - package-ecosystem: "github-actions"
+    directory: "/" # Location of package manifests
+    schedule:
+      interval: "weekly"
+      day: "monday"
+  # Check status of composite actions
+  # Depandabot doesn't support wildcards so each folder need to be listed
+  # (See https://github.com/dependabot/dependabot-core/issues/2178)
+  - package-ecosystem: "github-actions" # Check status of actions we use
+    directory: ".github/actions/metadata-action" # Location of package manifests
+    schedule:
+      interval: "weekly"
+      day: "monday"
+  - package-ecosystem: "github-actions" # Check status of actions we use
+    directory: ".github/actions/update-acap-manifest-action" # Location of package manifests
+    schedule:
+      interval: "weekly"
+      day: "monday"
