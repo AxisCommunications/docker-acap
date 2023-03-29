@@ -1,0 +1,30 @@
+---
+name: Lint codebase
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Lint codebase
+        uses: github/super-linter/slim@v4
+        env:
+          VALIDATE_ALL_CODEBASE: true
+          DEFAULT_BRANCH: main
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LINTER_RULES_PATH: /
+          IGNORE_GITIGNORED_FILES: true
+          VALIDATE_BASH: true
+          VALIDATE_DOCKERFILE_HADOLINT: true
+          VALIDATE_MARKDOWN: true
+          VALIDATE_SHELL_SHFMT: true
+          VALIDATE_YAML: true
