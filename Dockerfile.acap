@@ -40,7 +40,7 @@ RUN echo ac_cv_func_realloc_0_nonnull=yes >$BUILD_CACHE \
 RUN <<EOF
     . /opt/axis/acapsdk/environment-setup*
     ./autogen.sh
-    ./configure --host=${TARGET_PREFIX%*-} \
+    ./configure --host="${TARGET_PREFIX%*-}" \
                 --disable-shared \
                 --without-ncurses  \
                 --cache-file="$BUILD_CACHE"
