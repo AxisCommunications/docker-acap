@@ -24,7 +24,7 @@ note that you need to enclose your password with quotes (`'`) if it contains spe
 
 ### Host
 
-TThe host machine is required to have [Docker](https://docs.docker.com/get-docker/) and
+The host machine is required to have [Docker](https://docs.docker.com/get-docker/) and
 [Docker Compose](https://docs.docker.com/compose/install/) installed. To build Docker ACAP locally
 it is required to also have [Buildx](https://docs.docker.com/build/install-buildx/) installed.
 
