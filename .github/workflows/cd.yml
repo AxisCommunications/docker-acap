@@ -1,3 +1,5 @@
+# yamllint disable rule:line-length
+---
 name: Sign and prerelease
 
 # Run the workflow on when code or a semver tag is pushed to main branch,
@@ -110,30 +112,30 @@ jobs:
     outputs:
       RELEASE_ID: ${{ steps.prerelease.outputs.RELEASE_ID }}
     steps:
-    - name: Set TAG
-      id: vars
-      run: echo "TAG=${GITHUB_REF#refs/*/}" >> ${GITHUB_ENV}
-    - name: Create prerelease
-      uses: actions/github-script@v6
-      id: prerelease
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        script: |
-          try {
-            const response = await github.rest.repos.createRelease({
-              draft: false,
-              generate_release_notes: true,
-              name: '${{ env.TAG }}',
-              owner: context.repo.owner,
-              prerelease: true,
-              repo: context.repo.repo,
-              tag_name: '${{ env.TAG }}',
-            });
-            core.setOutput('RELEASE_ID', response.data.id);
-          } catch (error) {
-            core.setFailed(error.message);
-          }
+      - name: Set TAG
+        id: vars
+        run: echo "TAG=${GITHUB_REF#refs/*/}" >> ${GITHUB_ENV}
+      - name: Create prerelease
+        uses: actions/github-script@v6
+        id: prerelease
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          script: |
+            try {
+              const response = await github.rest.repos.createRelease({
+                draft: false,
+                generate_release_notes: true,
+                name: '${{ env.TAG }}',
+                owner: context.repo.owner,
+                prerelease: true,
+                repo: context.repo.repo,
+                tag_name: '${{ env.TAG }}',
+              });
+              core.setOutput('RELEASE_ID', response.data.id);
+            } catch (error) {
+              core.setFailed(error.message);
+            }
 
   # Uploads the signed eap files from artifacts to the pre-release.
   # This job runs if the create_prerelease job 
@@ -151,43 +153,43 @@ jobs:
       EAP_FILE_AARCH64: ${{ needs.build.outputs.EAP_FILE_AARCH64 }}
       EAP_FILE_ARMV7HF: ${{ needs.build.outputs.EAP_FILE_ARMV7HF }}
     steps:
-    - name: Get EAP file name
-      id: full_eap_name
-      run: |
-        if [ ${{ matrix.arch }} = armv7hf ]
-        then
-          echo "EAP_FILE=${{ needs.build.outputs.EAP_FILE_ARMV7HF }}" >> $GITHUB_ENV
-        elif [ ${{ matrix.arch }} = aarch64 ]
-        then
-          echo "EAP_FILE=${{ needs.build.outputs.EAP_FILE_AARCH64 }}" >> $GITHUB_ENV
-        else
-          echo "::error::Non valid architecture '${{ matrix.arch }}' encountered"
-        fi
-    - name: Download artifacts
-      uses: actions/download-artifact@v3
-      with:
-        name: ${{ env.EAP_FILE }}
-        path: ./
-    - name: Upload file to GitHub release
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        RESPONSE=$(curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          -H "Accept: application/vnd.github.manifold-preview" \
-          -H "Content-Type: application/zip" \
-          --data-binary @${{ env.EAP_FILE }} \
-          "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/${{env.RELEASE_ID}}/assets?name=${{ env.EAP_FILE }}" \
-          -w "%{http_code}\n" -o /dev/null)
-        echo "HTTP_RESPONSE=$RESPONSE" >> $GITHUB_ENV
-    - name: Check that asset has been uploaded correctly
-      run: |
-        if [[ -n "$HTTP_RESPONSE" && "$HTTP_RESPONSE" =~ ^[0-9]+$ ]]; then
-          if [ "$HTTP_RESPONSE" -eq 201 ]; then
-            echo "HTTP response code is 201, upload was successful"
+      - name: Get EAP file name
+        id: full_eap_name
+        run: |
+          if [ ${{ matrix.arch }} = armv7hf ]
+          then
+            echo "EAP_FILE=${{ needs.build.outputs.EAP_FILE_ARMV7HF }}" >> $GITHUB_ENV
+          elif [ ${{ matrix.arch }} = aarch64 ]
+          then
+            echo "EAP_FILE=${{ needs.build.outputs.EAP_FILE_AARCH64 }}" >> $GITHUB_ENV
           else
-            echo "HTTP response code is: $HTTP_RESPONSE, upload was not successful"
-            exit 1
+            echo "::error::Non valid architecture '${{ matrix.arch }}' encountered"
           fi
-        else
-          echo "HTTP_RESPONSE is empty or not a valid integer: $HTTP_RESPONSE"
-        fi
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ env.EAP_FILE }}
+          path: ./
+      - name: Upload file to GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RESPONSE=$(curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.manifold-preview" \
+            -H "Content-Type: application/zip" \
+            --data-binary @${{ env.EAP_FILE }} \
+            "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/${{env.RELEASE_ID}}/assets?name=${{ env.EAP_FILE }}" \
+            -w "%{http_code}\n" -o /dev/null)
+          echo "HTTP_RESPONSE=$RESPONSE" >> $GITHUB_ENV
+      - name: Check that asset has been uploaded correctly
+        run: |
+          if [[ -n "$HTTP_RESPONSE" && "$HTTP_RESPONSE" =~ ^[0-9]+$ ]]; then
+            if [ "$HTTP_RESPONSE" -eq 201 ]; then
+              echo "HTTP response code is 201, upload was successful"
+            else
+              echo "HTTP response code is: $HTTP_RESPONSE, upload was not successful"
+              exit 1
+            fi
+          else
+            echo "HTTP_RESPONSE is empty or not a valid integer: $HTTP_RESPONSE"
+          fi

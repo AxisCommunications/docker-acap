@@ -1,0 +1,8 @@
+---
+ignored:
+  - DL3003 # Use WORKDIR to switch to a directory
+  - DL3008 # Pin versions in apt get install
+  - DL3018 # Pin versions in apk add
+  - DL3019 # se the '--no-cache' switch ...
+  - SC2103 # Use a ( subshell ) to avoid having to cd back.
+  - SC2164 # Use cd ... || exit in case cd fails.
