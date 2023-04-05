@@ -3,6 +3,7 @@ dockerd
 docker-proxy
 dockerdwrapper
 package.conf.orig
+build-*
 *.eap
 *.eap.old
 .clang-format

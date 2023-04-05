@@ -1,4 +1,7 @@
 #!/bin/sh
+
+set -x
+
 case "$1" in
     armv7hf|aarch64)
        ;;
@@ -18,7 +21,6 @@ docker buildx build --build-arg ACAPARCH="$1" \
              --build-arg HTTP_PROXY="$HTTP_PROXY" \
              --build-arg HTTPS_PROXY="$HTTPS_PROXY" \
              --tag $dockerdtag \
-             --no-cache \
              --file Dockerfile.dockerd .
 
 docker run -v /var/run/docker.sock:/var/run/docker.sock \
@@ -37,7 +39,6 @@ docker buildx build --build-arg ACAPARCH="$1" \
              --build-arg HTTP_PROXY="$HTTP_PROXY" \
              --build-arg HTTPS_PROXY="$HTTPS_PROXY" \
              --file Dockerfile.acap \
-             --no-cache \
-             --tag "$imagetag" . 
+             --tag "$imagetag" .
 
 docker cp "$(docker create "$imagetag")":/opt/app/ ./build-"$1"

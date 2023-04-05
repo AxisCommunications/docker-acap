@@ -1,0 +1,17 @@
+curl -L https://github.com/moby/moby/archive/refs/tags/v20.10.9.tar.gz | tar xz && \
+patch -d moby-20.10.9 < 0001-Use-stretch-as-base-to-work-on-ARTPEC-6-7.patch
+patching file Dockerfile
+patching file Dockerfile.buildx
+patching file Dockerfile.e2e
+patching file Dockerfile.simple
+Hunk #1 succeeded at 7 with fuzz 2.
+patch -d moby-20.10.9 < 0001-Set-docker-proxy-via-build-arg.patch
+patching file Makefile
+Hunk #1 succeeded at 152 (offset 6 lines).
+make -C moby-20.10.9 DOCKER_CROSSPLATFORMS=linux/arm64 cross
+make[1]: Entering directory '/opt/dockerd/moby-20.10.9'
+mkdir -p autogen
+docker build --build-arg HTTP_PROXY= --build-arg HTTPS_PROXY=  --build-arg=GO_VERSION  -f "Dockerfile" --build-arg CROSS=true --build-arg DOCKER_CROSSPLATFORMS --output=bundles/ --target=cross --build-arg VERSION --build-arg DOCKER_GITCOMMIT --build-arg PRODUCT --build-arg PLATFORM --build-arg DEFAULT_PRODUCT_LICENSE .
+make[1]: Leaving directory '/opt/dockerd/moby-20.10.9'
+dockerd_name
+dockerd_name

@@ -13,7 +13,7 @@ ARG ACAP3_SDK=acap-sdk
 
 ARG BUILD_IMAGE=${REPO}/${NATIVE_SDK}:${VERSION}-${ACAPARCH}-ubuntu${UBUNTU_VERSION}
 
-FROM ${REPO}/${ACAP3_SDK}:${ACAP3_SDK_VERSION}-${ACAPARCH}-ubuntu${ACAP3_UBUNTU_VERSION} as acap-sdk
+FROM ${REPO}/${ACAP3_SDK}:${ACAP3_SDK_VERSION}-${ACAPARCH} as acap-sdk
 
 FROM $BUILD_IMAGE AS ps
 ARG PROCPS_VERSION=v3.3.17
@@ -66,6 +66,14 @@ COPY DOCKERVERSION /opt/app
 COPY --from=ps /export/ps /opt/app
 
 WORKDIR /opt/app
+
+RUN curl -Lo slirp4netns https://github.com/rootless-containers/slirp4netns/releases/download/v1.2.0/slirp4netns-aarch64
+RUN chmod +x slirp4netns
+
+RUN curl -L https://download.docker.com/linux/static/stable/aarch64/docker-rootless-extras-20.10.9.tgz | tar xz
+RUN mv docker-rootless-extras/rootlesskit* docker-rootless-extras/dockerd-rootless.sh .
+RUN chmod +x rootlesskit* dockerd-rootless.sh
+
 RUN <<EOF
     . /opt/axis/acapsdk/environment-setup*
     acap-build . \
@@ -73,7 +81,11 @@ RUN <<EOF
         -a docker-init \
         -a docker-proxy \
         -a empty_daemon.json \
-        -a ps
+        -a ps \
+        -a slirp4netns \
+        -a dockerd-rootless-mod.sh \
+        -a rootlesskit \
+        -a rootlesskit-docker-proxy
 EOF
 
 ENTRYPOINT [ "/opt/axis/acapsdk/sysroots/x86_64-pokysdk-linux/usr/bin/eap-install.sh" ]
