@@ -63,6 +63,8 @@ COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/pkgconfig/ax
 
 COPY app /opt/app
 COPY DOCKERVERSION /opt/app
+RUN pwd
+RUN ls -al
 COPY --from=ps /export/ps /opt/app
 
 WORKDIR /opt/app
