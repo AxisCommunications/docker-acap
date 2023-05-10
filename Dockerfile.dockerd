@@ -35,4 +35,4 @@ EOF
 ARG ACAPARCH=armv7hf
 ENV ARCH ${ACAPARCH}
 
-ENTRYPOINT [ "make", "-f", "/opt/dockerd/Makefile.dockerd" ]
+ENTRYPOINT [ "make", "-f", "Makefile.dockerd" ]
