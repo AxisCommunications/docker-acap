@@ -14,7 +14,7 @@ imagetag="${2:-docker-acap:1.0}"
 dockerdname=dockerd_name
 
 # First we build and copy out dockerd
-docker buildx build --build-arg ACAPARCH="$1" \
+docker buildx build --security-opt seccomp=unconfined --build-arg ACAPARCH="$1" \
              --build-arg HTTP_PROXY="$HTTP_PROXY" \
              --build-arg HTTPS_PROXY="$HTTPS_PROXY" \
              --tag $dockerdtag \
@@ -38,6 +38,6 @@ docker buildx build --build-arg ACAPARCH="$1" \
              --build-arg HTTPS_PROXY="$HTTPS_PROXY" \
              --file Dockerfile.acap \
              --no-cache \
-             --tag "$imagetag" . 
+             --tag "$imagetag" .
 
 docker cp "$(docker create "$imagetag")":/opt/app/ ./build-"$1"
