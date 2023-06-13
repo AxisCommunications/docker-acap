@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-ARG DOCKER_IMAGE_VERSION=20.10.24
+ARG DOCKER_IMAGE_VERSION=20.10.9
 
 FROM docker:$DOCKER_IMAGE_VERSION
 ARG HTTP_PROXY
@@ -17,6 +17,7 @@ COPY Makefile.dockerd .
 COPY DOCKERVERSION .
 COPY 0001-Use-stretch-as-base-to-work-on-ARTPEC-6-7.patch .
 COPY 0001-Set-docker-proxy-via-build-arg.patch .
+COPY 0001-change-debian-stretch-repositories.patch .
 
 # Install the packages we use
 RUN <<EOF
