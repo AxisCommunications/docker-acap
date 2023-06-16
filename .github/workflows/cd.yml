@@ -65,11 +65,6 @@ jobs:
         run: |
           signed_output=$(echo "${{ env.EAP_FILE }}" | sed 's/\.eap/_signed.eap/')
           echo "SIGNED_EAP_FILE=${signed_output}" >> $GITHUB_ENV
-      - name: Upload unsigned artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ env.EAP_FILE }}
-          path: build-${{ matrix.arch }}/${{ env.EAP_FILE }}
       - name: Sign eap-file
         run: |
           cd build-${{ matrix.arch }}

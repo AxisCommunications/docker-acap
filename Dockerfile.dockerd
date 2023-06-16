@@ -3,6 +3,7 @@
 ARG DOCKER_IMAGE_VERSION=20.10.9
 
 FROM docker:$DOCKER_IMAGE_VERSION
+ARG DOCKER_IMAGE_VERSION
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
 
@@ -32,5 +33,14 @@ EOF
 # Setup the environment
 ARG ACAPARCH=armv7hf
 ENV ARCH ${ACAPARCH}
+
+# Get Moby image
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN <<EOF
+    curl -L "https://github.com/moby/moby/archive/refs/tags/v${DOCKER_IMAGE_VERSION}.tar.gz" | tar xz
+    patch -d moby-${DOCKER_IMAGE_VERSION} < 0001-Use-stretch-as-base-to-work-on-ARTPEC-6-7.patch
+	patch -d moby-${DOCKER_IMAGE_VERSION} < 0001-Set-docker-proxy-via-build-arg.patch
+	patch -d moby-${DOCKER_IMAGE_VERSION} < 0001-change-debian-stretch-repositories.patch
+EOF
 
 ENTRYPOINT [ "make", "-f", "Makefile.dockerd" ]
