@@ -17,7 +17,6 @@ WORKDIR /opt/dockerd
 COPY Makefile.dockerd .
 COPY DOCKERVERSION .
 
-
 # Install the packages we use
 RUN <<EOF
     apk add --update \
@@ -32,9 +31,10 @@ EOF
 ARG ACAPARCH=armv7hf
 ENV ARCH ${ACAPARCH}
 
-ENV MOBY_URL "https://github.com/moby/moby/archive/refs/tags/v${DOCKER_IMAGE_VERSION}.tar.gz"
+# Get Moby image
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN curl -L "https://github.com/moby/moby/archive/refs/tags/v${DOCKER_IMAGE_VERSION}.tar.gz" | tar xz
 
-RUN curl -L ${MOBY_URL} | tar xz
 COPY docker-bake.override_${ACAPARCH}.hcl moby-${DOCKER_IMAGE_VERSION}/docker-bake.override.hcl
 
 ENTRYPOINT [ "make", "-f", "Makefile.dockerd" ]
