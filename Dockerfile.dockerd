@@ -1,8 +1,9 @@
 # syntax=docker/dockerfile:1
 
-ARG DOCKER_IMAGE_VERSION=20.10.9
+ARG DOCKER_IMAGE_VERSION=24.0.2
 
 FROM docker:$DOCKER_IMAGE_VERSION
+ARG DOCKER_IMAGE_VERSION
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
 
@@ -15,8 +16,7 @@ WORKDIR /opt/dockerd
 # Copy necessary files
 COPY Makefile.dockerd .
 COPY DOCKERVERSION .
-COPY 0001-Use-stretch-as-base-to-work-on-ARTPEC-6-7.patch .
-COPY 0001-Set-docker-proxy-via-build-arg.patch .
+
 
 # Install the packages we use
 RUN <<EOF
@@ -31,5 +31,10 @@ EOF
 # Setup the environment
 ARG ACAPARCH=armv7hf
 ENV ARCH ${ACAPARCH}
+
+ENV MOBY_URL "https://github.com/moby/moby/archive/refs/tags/v${DOCKER_IMAGE_VERSION}.tar.gz"
+
+RUN curl -L ${MOBY_URL} | tar xz
+COPY docker-bake.override_${ACAPARCH}.hcl moby-${DOCKER_IMAGE_VERSION}/docker-bake.override.hcl
 
 ENTRYPOINT [ "make", "-f", "Makefile.dockerd" ]
