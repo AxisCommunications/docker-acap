@@ -1,4 +1,6 @@
-include DOCKERVERSION
+ifndef DOCKERVERSION
+  $(error Required variable DOCKERVERSION is not set)
+endif
 
 ifeq ($(ARCH),aarch64)
   DOCKER_CROSSPLATFORMS = linux/arm64

@@ -15,7 +15,6 @@ WORKDIR /opt/dockerd
 
 # Copy necessary files
 COPY Makefile.dockerd .
-COPY DOCKERVERSION .
 COPY 0001-Use-stretch-as-base-to-work-on-ARTPEC-6-7.patch .
 COPY 0001-Set-docker-proxy-via-build-arg.patch .
 COPY 0001-change-debian-stretch-repositories.patch .
@@ -33,6 +32,7 @@ EOF
 # Setup the environment
 ARG ACAPARCH=armv7hf
 ENV ARCH ${ACAPARCH}
+ENV DOCKERVERSION ${DOCKER_IMAGE_VERSION}
 
 # Get Moby image
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]

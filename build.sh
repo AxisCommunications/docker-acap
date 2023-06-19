@@ -19,7 +19,6 @@ docker buildx build --build-arg ACAPARCH="$1" \
              --build-arg HTTPS_PROXY="$HTTPS_PROXY" \
              --tag $dockerdtag \
              --no-cache \
-             --progress=plain \
              --file Dockerfile.dockerd .
 
 docker run -v /var/run/docker.sock:/var/run/docker.sock \
@@ -39,7 +38,6 @@ docker buildx build --build-arg ACAPARCH="$1" \
              --build-arg HTTPS_PROXY="$HTTPS_PROXY" \
              --file Dockerfile.acap \
              --no-cache \
-             --progress=plain \
              --tag "$imagetag" . 
 
 docker cp "$(docker create "$imagetag")":/opt/app/ ./build-"$1"
