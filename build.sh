@@ -1,16 +1,16 @@
-#!/bin/sh
-case "$1" in
+#!/bin/sh -e
+case "${1:-}" in
     armv7hf|aarch64)
        ;;
     *)
        # error
-       echo "Invalid argument '$1', valid arguments are armv7hf or aarch64"
+       echo "Invalid argument '${1:-}', valid arguments are armv7hf or aarch64"
        exit 1
        ;;
 esac
 
 dockerdtag=dockerd:1.0
-imagetag="${2:-docker-acap:1.0}"
+imagetag=${2:-docker-acap:1.0}
 dockerdname=dockerd_name
 
 # First we build and copy out dockerd
