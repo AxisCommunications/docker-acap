@@ -17,6 +17,7 @@ COPY Makefile.dockerd .
 COPY DOCKERVERSION .
 COPY 0001-Use-stretch-as-base-to-work-on-ARTPEC-6-7.patch .
 COPY 0001-Set-docker-proxy-via-build-arg.patch .
+COPY 0001-change-debian-stretch-repositories.patch .
 
 # Install the packages we use
 RUN <<EOF
