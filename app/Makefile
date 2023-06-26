@@ -1,4 +1,6 @@
-include DOCKERVERSION
+ifndef DOCKERVERSION
+  $(error Required variable DOCKERVERSION is not set)
+endif
 
 PROG1	= dockerdwrapper
 OBJS1	= $(PROG1).c
@@ -24,11 +26,11 @@ all:	$(PROG1) dockerd docker-init docker-proxy
 $(PROG1): $(OBJS1)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LIBS) $(LDLIBS) -o $@
 
-dockerd:
-	ARCH=$(ARCH) $(MAKE) -f Makefile.dockerd
-
 download_docker_binaries:
 	curl https://download.docker.com/linux/static/stable/$(DOCKERARCH)/docker-$(DOCKERVERSION).tgz -o docker_binaries.tgz
+
+dockerd: download_docker_binaries
+	tar xz -f docker_binaries.tgz --strip-components=1 docker/$@ && $(STRIP) $@
 
 docker-init: download_docker_binaries
 	tar xz -f docker_binaries.tgz --strip-components=1 docker/$@ && $(STRIP) $@

@@ -52,7 +52,14 @@ jobs:
           manifest_file: ./app/manifest.json
           value: ${{ steps.meta.outputs.version }}
       - name: Build ${{ env.example }} application
-        run: ./build.sh ${{ matrix.arch }} ${{ steps.meta.outputs.full_name }}
+        uses: ./.github/actions/docker-build-push-action
+        with:
+          dockerfile: Dockerfile
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          push: false
+          load: true
+          build-args: ACAPARCH=${{ matrix.arch }}
       - name: Set name of EAP-file
         id: get_eap_file_name
         run: |

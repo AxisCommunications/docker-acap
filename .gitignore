@@ -1,4 +1,4 @@
-build/
+build*/
 dockerd
 docker-proxy
 dockerdwrapper
