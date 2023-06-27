@@ -63,7 +63,7 @@ jobs:
       - name: Set name of EAP-file
         id: get_eap_file_name
         run: |
-          docker cp $(docker create "${{ steps.meta.outputs.full_name }}"):/opt/app .build
+          docker cp $(docker create "${{ steps.meta.outputs.full_name }}"):/opt/app build
           export EAP_FILE=$(find build -type f -name "*.eap" -printf "%f\n")
           delimiter="$(openssl rand -hex 8)"
           echo "EAP_FILE<<${delimiter}" >> ${GITHUB_ENV}
