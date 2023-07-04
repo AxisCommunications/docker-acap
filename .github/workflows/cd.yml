@@ -43,7 +43,7 @@ jobs:
         uses: ./.github/actions/metadata-action
         with:
           suffix: -${{ matrix.arch }}
-          repository: ${{ vars.REPOSITORY_DOCKER_HUB }}
+          repository: 'docker-acap'
           get_version: 'true'
       - name: Update manifest file
         if: ( github.ref_type == 'tag')
@@ -139,7 +139,7 @@ jobs:
             }
 
   # Uploads the signed eap files from artifacts to the pre-release.
-  # This job runs if the create_prerelease job 
+  # This job runs if the create_prerelease job
   download-and-upload-artifacts:
     if: (github.ref_type == 'tag')
     permissions:
