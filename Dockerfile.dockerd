@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-ARG DOCKER_IMAGE_VERSION=20.10.9
+ARG DOCKER_IMAGE_VERSION=24.0.2
 
 FROM docker:$DOCKER_IMAGE_VERSION
 ARG HTTP_PROXY
@@ -14,9 +14,7 @@ WORKDIR /opt/dockerd
 
 # Copy necessary files
 COPY Makefile.dockerd .
-COPY DOCKERVERSION .
-COPY 0001-Use-stretch-as-base-to-work-on-ARTPEC-6-7.patch .
-COPY 0001-Set-docker-proxy-via-build-arg.patch .
+COPY docker-bake.override.hcl .
 
 # Install the packages we use
 RUN <<EOF
@@ -31,5 +29,7 @@ EOF
 # Setup the environment
 ARG ACAPARCH=armv7hf
 ENV ARCH ${ACAPARCH}
+ARG DOCKER_IMAGE_VERSION
+ENV DOCKERVERSION ${DOCKER_IMAGE_VERSION}
 
 ENTRYPOINT [ "make", "-f", "Makefile.dockerd" ]

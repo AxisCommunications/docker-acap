@@ -18,6 +18,10 @@ fi
 # Environment=PATH=/usr/local/packages/dockerdwrapper:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 # EOF
 
+if [ -d "/run/docker" ]; then rm -Rf /run/docker; fi
+if [ -d "/run/containerd" ]; then rm -Rf /run/containerd; fi
+if [ -d "/run/xtables.lock" ]; then rm -Rf /run/xtables.lock; fi
+
 mkdir /run/user/0
 chown sdk /run/user/0
 

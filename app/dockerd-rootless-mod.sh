@@ -17,8 +17,6 @@ export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/docker.sock
 
 set -e -x
 
-rm -f /run/docker /run/containerd /run/xtables.lock
-
 dockerd_options=$*
 
 dockerd_command="/usr/local/packages/dockerdwrapper/dockerd --iptables=false -H tcp://0.0.0.0:2375 --tls=false $dockerd_options"
