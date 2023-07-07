@@ -14,6 +14,7 @@ all: dockerd
 
 moby-$(DOCKERVERSION):
 	curl -L https://github.com/moby/moby/archive/refs/tags/v$(DOCKERVERSION).tar.gz | tar xz && \
+	patch -d moby-$(DOCKERVERSION) -p1 < 0001-Changed-cgroup-name-for-rootless.patch && \
 	mv docker-bake.override.hcl moby-$(DOCKERVERSION)/ && \
 	sed -i 's/linux\/arm\/v7/$(DOCKER_CROSSPLATFORMS)/g' moby-$(DOCKERVERSION)/docker-bake.override.hcl
 

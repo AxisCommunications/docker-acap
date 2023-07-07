@@ -14,6 +14,7 @@ WORKDIR /opt/dockerd
 
 # Copy necessary files
 COPY Makefile.dockerd .
+COPY 0001-Changed-cgroup-name-for-rootless.patch .
 COPY docker-bake.override.hcl .
 
 # Install the packages we use
