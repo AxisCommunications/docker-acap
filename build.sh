@@ -33,7 +33,7 @@ docker stop $dockerdname
 docker rm $dockerdname
 
 # Now build and copy out the acap
-docker buildx build --build-arg ACAPARCH="$1" \
+docker buildx build --progress=plain --build-arg ACAPARCH="$1" \
              --build-arg HTTP_PROXY="$HTTP_PROXY" \
              --build-arg HTTPS_PROXY="$HTTPS_PROXY" \
              --file Dockerfile.acap \
