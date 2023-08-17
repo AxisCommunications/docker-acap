@@ -18,14 +18,6 @@ ARG ACAP3_UBUNTU_VERSION=20.04
 ARG ACAP3_SDK=acap-sdk
 
 FROM ${REPO}/${NATIVE_SDK}:${VERSION}-${ACAPARCH}-ubuntu${UBUNTU_VERSION} as build_image
-
-FROM ${REPO}/${ACAP3_SDK}:${ACAP3_SDK_VERSION}-${ACAPARCH}-ubuntu${ACAP3_UBUNTU_VERSION} as acap-sdk
-
-FROM build_image AS ps
-ARG PROCPS_VERSION=v3.3.17
-ARG BUILD_DIR=/build
-ARG EXPORT_DIR=/export
-
 RUN <<EOF
     apt-get update
     apt-get -q install -y -f --no-install-recommends \
@@ -33,9 +25,77 @@ RUN <<EOF
         autopoint \
         gettext \
         git \
-        libtool
+        libtool \
+        bison
     ln -s /usr/bin/libtoolize /usr/bin/libtool
 EOF
+
+FROM ${REPO}/${ACAP3_SDK}:${ACAP3_SDK_VERSION}-${ACAPARCH}-ubuntu${ACAP3_UBUNTU_VERSION} as acap-sdk
+
+# Building of nsenter starts here
+FROM build_image AS nsenter
+ARG NSENTER_VERSION=v2.39.1
+ARG BUILD_DIR=/build
+ARG EXPORT_DIR=/export
+
+WORKDIR $BUILD_DIR
+RUN git clone -b $NSENTER_VERSION 'https://github.com/util-linux/util-linux.git'
+
+ARG BUILD_CACHE=build.cache
+RUN echo ac_cv_func_realloc_0_nonnull=yes >$BUILD_CACHE \
+    && echo ac_cv_func_malloc_0_nonnull=yes >>$BUILD_CACHE
+RUN <<EOF
+    cd util-linux
+    . /opt/axis/acapsdk/environment-setup*
+    ./autogen.sh
+    ./configure --host="${TARGET_PREFIX%*-}" \
+                --disable-shared \
+                --without-ncurses  \
+                --cache-file="$BUILD_CACHE"
+    make nsenter
+    $STRIP nsenter
+EOF
+
+WORKDIR $EXPORT_DIR
+RUN cp $BUILD_DIR/util-linux/nsenter nsenter
+# End of nsenter build 
+
+
+# Building of ip starts here
+FROM build_image AS ip
+ARG IP_VERSION=6.4.0
+ARG BUILD_DIR=/build
+ARG EXPORT_DIR=/export
+
+WORKDIR $BUILD_DIR
+RUN curl -o iproute2.tgz https://mirrors.edge.kernel.org/pub/linux/utils/net/iproute2/iproute2-${IP_VERSION}.tar.gz
+RUN tar xvfz iproute2.tgz 
+
+ARG BUILD_CACHE=build.cache
+RUN echo ac_cv_func_realloc_0_nonnull=yes >$BUILD_CACHE \
+    && echo ac_cv_func_malloc_0_nonnull=yes >>$BUILD_CACHE
+RUN <<EOF
+    cd iproute2-${IP_VERSION}
+    . /opt/axis/acapsdk/environment-setup*
+    sed -i 's/check_tirpc$/#check_tirpc/g' configure
+    ./configure --host="${TARGET_PREFIX%*-}" \
+                --disable-shared \
+                --without-ncurses  \
+                --cache-file="$BUILD_CACHE"
+    make
+    $STRIP ./ip/ip
+EOF
+
+WORKDIR $EXPORT_DIR
+RUN cp $BUILD_DIR/iproute2-${IP_VERSION}/ip/ip ip
+# End of ip build 
+
+
+
+FROM build_image AS ps
+ARG PROCPS_VERSION=v3.3.17
+ARG BUILD_DIR=/build
+ARG EXPORT_DIR=/export
 
 WORKDIR $BUILD_DIR
 RUN git clone --depth 1 -b $PROCPS_VERSION 'https://gitlab.com/procps-ng/procps' .
@@ -73,6 +133,8 @@ COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/pkgconfig/ax
 
 COPY app /opt/app
 COPY --from=ps /export/ps /opt/app
+COPY --from=nsenter /export/nsenter /opt/app
+COPY --from=ip /export/ip /opt/app
 
 WORKDIR /opt/app
 
@@ -94,7 +156,9 @@ RUN <<EOF
         -a slirp4netns \
         -a dockerd-rootless-mod.sh \
         -a rootlesskit \
-        -a rootlesskit-docker-proxy
+        -a rootlesskit-docker-proxy \
+        -a nsenter \
+        -a ip
 EOF
 
 ENTRYPOINT [ "/opt/axis/acapsdk/sysroots/x86_64-pokysdk-linux/usr/bin/eap-install.sh" ]
