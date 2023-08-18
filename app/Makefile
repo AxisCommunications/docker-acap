@@ -21,7 +21,7 @@ else
   $(error No Docker download path defined for ARCH "$(ARCH)")
 endif
 
-all:	$(PROG1) dockerd docker-init docker-proxy slirp4netns rootlesskit rootlesskit-docker-proxy dockerd-rootless.sh dockerd-rootless-setuptool.sh vpnkit
+all:	$(PROG1) dockerd docker-init docker-proxy slirp4netns rootlesskit rootlesskit-docker-proxy dockerd-rootless.sh dockerd-rootless-setuptool.sh
 
 $(PROG1): $(OBJS1)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LIBS) $(LDLIBS) -o $@
