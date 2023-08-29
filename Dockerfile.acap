@@ -105,7 +105,13 @@ COPY ./binaries/${ACAPARCH}/* /opt/app
 
 WORKDIR /opt/app
 
-RUN curl -Lo slirp4netns https://github.com/rootless-containers/slirp4netns/releases/download/v1.2.0/slirp4netns-aarch64
+# Download slirp4netns - Done conditionally, since the filenames does not match $ACAPARCH
+RUN if [ "${ACAPARCH}" = "aarch64" ]; then \
+    curl -Lo slirp4netns "https://github.com/rootless-containers/slirp4netns/releases/download/v1.2.0/slirp4netns-aarch64"; \
+    fi
+RUN if [ "${ACAPARCH}" = "armv7hf" ]; then \
+    curl -Lo slirp4netns "https://github.com/rootless-containers/slirp4netns/releases/download/v1.2.0/slirp4netns-armv7l"; \
+    fi
 RUN chmod +x slirp4netns
 
 RUN curl -L https://download.docker.com/linux/static/stable/aarch64/docker-rootless-extras-20.10.9.tgz | tar xz
