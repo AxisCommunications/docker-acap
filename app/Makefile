@@ -1,7 +1,3 @@
-ifndef DOCKERVERSION
-  $(error Required variable DOCKERVERSION is not set)
-endif
-
 PROG1	= dockerdwrapper
 OBJS1	= $(PROG1).c
 
@@ -9,59 +5,13 @@ PKGS = gio-2.0 glib-2.0 axparameter
 CFLAGS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) pkg-config --cflags $(PKGS))
 LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) pkg-config --libs $(PKGS))
 
-CFLAGS += -W -Wformat=2 -Wpointer-arith -Wbad-function-cast -Wstrict-prototypes -Wmissing-prototypes -Winline -Wdisabled-optimization -Wfloat-equal -Wall -Werror
+CFLAGS += -W -Wformat=2 -Wpointer-arith -Wbad-function-cast -Wstrict-prototypes \
+		-Wmissing-prototypes -Winline -Wdisabled-optimization -Wfloat-equal -Wall -Werror
 
-ifeq ($(ARCH),arm64)
-  ACAPARCH = aarch64
-  DOCKERARCH = aarch64
-else ifeq ($(ARCH),arm)
-  ACAPARCH = armv7hf
-  DOCKERARCH = armhf
-else
-  $(error No Docker download path defined for ARCH "$(ARCH)")
-endif
-
-all:	$(PROG1) dockerd docker-init docker-proxy slirp4netns rootlesskit rootlesskit-docker-proxy dockerd-rootless.sh dockerd-rootless-setuptool.sh
+all: $(PROG1)
 
 $(PROG1): $(OBJS1)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LIBS) $(LDLIBS) -o $@
-
-dockerd:
-	ARCH=$(ARCH) $(MAKE) -f Makefile.dockerd
-
-download_docker_binaries:
-	curl https://download.docker.com/linux/static/stable/$(DOCKERARCH)/docker-$(DOCKERVERSION).tgz -o docker_binaries.tgz
-
-download_docker_rootless_binaries:
-	curl https://download.docker.com/linux/static/stable/$(DOCKERARCH)/docker-rootless-extras-$(DOCKERVERSION).tgz -o docker_rootless_binaries.tgz
-
-slirp4netns:
-	curl -Lo slirp4netns https://github.com/rootless-containers/slirp4netns/releases/download/v$(SLIRP4NETNSVERSION)/slirp4netns-$(SLIRP4NETNARCH)
-	chmod +x slirp4netns
-
-docker-init: download_docker_binaries
-	tar xz -f docker_binaries.tgz --strip-components=1 docker/$@ && $(STRIP) $@
-
-docker-proxy: download_docker_binaries
-	tar xz -f docker_binaries.tgz --strip-components=1 docker/$@ && $(STRIP) $@
-
-rootlesskit: download_docker_rootless_binaries
-	tar xz -f docker_rootless_binaries.tgz --strip-components=1 docker-rootless-extras/$@ && $(STRIP) $@
-
-rootlesskit-docker-proxy: download_docker_rootless_binaries
-	tar xz -f docker_rootless_binaries.tgz --strip-components=1 docker-rootless-extras/$@ && $(STRIP) $@
-
-dockerd-rootless.sh: download_docker_rootless_binaries
-	tar xz -f docker_rootless_binaries.tgz --strip-components=1 docker-rootless-extras/$@
-
-dockerd-rootless-setuptool.sh: download_docker_rootless_binaries
-	tar xz -f docker_rootless_binaries.tgz --strip-components=1 docker-rootless-extras/$@
-
-vpnkit: download_docker_rootless_binaries
-	tar xz -f docker_rootless_binaries.tgz --strip-components=1 docker-rootless-extras/$@ && $(STRIP) $@
-
-acap: dockerd
-	docker buildx build --build-arg ACAPARCH=$(ACAPARCH) . -t axisecp/docker-acap-$(ACAPARCH):latest
 
 clean:
 	mv package.conf.orig package.conf || :
