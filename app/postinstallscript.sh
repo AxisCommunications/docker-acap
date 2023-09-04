@@ -33,4 +33,8 @@ mv dockerd-rootless-mod.sh dockerdwrapper
 
 chown sdk dockerdwrapper
 
-
+# Let root own these two utilities and make the setuid
+chown root:root newuidmap
+chown root:root newgidmap
+chmod u+s newuidmap
+chmod u+s newgidmap
