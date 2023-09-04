@@ -3,6 +3,7 @@
     "acapPackageConf": {
         "setup": {
             "friendlyName": "Docker Daemon Rootless",
+            "appId": "414120",
             "appName": "dockerdwrapper",
             "vendor": "Axis Communications",
             "embeddedSdkVersion": "3.0",
@@ -12,7 +13,7 @@
             },
             "vendorUrl": "https://www.axis.com",
             "runMode": "once",
-            "version": "2.0.0"
+            "version": "2.0.0-wip"
         },
         "installation": {
             "postInstallScript": "postinstallscript.sh"

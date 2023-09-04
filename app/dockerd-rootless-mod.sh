@@ -19,7 +19,7 @@ set -e -x
 
 dockerd_options=$*
 
-dockerd_command="/usr/local/packages/dockerdwrapper/dockerd --iptables=false -H tcp://0.0.0.0:2375 --tls=false $dockerd_options"
+dockerd_command="/usr/local/packages/dockerdwrapper/dockerd --iptables=false -H tcp://0.0.0.0:2375 --tls=false --data-root /var/spool/storage/SD_DISK/dockerd/data $dockerd_options"
 echo '#!/bin/sh' > dockerd_command.sh
 echo $dockerd_command >> dockerd_command.sh
 chmod +x dockerd_command.sh
