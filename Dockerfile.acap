@@ -87,7 +87,7 @@ FROM build_image as build
 ARG DOCKER_IMAGE_VERSION
 ARG ACAPARCH
 ARG SLIRP4NETNS_VERSION=1.2.0
-ARG ROOTLESS_EXTRAS_VERSION=20.10.9
+ARG ROOTLESS_EXTRAS_VERSION=${DOCKER_IMAGE_VERSION}
 
 # Copy over axparameter from the acap-sdk
 COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/include/axsdk/ax_parameter /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/include/axsdk
