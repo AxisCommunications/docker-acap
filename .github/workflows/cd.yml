@@ -66,7 +66,15 @@ jobs:
         run: |
           signed_output=$(echo "${{ env.EAP_FILE }}" | sed 's/\.eap/_signed.eap/')
           echo "SIGNED_EAP_FILE=${signed_output}" >> $GITHUB_ENV
+      # TODO: Remove this step before merge to main - only added for temporary publish of unsigned eap
+      - name: Upload unsigned artifact
+        uses: actions/upload-artifact@v3
+        with:
+            name: ${{ env.EAP_FILE }}
+            path: build-${{ matrix.arch }}/${{ env.EAP_FILE }}
       - name: Sign eap-file
+        # TODO Remove if-statement before merge to main
+        if: ( github.ref_type == 'tag') 
         run: |
           cd build-${{ matrix.arch }}
           RESPONSE=$(curl -XPOST -H 'accept: */*' -H 'Content-Type: multipart/form-data' -H 'Authorization: Bearer ${{secrets.ACAP_PORTAL_SIGNING_BEARER_TOKEN}}' \
@@ -74,6 +82,8 @@ jobs:
           -w "%{http_code}\n" -o /dev/null)
           echo "HTTP_RESPONSE=$RESPONSE" >> $GITHUB_ENV
       - name: Check that acap has been signed
+        # TODO Remove if-statement before merge to main
+        if: ( github.ref_type == 'tag') 
         run: |
           if [[ -n "$HTTP_RESPONSE" && "$HTTP_RESPONSE" =~ ^[0-9]+$ ]]; then
             if [ "$HTTP_RESPONSE" -eq 200 ]; then
@@ -86,11 +96,15 @@ jobs:
             echo "HTTP_RESPONSE is empty or not a valid integer: $HTTP_RESPONSE"
           fi
       - name: Upload artifact
+        # TODO Remove if-statement before merge to main
+        if: ( github.ref_type == 'tag') 
         uses: actions/upload-artifact@v3
         with:
           name: ${{ env.SIGNED_EAP_FILE }}
           path: build-${{ matrix.arch }}/${{ env.SIGNED_EAP_FILE }}
       - name: Save full file name
+        # TODO Remove if-statement before merge to main
+        if: ( github.ref_type == 'tag') 
         id: save_full_file_name
         run: |
           if [ ${{ matrix.arch }} = armv7hf ]
