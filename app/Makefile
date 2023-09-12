@@ -6,7 +6,8 @@ CFLAGS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) pkg-config --cflags $(PKGS)
 LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) pkg-config --libs $(PKGS))
 
 CFLAGS += -W -Wformat=2 -Wpointer-arith -Wbad-function-cast -Wstrict-prototypes \
-		-Wmissing-prototypes -Winline -Wdisabled-optimization -Wfloat-equal -Wall -Werror
+		-Wmissing-prototypes -Winline -Wdisabled-optimization -Wfloat-equal -Wall -Werror \
+		-Wno-unused-variable
 
 all: $(PROG1)
 

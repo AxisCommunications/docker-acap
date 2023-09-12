@@ -1,4 +1,5 @@
 build/
+tmp/
 dockerd
 docker-proxy
 dockerdwrapper

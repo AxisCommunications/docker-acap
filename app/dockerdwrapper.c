@@ -24,6 +24,11 @@
 #include <sys/wait.h>
 #include <syslog.h>
 #include <unistd.h>
+#include <netdb.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 /**
  * @brief Callback called when the dockerd process exits.
@@ -248,6 +253,22 @@ start_dockerd(void)
   guint args_offset = 0;
   gchar **args_split = NULL;
 
+  // Set env variables
+  setenv("HOME","/usr/local/packages/dockerdwrapper",1);
+  // char *path = getenv("PATH");
+  // strcat(path,":/usr/local/packages/dockerdwrapper:/usr/sbin");
+  // setenv("PATH",path,1);
+  setenv("PATH","/bin:/usr/bin:/usr/local/packages/dockerdwrapper:/usr/sbin",1); // TODO should use the getenv/setenv above
+  setenv("XDG_RUNTIME_DIR","/run/user/204",1);
+  setenv("DOCKER_HOST","unix://run/user/204/docker.sock",1);
+
+  // TODO remove 
+  syslog(LOG_INFO,"PATH: %s", getenv("PATH"));
+  syslog(LOG_INFO, "HOME: %s", getenv("HOME"));
+  syslog(LOG_INFO, "XDG_RUNTIME_DIR: %s", getenv("XDG_RUNTIME_DIR"));
+  syslog(LOG_INFO, "DOCKER_HOST: %s", getenv("DOCKER_HOST"));
+  // TODO - end remove
+
   // Read parameters
   char *use_sd_card_value = get_parameter_value("SDCardSupport");
   char *use_tls_value = get_parameter_value("UseTLS");
@@ -285,57 +306,93 @@ start_dockerd(void)
       goto end;
     }
   }
-  args_offset += g_snprintf(args + args_offset, args_len - args_offset, "%s %s",
+
+  // get host ip
+  char hostbuffer[256];
+  char *IPbuffer;
+  struct hostent *host_entry;
+  gethostname(hostbuffer, sizeof(hostbuffer));
+  host_entry = gethostbyname(hostbuffer);
+  IPbuffer = inet_ntoa(*((struct in_addr*)
+                        host_entry->h_addr_list[0]));
+  syslog(LOG_INFO,"Host IP: %s", IPbuffer);
+
+  // construct the rootlesskit command
+  args_offset += g_snprintf(args + args_offset, args_len - args_offset, "%s %s %s %s %s %s %s %s %s",
+    "rootlesskit",
+    "--debug",
+    "--subid-source=static", 
+    "--net=slirp4netns",
+    "--disable-host-loopback",
+    "--copy-up=/etc",
+    "--copy-up=/run",
+    "--propagation=rslave",
+    "--port-driver slirp4netns");
+  
+  if (use_tls) {
+    args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s %s%s",
+    "-p", IPbuffer, ":2376:2376/tcp");
+  }
+  else {
+    args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s %s%s",
+    "-p", IPbuffer, ":2375:2375/tcp");
+  }
+
+  // add dockerd arguments
+  args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s %s %s %s %s",
       "dockerd",
+      "--iptables=false",
+      "-H tcp://0.0.0.0:2375",
+      "--tls=false",
       "--config-file /usr/local/packages/dockerdwrapper/localdata/daemon.json");
 
   g_strlcpy(msg, "Starting dockerd", msg_len);
 
-  if (use_tls) {
-    const char *ca_path = "/usr/local/packages/dockerdwrapper/ca.pem";
-    const char *cert_path =
-        "/usr/local/packages/dockerdwrapper/server-cert.pem";
-    const char *key_path = "/usr/local/packages/dockerdwrapper/server-key.pem";
+  // if (use_tls) {
+  //   const char *ca_path = "/usr/local/packages/dockerdwrapper/ca.pem";
+  //   const char *cert_path =
+  //       "/usr/local/packages/dockerdwrapper/server-cert.pem";
+  //   const char *key_path = "/usr/local/packages/dockerdwrapper/server-key.pem";
 
-    bool ca_exists = access(ca_path, F_OK) == 0;
-    bool cert_exists = access(cert_path, F_OK) == 0;
-    bool key_exists = access(key_path, F_OK) == 0;
+  //   bool ca_exists = access(ca_path, F_OK) == 0;
+  //   bool cert_exists = access(cert_path, F_OK) == 0;
+  //   bool key_exists = access(key_path, F_OK) == 0;
 
-    if (!ca_exists) {
-      syslog(LOG_ERR,
-             "Cannot start using TLS, no CA certificate found at %s",
-             ca_path);
-    }
-    if (!cert_exists) {
-      syslog(LOG_ERR,
-             "Cannot start using TLS, no server certificate found at %s",
-             cert_path);
-    }
-    if (!key_exists) {
-      syslog(LOG_ERR,
-             "Cannot start using TLS, no server key found at %s",
-             key_path);
-    }
+  //   if (!ca_exists) {
+  //     syslog(LOG_ERR,
+  //            "Cannot start using TLS, no CA certificate found at %s",
+  //            ca_path);
+  //   }
+  //   if (!cert_exists) {
+  //     syslog(LOG_ERR,
+  //            "Cannot start using TLS, no server certificate found at %s",
+  //            cert_path);
+  //   }
+  //   if (!key_exists) {
+  //     syslog(LOG_ERR,
+  //            "Cannot start using TLS, no server key found at %s",
+  //            key_path);
+  //   }
 
-    if (!ca_exists || !cert_exists || !key_exists) {
-      goto end;
-    }
+  //   if (!ca_exists || !cert_exists || !key_exists) {
+  //     goto end;
+  //   }
 
-    args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s %s %s %s %s %s %s %s",
-        "-H tcp://0.0.0.0:2376",
-        "--tlsverify",
-        "--tlscacert", ca_path,
-        "--tlscert", cert_path,
-        "--tlskey", key_path);
+  //   args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s %s %s %s %s %s %s %s",
+  //       "-H tcp://0.0.0.0:2376",
+  //       "--tlsverify",
+  //       "--tlscacert", ca_path,
+  //       "--tlscert", cert_path,
+  //       "--tlskey", key_path);
 
-    g_strlcat (msg, " in TLS mode", msg_len);
-  } else {
-    args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s %s",
-        "-H tcp://0.0.0.0:2375",
-        "--tls=false");
+  //   g_strlcat (msg, " in TLS mode", msg_len);
+  // } else {
+  //   args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s %s",
+  //       "-H tcp://0.0.0.0:2375",
+  //       "--tls=false");
 
-    g_strlcat (msg, " in unsecured mode", msg_len);
-  }
+  //   g_strlcat (msg, " in unsecured mode", msg_len);
+  // }
 
   if (use_sdcard) {
     args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s",
@@ -346,17 +403,18 @@ start_dockerd(void)
     g_strlcat (msg, " using internal storage", msg_len);
   }
 
-  if (use_ipc_socket) {
-    args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s",
-        "-H unix:///var/run/docker.sock");
+  // if (use_ipc_socket) {
+  //   args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s",
+  //       "-H unix:///var/run/docker.sock");
 
-    g_strlcat (msg, " with IPC socket.", msg_len);
-  } else {
-    g_strlcat (msg, " without IPC socket.", msg_len);
-  }
+  //   g_strlcat (msg, " with IPC socket.", msg_len);
+  // } else {
+  //   g_strlcat (msg, " without IPC socket.", msg_len);
+  // }
 
   // Log startup information to syslog.
   syslog(LOG_INFO, "%s", msg);
+  syslog(LOG_INFO, "%s", args);
 
   args_split = g_strsplit(args, " ", 0);
   result = g_spawn_async(

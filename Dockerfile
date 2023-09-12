@@ -115,6 +115,7 @@ RUN <<EOF
     chmod +x slirp4netns
 EOF
 
+
 # Download and extract docker scripts and docker-rootless-extras scripts
 RUN <<EOF
     if [ "$ACAPARCH" = "armv7hf" ]; then
@@ -123,6 +124,7 @@ RUN <<EOF
         export DOCKER_ARCH="aarch64";
     fi;
     curl -Lo docker_binaries.tgz "https://download.docker.com/linux/static/stable/${DOCKER_ARCH}/docker-${DOCKER_IMAGE_VERSION}.tgz" ;
+    tar -xz -f docker_binaries.tgz --strip-components=1 docker/dockerd ;
     tar -xz -f docker_binaries.tgz --strip-components=1 docker/docker-init ;
     tar -xz -f docker_binaries.tgz --strip-components=1 docker/docker-proxy ;
     curl -Lo docker-rootless-extras.tgz "https://download.docker.com/linux/static/stable/${DOCKER_ARCH}/docker-rootless-extras-${ROOTLESS_EXTRAS_VERSION}.tgz" ;
@@ -139,7 +141,6 @@ RUN <<EOF
         -a empty_daemon.json \
         -a ps \
         -a slirp4netns \
-        -a dockerd-rootless-mod.sh \
         -a rootlesskit \
         -a rootlesskit-docker-proxy \
         -a nsenter \
