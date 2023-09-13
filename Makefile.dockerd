@@ -14,6 +14,7 @@ moby-$(DOCKERVERSION):
 	curl -L https://github.com/moby/moby/archive/refs/tags/v$(DOCKERVERSION).tar.gz | tar xz && \
 	patch -d moby-$(DOCKERVERSION) < 0001-Use-stretch-as-base-to-work-on-ARTPEC-6-7.patch
 	patch -d moby-$(DOCKERVERSION) < 0001-Set-docker-proxy-via-build-arg.patch
+	patch -d moby-$(DOCKERVERSION) < 0001-change-debian-stretch-repositories.patch
 
 moby-$(DOCKERVERSION)/bundles/cross/$(DOCKER_CROSSPLATFORMS)/dockerd: moby-$(DOCKERVERSION)
 	make -C moby-$(DOCKERVERSION) DOCKER_CROSSPLATFORMS=$(DOCKER_CROSSPLATFORMS) cross
