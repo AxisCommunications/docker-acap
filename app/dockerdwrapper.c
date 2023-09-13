@@ -339,60 +339,58 @@ start_dockerd(void)
   }
 
   // add dockerd arguments
-  args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s %s %s %s %s",
+  args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s %s %s",
       "dockerd",
       "--iptables=false",
-      "-H tcp://0.0.0.0:2375",
-      "--tls=false",
       "--config-file /usr/local/packages/dockerdwrapper/localdata/daemon.json");
 
   g_strlcpy(msg, "Starting dockerd", msg_len);
 
-  // if (use_tls) {
-  //   const char *ca_path = "/usr/local/packages/dockerdwrapper/ca.pem";
-  //   const char *cert_path =
-  //       "/usr/local/packages/dockerdwrapper/server-cert.pem";
-  //   const char *key_path = "/usr/local/packages/dockerdwrapper/server-key.pem";
+  if (use_tls) {
+    const char *ca_path = "/usr/local/packages/dockerdwrapper/ca.pem";
+    const char *cert_path =
+        "/usr/local/packages/dockerdwrapper/server-cert.pem";
+    const char *key_path = "/usr/local/packages/dockerdwrapper/server-key.pem";
 
-  //   bool ca_exists = access(ca_path, F_OK) == 0;
-  //   bool cert_exists = access(cert_path, F_OK) == 0;
-  //   bool key_exists = access(key_path, F_OK) == 0;
+    bool ca_exists = access(ca_path, F_OK) == 0;
+    bool cert_exists = access(cert_path, F_OK) == 0;
+    bool key_exists = access(key_path, F_OK) == 0;
 
-  //   if (!ca_exists) {
-  //     syslog(LOG_ERR,
-  //            "Cannot start using TLS, no CA certificate found at %s",
-  //            ca_path);
-  //   }
-  //   if (!cert_exists) {
-  //     syslog(LOG_ERR,
-  //            "Cannot start using TLS, no server certificate found at %s",
-  //            cert_path);
-  //   }
-  //   if (!key_exists) {
-  //     syslog(LOG_ERR,
-  //            "Cannot start using TLS, no server key found at %s",
-  //            key_path);
-  //   }
+    if (!ca_exists) {
+      syslog(LOG_ERR,
+             "Cannot start using TLS, no CA certificate found at %s",
+             ca_path);
+    }
+    if (!cert_exists) {
+      syslog(LOG_ERR,
+             "Cannot start using TLS, no server certificate found at %s",
+             cert_path);
+    }
+    if (!key_exists) {
+      syslog(LOG_ERR,
+             "Cannot start using TLS, no server key found at %s",
+             key_path);
+    }
 
-  //   if (!ca_exists || !cert_exists || !key_exists) {
-  //     goto end;
-  //   }
+    if (!ca_exists || !cert_exists || !key_exists) {
+      goto end;
+    }
 
-  //   args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s %s %s %s %s %s %s %s",
-  //       "-H tcp://0.0.0.0:2376",
-  //       "--tlsverify",
-  //       "--tlscacert", ca_path,
-  //       "--tlscert", cert_path,
-  //       "--tlskey", key_path);
+    args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s %s %s %s %s %s %s %s",
+        "-H tcp://0.0.0.0:2376",
+        "--tlsverify",
+        "--tlscacert", ca_path,
+        "--tlscert", cert_path,
+        "--tlskey", key_path);
 
-  //   g_strlcat (msg, " in TLS mode", msg_len);
-  // } else {
-  //   args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s %s",
-  //       "-H tcp://0.0.0.0:2375",
-  //       "--tls=false");
+    g_strlcat (msg, " in TLS mode", msg_len);
+  } else {
+    args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s %s",
+        "-H tcp://0.0.0.0:2375",
+        "--tls=false");
 
-  //   g_strlcat (msg, " in unsecured mode", msg_len);
-  // }
+    g_strlcat (msg, " in unsecured mode", msg_len);
+  }
 
   if (use_sdcard) {
     args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s",
