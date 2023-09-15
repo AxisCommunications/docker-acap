@@ -8,3 +8,5 @@ build-*
 *.eap
 *.eap.old
 .clang-format
+*.pem
+*.srl

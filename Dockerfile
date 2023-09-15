@@ -74,7 +74,7 @@ RUN <<EOF
     ./configure --host=${TARGET_PREFIX%*-} \
                 --disable-shared \
                 --without-ncurses  \
-                --cache-file=$BUILD_CACHE
+                --cache-file="$BUILD_CACHE"
     make ps/pscommand
     $STRIP ps/pscommand
 EOF
@@ -101,6 +101,10 @@ COPY --from=ps /export/ps /opt/app
 COPY --from=nsenter /export/nsenter /opt/app
 
 COPY ./binaries/${ACAPARCH}/* /opt/app
+
+# Temp fix to get binary onto aarch64 master fw
+COPY ./binaries/systemd-user-runtime-dir /opt/app
+COPY ./binaries/*.service /opt/app
 
 WORKDIR /opt/app
 
@@ -145,7 +149,10 @@ RUN <<EOF
         -a rootlesskit-docker-proxy \
         -a nsenter \
         -a newgidmap \
-        -a newuidmap
+        -a newuidmap \
+        -a systemd-user-runtime-dir \
+        -a acap-user-runtime-dir@.service \
+        -a acap-user@.service
 EOF
 
 ENTRYPOINT [ "/opt/axis/acapsdk/sysroots/x86_64-pokysdk-linux/usr/bin/eap-install.sh" ]

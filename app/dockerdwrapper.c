@@ -318,12 +318,12 @@ start_dockerd(void)
   syslog(LOG_INFO,"Host IP: %s", IPbuffer);
 
   // construct the rootlesskit command
-  args_offset += g_snprintf(args + args_offset, args_len - args_offset, "%s %s %s %s %s %s %s %s %s",
+  args_offset += g_snprintf(args + args_offset, args_len - args_offset, "%s %s %s %s %s %s %s %s", /* %s",*/
     "rootlesskit",
     "--debug",
     "--subid-source=static", 
     "--net=slirp4netns",
-    "--disable-host-loopback",
+    /*"--disable-host-loopback",*/
     "--copy-up=/etc",
     "--copy-up=/run",
     "--propagation=rslave",
