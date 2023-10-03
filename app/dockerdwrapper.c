@@ -403,14 +403,13 @@ start_dockerd(void)
     g_strlcat (msg, " using internal storage", msg_len);
   }
 
-  // if (use_ipc_socket) {
-  //   args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s",
-  //       "-H unix:///var/run/docker.sock");
-
-  //   g_strlcat (msg, " with IPC socket.", msg_len);
-  // } else {
-  //   g_strlcat (msg, " without IPC socket.", msg_len);
-  // }
+  if (use_ipc_socket) {
+    args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s",
+        "-H unix:///var/run/user/204/docker.sock");
+    g_strlcat (msg, " with IPC socket.", msg_len);
+  } else {
+    g_strlcat (msg, " without IPC socket.", msg_len);
+  }
 
   // Log startup information to syslog.
   syslog(LOG_INFO, "%s", msg);
