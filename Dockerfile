@@ -1,9 +1,11 @@
 # syntax=docker/dockerfile:1
 
+ARG DOCKER_IMAGE_VERSION=24.0.2
+
 ARG REPO=axisecp
 ARG ACAPARCH=armv7hf
 
-ARG VERSION=1.8
+ARG VERSION=1.10
 ARG UBUNTU_VERSION=22.04
 ARG NATIVE_SDK=acap-native-sdk
 
@@ -53,7 +55,11 @@ RUN cp $BUILD_DIR/ps/pscommand ps
 
 FROM build_image as build
 
+ARG DOCKER_IMAGE_VERSION
+ENV DOCKERVERSION ${DOCKER_IMAGE_VERSION}
 ARG ACAPARCH
+ENV ARCH ${ACAPARCH}
+
 # Copy over axparameter from the acap-sdk
 COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/include/axsdk/ax_parameter /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/include/axsdk
 COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/libaxparameter.so /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/libaxparameter.so
@@ -62,8 +68,20 @@ COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/libaxparamet
 COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/pkgconfig/axparameter.pc /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/pkgconfig/axparameter.pc
 
 COPY app /opt/app
-COPY DOCKERVERSION /opt/app
 COPY --from=ps /export/ps /opt/app
+
+# Download and extract dockerd and its dependencies
+RUN <<EOF
+    if [ "$ACAPARCH" = "armv7hf" ]; then
+        export DOCKER_ARCH="armhf";
+    elif [ "$ACAPARCH" = "aarch64" ]; then
+        export DOCKER_ARCH="aarch64";
+    fi;
+    curl -Lo docker_binaries.tgz "https://download.docker.com/linux/static/stable/${DOCKER_ARCH}/docker-${DOCKER_IMAGE_VERSION}.tgz" ;
+    tar -xz -f docker_binaries.tgz --strip-components=1 docker/dockerd ;
+    tar -xz -f docker_binaries.tgz --strip-components=1 docker/docker-init ;
+    tar -xz -f docker_binaries.tgz --strip-components=1 docker/docker-proxy ;
+EOF
 
 WORKDIR /opt/app
 RUN <<EOF

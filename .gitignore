@@ -1,4 +1,5 @@
-build/
+build*/
+tmp/
 dockerd
 docker-proxy
 dockerdwrapper
@@ -6,3 +7,5 @@ package.conf.orig
 *.eap
 *.eap.old
 .clang-format
+*.pem
+*.srl
