@@ -49,7 +49,7 @@ static const char *sd_card_path = "/var/spool/storage/SD_DISK";
 static bool restart_dockerd = false;
 
 // All ax_parameters the acap has
-static const char* ax_parameters[]= {"IPCSocket", "SDCardSupport", "UseTLS"};
+static const char *ax_parameters[] = {"IPCSocket", "SDCardSupport", "UseTLS"};
 
 /**
  * @brief Signals handling
@@ -252,7 +252,8 @@ start_dockerd(void)
   char *use_sd_card_value = get_parameter_value("SDCardSupport");
   char *use_tls_value = get_parameter_value("UseTLS");
   char *use_ipc_socket_value = get_parameter_value("IPCSocket");
-  if (use_sd_card_value == NULL || use_tls_value == NULL || use_ipc_socket_value == NULL) {
+  if (use_sd_card_value == NULL || use_tls_value == NULL ||
+      use_ipc_socket_value == NULL) {
     goto end;
   }
   bool use_sdcard = strcmp(use_sd_card_value, "yes") == 0;
@@ -285,7 +286,10 @@ start_dockerd(void)
       goto end;
     }
   }
-  args_offset += g_snprintf(args + args_offset, args_len - args_offset, "%s %s",
+  args_offset += g_snprintf(
+      args + args_offset,
+      args_len - args_offset,
+      "%s %s",
       "dockerd",
       "--config-file /usr/local/packages/dockerdwrapper/localdata/daemon.json");
 
@@ -321,59 +325,69 @@ start_dockerd(void)
       goto end;
     }
 
-    args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s %s %s %s %s %s %s %s",
-        "-H tcp://0.0.0.0:2376",
-        "--tlsverify",
-        "--tlscacert", ca_path,
-        "--tlscert", cert_path,
-        "--tlskey", key_path);
+    args_offset += g_snprintf(args + args_offset,
+                              args_len - args_offset,
+                              " %s %s %s %s %s %s %s %s",
+                              "-H tcp://0.0.0.0:2376",
+                              "--tlsverify",
+                              "--tlscacert",
+                              ca_path,
+                              "--tlscert",
+                              cert_path,
+                              "--tlskey",
+                              key_path);
 
-    g_strlcat (msg, " in TLS mode", msg_len);
+    g_strlcat(msg, " in TLS mode", msg_len);
   } else {
-    args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s %s",
-        "-H tcp://0.0.0.0:2375",
-        "--tls=false");
+    args_offset += g_snprintf(args + args_offset,
+                              args_len - args_offset,
+                              " %s %s",
+                              "-H tcp://0.0.0.0:2375",
+                              "--tls=false");
 
-    g_strlcat (msg, " in unsecured mode", msg_len);
+    g_strlcat(msg, " in unsecured mode", msg_len);
   }
 
   if (use_sdcard) {
-    args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s",
-        "--data-root /var/spool/storage/SD_DISK/dockerd/data");
+    args_offset +=
+        g_snprintf(args + args_offset,
+                   args_len - args_offset,
+                   " %s",
+                   "--data-root /var/spool/storage/SD_DISK/dockerd/data");
 
-    g_strlcat (msg, " using SD card as storage", msg_len);
+    g_strlcat(msg, " using SD card as storage", msg_len);
   } else {
-    g_strlcat (msg, " using internal storage", msg_len);
+    g_strlcat(msg, " using internal storage", msg_len);
   }
 
   if (use_ipc_socket) {
-    args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s",
-        "-H unix:///var/run/docker.sock");
+    args_offset += g_snprintf(args + args_offset,
+                              args_len - args_offset,
+                              " %s",
+                              "-H unix:///var/run/docker.sock");
 
-    g_strlcat (msg, " with IPC socket.", msg_len);
+    g_strlcat(msg, " with IPC socket.", msg_len);
   } else {
-    g_strlcat (msg, " without IPC socket.", msg_len);
+    g_strlcat(msg, " without IPC socket.", msg_len);
   }
 
   // Log startup information to syslog.
   syslog(LOG_INFO, "%s", msg);
 
   args_split = g_strsplit(args, " ", 0);
-  result = g_spawn_async(
-      NULL,
-      args_split,
-      NULL,
-      G_SPAWN_DO_NOT_REAP_CHILD | G_SPAWN_SEARCH_PATH,
-      NULL,
-      NULL,
-      &dockerd_process_pid,
-      &error);
+  result = g_spawn_async(NULL,
+                         args_split,
+                         NULL,
+                         G_SPAWN_DO_NOT_REAP_CHILD | G_SPAWN_SEARCH_PATH,
+                         NULL,
+                         NULL,
+                         &dockerd_process_pid,
+                         &error);
   if (!result) {
-    syslog(
-        LOG_ERR,
-        "Could not execv the dockerd process. Return value: %d, error: %s",
-        result,
-        error->message);
+    syslog(LOG_ERR,
+           "Could not execv the dockerd process. Return value: %d, error: %s",
+           result,
+           error->message);
     goto end;
   }
 
@@ -494,7 +508,8 @@ parameter_changed_callback(const gchar *name,
   const gchar *parname = name += strlen("root.dockerdwrapper.");
 
   bool unknown_parameter = true;
-  for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]);++i){
+  for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]);
+       ++i) {
     if (strcmp(parname, ax_parameters[i]) == 0) {
       syslog(LOG_INFO, "%s changed to: %s", ax_parameters[i], value);
       restart_dockerd = true;
@@ -530,20 +545,19 @@ setup_axparameter(void)
     goto end;
   }
 
-  for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]);++i) {
-    char* parameter_path = g_strdup_printf("%s.%s", "root.dockerdwrapper", ax_parameters[i]);
-    gboolean geresult =
-      ax_parameter_register_callback(ax_parameter,
-                                     parameter_path,
-                                     parameter_changed_callback,
-                                     NULL,
-                                     &error);
+  for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]);
+       ++i) {
+    char *parameter_path =
+        g_strdup_printf("%s.%s", "root.dockerdwrapper", ax_parameters[i]);
+    gboolean geresult = ax_parameter_register_callback(
+        ax_parameter, parameter_path, parameter_changed_callback, NULL, &error);
     free(parameter_path);
 
     if (geresult == FALSE) {
       syslog(LOG_ERR,
              "Could not register %s callback. Error: %s",
-             ax_parameters[i], error->message);
+             ax_parameters[i],
+             error->message);
       goto end;
     }
   }
@@ -599,10 +613,11 @@ end:
   }
 
   if (ax_parameter != NULL) {
-    for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]);++i){
-      char* parameter_path = g_strdup_printf("%s.%s", "root.dockerdwrapper", ax_parameters[i]);
-      ax_parameter_unregister_callback(ax_parameter,
-                                       parameter_path);
+    for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]);
+         ++i) {
+      char *parameter_path =
+          g_strdup_printf("%s.%s", "root.dockerdwrapper", ax_parameters[i]);
+      ax_parameter_unregister_callback(ax_parameter, parameter_path);
       free(parameter_path);
     }
     ax_parameter_free(ax_parameter);
