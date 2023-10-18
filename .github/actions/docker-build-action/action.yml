@@ -1,0 +1,71 @@
+---
+name: Docker build action
+description: >
+  A local composite action for building a docker image.
+  Uses docker/setup-buildx-action and
+  docker/build-push-action.
+
+inputs:
+  dockerfile:
+    description: The Dockerfile to use for building the image.
+    required: true
+  build-args:
+    description: List of build arguments to use when building the image.
+    required: false
+    default: ''
+  target:
+    description: Name of target build stage to build.
+    required: false
+    default: ''
+  tags:
+    description: List of tags to apply to the built image.
+      It is recommended to use docker/metadata-action to generate these.
+    required: true
+  labels:
+    description: List of labels to apply to the built image.
+      It is recommended to use docker/metadata-action to generate these.
+    required: false
+    default: ''
+  use_qemu:
+    description: Set to use QEMU when building the image. Default false.
+    required: false
+    default: 'false'
+  registry:
+    description: Name of the remote registry to push the image to.
+      Default docker.io.
+    required: false
+    default: 'docker.io'
+  registry_user:
+    description: Username for a user with push access on the remote registry.
+      Required if push is true.
+    required: false
+  registry_token:
+    description: Token/password for the user on the the remote registry.
+      Required if push is true.
+    required: false
+  provenance:
+    description: Generate provenance attestation for the build
+      (shorthand for --attest=type=provenance). Default false.
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Docker buildx
+      uses: docker/setup-buildx-action@v2
+    - name: Set up QEMU
+      if: ${{ inputs.use_qemu == 'true'}}
+      uses: docker/setup-qemu-action@v2
+    - name: Build image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: false
+        load: true
+        file: ${{ inputs.dockerfile }}
+        build-args: ${{ inputs.build-args }}
+        tags: ${{ inputs.tags }}
+        labels: ${{ inputs.labels }}
+        target: ${{ inputs.target }}
+        provenance: ${{ inputs.provenance }}

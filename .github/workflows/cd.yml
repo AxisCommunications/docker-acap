@@ -52,11 +52,17 @@ jobs:
           manifest_file: ./app/manifest.json
           value: ${{ steps.meta.outputs.version }}
       - name: Build ${{ env.example }} application
-        run: ./build.sh ${{ matrix.arch }} ${{ steps.meta.outputs.full_name }}
+        uses: ./.github/actions/docker-build-action
+        with:
+          dockerfile: Dockerfile
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: ACAPARCH=${{ matrix.arch }}
       - name: Set name of EAP-file
         id: get_eap_file_name
         run: |
-          export EAP_FILE=$(find build-${{ matrix.arch }} -type f -name "*.eap" -printf "%f\n")
+          docker cp $(docker create "${{ steps.meta.outputs.full_name }}"):/opt/app build
+          export EAP_FILE=$(find build -type f -name "*.eap" -printf "%f\n")
           delimiter="$(openssl rand -hex 8)"
           echo "EAP_FILE<<${delimiter}" >> ${GITHUB_ENV}
           echo "${EAP_FILE}" >> ${GITHUB_ENV}
@@ -67,7 +73,7 @@ jobs:
           echo "SIGNED_EAP_FILE=${signed_output}" >> $GITHUB_ENV
       - name: Sign eap-file
         run: |
-          cd build-${{ matrix.arch }}
+          cd build
           RESPONSE=$(curl -XPOST -H 'accept: */*' -H 'Content-Type: multipart/form-data' -H 'Authorization: Bearer ${{secrets.ACAP_PORTAL_SIGNING_BEARER_TOKEN}}' \
           '${{ vars.ACAP_PORTAL_URL }}/${{secrets.ACAP_PORTAL_SIGNING_ID}}/sign/binary' -F uploadedFile=@"${{ env.EAP_FILE }}" --output ${{ env.SIGNED_EAP_FILE }} \
           -w "%{http_code}\n" -o /dev/null)
@@ -88,7 +94,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: ${{ env.SIGNED_EAP_FILE }}
-          path: build-${{ matrix.arch }}/${{ env.SIGNED_EAP_FILE }}
+          path: build/${{ env.SIGNED_EAP_FILE }}
       - name: Save full file name
         id: save_full_file_name
         run: |
