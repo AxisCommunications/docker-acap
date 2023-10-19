@@ -14,19 +14,19 @@
  * under the License.
  */
 
+#include <arpa/inet.h>
 #include <axsdk/ax_parameter.h>
 #include <errno.h>
 #include <glib.h>
 #include <mntent.h>
+#include <netdb.h>
+#include <netinet/in.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <syslog.h>
 #include <unistd.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 
 /**
  * @brief Callback called when the dockerd process exits.
@@ -52,7 +52,10 @@ static const char *sd_card_path = "/var/spool/storage/SD_DISK";
 static bool restart_dockerd = false;
 
 // All ax_parameters the acap has
-static const char *ax_parameters[] = {"IPCSocket", "SDCardSupport", "UseTLS", "Verbose"};
+static const char *ax_parameters[] = {"IPCSocket",
+                                      "SDCardSupport",
+                                      "UseTLS",
+                                      "Verbose"};
 
 /**
  * @brief Signals handling
@@ -62,12 +65,11 @@ static const char *ax_parameters[] = {"IPCSocket", "SDCardSupport", "UseTLS", "V
 static void
 handle_signals(__attribute__((unused)) int signal_num)
 {
-  switch (signal_num)
-  {
-  case SIGINT:
-  case SIGTERM:
-  case SIGQUIT:
-    g_main_loop_quit(loop);
+  switch (signal_num) {
+    case SIGINT:
+    case SIGTERM:
+    case SIGQUIT:
+      g_main_loop_quit(loop);
   }
 }
 
@@ -98,13 +100,10 @@ is_process_alive(int pid)
 {
   int status;
   pid_t return_pid = waitpid(pid, &status, WNOHANG);
-  if (return_pid == -1)
-  {
+  if (return_pid == -1) {
     // Report errors as dead.
     return false;
-  }
-  else if (return_pid == dockerd_process_pid)
-  {
+  } else if (return_pid == dockerd_process_pid) {
     // Child is already exited, so not alive.
     return false;
   }
@@ -123,15 +122,13 @@ get_parameter_value(const char *parameter_name)
   AXParameter *ax_parameter = ax_parameter_new("dockerdwrapper", &error);
   char *parameter_value = NULL;
 
-  if (ax_parameter == NULL)
-  {
+  if (ax_parameter == NULL) {
     syslog(LOG_ERR, "Error when creating axparameter: %s", error->message);
     goto end;
   }
 
   if (!ax_parameter_get(
-          ax_parameter, parameter_name, &parameter_value, &error))
-  {
+          ax_parameter, parameter_name, &parameter_value, &error)) {
     syslog(LOG_ERR,
            "Failed to fetch parameter value of %s. Error: %s",
            parameter_name,
@@ -142,8 +139,7 @@ get_parameter_value(const char *parameter_name)
   }
 
 end:
-  if (ax_parameter != NULL)
-  {
+  if (ax_parameter != NULL) {
     ax_parameter_free(ax_parameter);
   }
   g_clear_error(&error);
@@ -163,8 +159,7 @@ get_sd_filesystem(void)
   char buf[PATH_MAX];
   struct stat sd_card_stat;
   int stat_result = stat(sd_card_path, &sd_card_stat);
-  if (stat_result != 0)
-  {
+  if (stat_result != 0) {
     syslog(LOG_ERR,
            "Cannot store data on the SD card, no storage exists at %s",
            sd_card_path);
@@ -176,21 +171,17 @@ get_sd_filesystem(void)
 
   dev = sd_card_stat.st_dev;
 
-  if ((fp = setmntent("/proc/mounts", "r")) == NULL)
-  {
+  if ((fp = setmntent("/proc/mounts", "r")) == NULL) {
     return NULL;
   }
 
   struct mntent mnt;
-  while (getmntent_r(fp, &mnt, buf, PATH_MAX))
-  {
-    if (stat(mnt.mnt_dir, &sd_card_stat) != 0)
-    {
+  while (getmntent_r(fp, &mnt, buf, PATH_MAX)) {
+    if (stat(mnt.mnt_dir, &sd_card_stat) != 0) {
       continue;
     }
 
-    if (sd_card_stat.st_dev == dev)
-    {
+    if (sd_card_stat.st_dev == dev) {
       endmntent(fp);
       char *return_value = strdup(mnt.mnt_type);
       return return_value;
@@ -217,8 +208,7 @@ setup_sdcard(void)
   char *create_droot_command = g_strdup_printf("mkdir -p %s", data_root);
   char *create_eroot_command = g_strdup_printf("mkdir -p %s", exec_root);
   int res = system(create_droot_command);
-  if (res != 0)
-  {
+  if (res != 0) {
     syslog(LOG_ERR,
            "Failed to create data_root folder at: %s. Error code: %d",
            data_root,
@@ -226,8 +216,7 @@ setup_sdcard(void)
     goto end;
   }
   res = system(create_eroot_command);
-  if (res != 0)
-  {
+  if (res != 0) {
     syslog(LOG_ERR,
            "Failed to create exec_root folder at: %s. Error code: %d",
            exec_root,
@@ -271,8 +260,7 @@ start_dockerd(void)
   char *use_ipc_socket_value = get_parameter_value("IPCSocket");
   char *use_verbose_value = get_parameter_value("Verbose");
   if (use_sd_card_value == NULL || use_tls_value == NULL ||
-      use_ipc_socket_value == NULL)
-  {
+      use_ipc_socket_value == NULL || use_verbose_value == NULL) {
     goto end;
   }
   bool use_sdcard = strcmp(use_sd_card_value, "yes") == 0;
@@ -280,12 +268,10 @@ start_dockerd(void)
   bool use_ipc_socket = strcmp(use_ipc_socket_value, "yes") == 0;
   bool use_verbose = strcmp(use_verbose_value, "yes") == 0;
 
-  if (use_sdcard)
-  {
+  if (use_sdcard) {
     // Confirm that the SD card is usable
     char *sd_file_system = get_sd_filesystem();
-    if (sd_file_system == NULL)
-    {
+    if (sd_file_system == NULL) {
       syslog(LOG_ERR,
              "Couldn't identify the file system of the SD card at %s",
              sd_card_path);
@@ -293,8 +279,7 @@ start_dockerd(void)
     }
 
     if (strcmp(sd_file_system, "vfat") == 0 ||
-        strcmp(sd_file_system, "exfat") == 0)
-    {
+        strcmp(sd_file_system, "exfat") == 0) {
       syslog(LOG_ERR,
              "The SD card at %s uses file system %s which does not support "
              "Unix file permissions. Please reformat to a file system that "
@@ -304,8 +289,7 @@ start_dockerd(void)
       goto end;
     }
 
-    if (!setup_sdcard())
-    {
+    if (!setup_sdcard()) {
       syslog(LOG_ERR, "Failed to setup SD card.");
       goto end;
     }
@@ -317,11 +301,12 @@ start_dockerd(void)
   struct hostent *host_entry;
   gethostname(host_buffer, sizeof(host_buffer));
   host_entry = gethostbyname(host_buffer);
-  IPbuffer = inet_ntoa(*((struct in_addr *)
-                             host_entry->h_addr_list[0]));
+  IPbuffer = inet_ntoa(*((struct in_addr *)host_entry->h_addr_list[0]));
 
   // construct the rootlesskit command
-  args_offset += g_snprintf(args + args_offset, args_len - args_offset, "%s %s %s %s %s %s %s %s %s",
+  args_offset += g_snprintf(args + args_offset,
+                            args_len - args_offset,
+                            "%s %s %s %s %s %s %s %s %s",
                             "rootlesskit",
                             "--subid-source=static",
                             "--net=slirp4netns",
@@ -333,39 +318,44 @@ start_dockerd(void)
                             /* don't use same range as company proxy */
                             "--cidr=10.0.3.0/24");
 
-  if (use_verbose)
-  {
-    args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s",
-                              "--debug");
+  if (use_verbose) {
+    args_offset += g_snprintf(
+        args + args_offset, args_len - args_offset, " %s", "--debug");
   }
 
-  if (use_tls)
-  {
-    args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s %s%s",
-                              "-p", IPbuffer, ":2376:2376/tcp");
-  }
-  else
-  {
-    args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s %s%s",
-                              "-p", IPbuffer, ":2375:2375/tcp");
+  if (use_tls) {
+    args_offset += g_snprintf(args + args_offset,
+                              args_len - args_offset,
+                              " %s %s%s",
+                              "-p",
+                              IPbuffer,
+                              ":2376:2376/tcp");
+  } else {
+    args_offset += g_snprintf(args + args_offset,
+                              args_len - args_offset,
+                              " %s %s%s",
+                              "-p",
+                              IPbuffer,
+                              ":2375:2375/tcp");
   }
 
   // add dockerd arguments
-  args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s %s %s",
-                            "dockerd",
-                            "--iptables=false",
-                            "--config-file /usr/local/packages/dockerdwrapper/localdata/daemon.json");
+  args_offset += g_snprintf(
+      args + args_offset,
+      args_len - args_offset,
+      " %s %s %s",
+      "dockerd",
+      "--iptables=false",
+      "--config-file /usr/local/packages/dockerdwrapper/localdata/daemon.json");
 
-  if (!use_verbose)
-  {
-    args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s",
-                              "--log-level=warn");
+  if (!use_verbose) {
+    args_offset += g_snprintf(
+        args + args_offset, args_len - args_offset, " %s", "--log-level=warn");
   }
 
   g_strlcpy(msg, "Starting dockerd", msg_len);
 
-  if (use_tls)
-  {
+  if (use_tls) {
     const char *ca_path = "/usr/local/packages/dockerdwrapper/ca.pem";
     const char *cert_path =
         "/usr/local/packages/dockerdwrapper/server-cert.pem";
@@ -375,27 +365,23 @@ start_dockerd(void)
     bool cert_exists = access(cert_path, F_OK) == 0;
     bool key_exists = access(key_path, F_OK) == 0;
 
-    if (!ca_exists)
-    {
+    if (!ca_exists) {
       syslog(LOG_ERR,
              "Cannot start using TLS, no CA certificate found at %s",
              ca_path);
     }
-    if (!cert_exists)
-    {
+    if (!cert_exists) {
       syslog(LOG_ERR,
              "Cannot start using TLS, no server certificate found at %s",
              cert_path);
     }
-    if (!key_exists)
-    {
+    if (!key_exists) {
       syslog(LOG_ERR,
              "Cannot start using TLS, no server key found at %s",
              key_path);
     }
 
-    if (!ca_exists || !cert_exists || !key_exists)
-    {
+    if (!ca_exists || !cert_exists || !key_exists) {
       goto end;
     }
 
@@ -434,23 +420,23 @@ start_dockerd(void)
     g_strlcat(msg, " using internal storage", msg_len);
   }
 
-  if (use_ipc_socket)
-  {
+  if (use_ipc_socket) {
     uid_t uid;
     uid = getuid();
     uid_t gid;
     gid = getgid();
-    // The socket should reside in the user directory and have same group as user
-    args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s %d %s%d%s",
+    // The socket should reside in the user directory and have same group as
+    // user
+    args_offset += g_snprintf(args + args_offset,
+                              args_len - args_offset,
+                              " %s %d %s%d%s",
                               "--group",
                               gid,
                               "-H unix:///var/run/user/",
                               uid,
                               "/docker.sock");
     g_strlcat(msg, " with IPC socket.", msg_len);
-  }
-  else
-  {
+  } else {
     g_strlcat(msg, " without IPC socket.", msg_len);
   }
 
@@ -478,8 +464,7 @@ start_dockerd(void)
   // Watch the child process.
   g_child_watch_add(dockerd_process_pid, dockerd_process_exited_callback, NULL);
 
-  if (!is_process_alive(dockerd_process_pid))
-  {
+  if (!is_process_alive(dockerd_process_pid)) {
     // The process died during adding of callback, tell loop to quit.
     exit_code = -1;
     g_main_loop_quit(loop);
@@ -507,8 +492,7 @@ static bool
 stop_dockerd(void)
 {
   bool killed = false;
-  if (dockerd_process_pid == -1)
-  {
+  if (dockerd_process_pid == -1) {
     // Nothing to stop.
     killed = true;
     goto end;
@@ -516,8 +500,7 @@ stop_dockerd(void)
 
   // Send SIGTERM to the process
   bool sigterm_successfully_sent = kill(dockerd_process_pid, SIGTERM) == 0;
-  if (!sigterm_successfully_sent)
-  {
+  if (!sigterm_successfully_sent) {
     syslog(
         LOG_ERR, "Failed to send SIGTERM to child. Error: %s", strerror(errno));
     errno = 0;
@@ -529,16 +512,14 @@ stop_dockerd(void)
   // passed.
   sleep(10);
 
-  if (dockerd_process_pid == -1)
-  {
+  if (dockerd_process_pid == -1) {
     killed = true;
     goto end;
   }
 
   // SIGTERM failed, let's try SIGKILL
   killed = kill(dockerd_process_pid, SIGKILL) == 0;
-  if (!killed)
-  {
+  if (!killed) {
     syslog(
         LOG_ERR, "Failed to send SIGKILL to child. Error: %s", strerror(errno));
   }
@@ -574,18 +555,14 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
   g_snprintf(path, path_len, "/var/run/user/%d/docker.pid", uid);
   remove(path);
 
-  if (restart_dockerd)
-  {
+  if (restart_dockerd) {
     restart_dockerd = false;
-    if (!start_dockerd())
-    {
+    if (!start_dockerd()) {
       syslog(LOG_ERR, "Failed to restart dockerd, exiting.");
       exit_code = -1;
       g_main_loop_quit(loop);
     }
-  }
-  else
-  {
+  } else {
     // We shouldn't restart, stop instead.
     g_main_loop_quit(loop);
   }
@@ -615,8 +592,7 @@ parameter_changed_callback(const gchar *name,
     }
   }
 
-  if (unknown_parameter)
-  {
+  if (unknown_parameter) {
     syslog(LOG_WARNING, "Parameter %s is not recognized", name);
     restart_dockerd = false;
 
@@ -625,8 +601,7 @@ parameter_changed_callback(const gchar *name,
   }
 
   // Stop the currently running process.
-  if (!stop_dockerd())
-  {
+  if (!stop_dockerd()) {
     syslog(LOG_ERR,
            "Failed to stop dockerd process. Please restart the acap "
            "manually.");
@@ -640,8 +615,7 @@ setup_axparameter(void)
   bool success = false;
   GError *error = NULL;
   AXParameter *ax_parameter = ax_parameter_new("dockerdwrapper", &error);
-  if (ax_parameter == NULL)
-  {
+  if (ax_parameter == NULL) {
     syslog(LOG_ERR, "Error when creating AXParameter: %s", error->message);
     goto end;
   }
@@ -654,8 +628,7 @@ setup_axparameter(void)
         ax_parameter, parameter_path, parameter_changed_callback, NULL, &error);
     free(parameter_path);
 
-    if (geresult == FALSE)
-    {
+    if (geresult == FALSE) {
       syslog(LOG_ERR,
              "Could not register %s callback. Error: %s",
              ax_parameters[i],
@@ -667,14 +640,14 @@ setup_axparameter(void)
   success = true;
 
 end:
-  if (!success && ax_parameter != NULL)
-  {
+  if (!success && ax_parameter != NULL) {
     ax_parameter_free(ax_parameter);
   }
   return ax_parameter;
 }
 
-int main(void)
+int
+main(void)
 {
   GError *error = NULL;
   AXParameter *ax_parameter = NULL;
@@ -688,8 +661,7 @@ int main(void)
 
   // Setup ax_parameter
   ax_parameter = setup_axparameter();
-  if (ax_parameter == NULL)
-  {
+  if (ax_parameter == NULL) {
     syslog(LOG_ERR, "Error in setup_axparameter: %s", error->message);
     goto end;
   }
@@ -698,8 +670,7 @@ int main(void)
   loop = g_main_loop_new(NULL, FALSE);
   loop = g_main_loop_ref(loop);
 
-  if (!start_dockerd())
-  {
+  if (!start_dockerd()) {
     syslog(LOG_ERR, "Starting dockerd failed");
     exit_code = -1;
     goto end;
@@ -710,12 +681,9 @@ int main(void)
   g_main_loop_unref(loop);
 
 end:
-  if (stop_dockerd())
-  {
+  if (stop_dockerd()) {
     syslog(LOG_INFO, "Shutting down. dockerd shut down successfully.");
-  }
-  else
-  {
+  } else {
     syslog(LOG_WARNING, "Shutting down. Failed to shut down dockerd.");
   }
 
