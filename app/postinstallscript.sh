@@ -23,16 +23,7 @@ if [ ! -d /sys/fs/cgroup/unified ]; then
     echo "[Unit]
 Wants=acap-user@$_uid.service" >> /etc/systemd/system/sdkdockerdwrapper.service
 
-else
-# If it's cgroups v1 we only create the user directory
-    mkdir -p /run/user/"$_uid"
-    chown "$_uname:$_gname" /run/user/"$_uid"
 fi
-
-# Remove root owned directories that makes a mess
-if [ -d "/run/docker" ]; then rm -Rf /run/docker; fi
-if [ -d "/run/containerd" ]; then rm -Rf /run/containerd; fi
-if [ -d "/run/xtables.lock" ]; then rm -Rf /run/xtables.lock; fi
 
 # Create mapping for subuid and subgid - both shall use user name!
 echo "$_uname:100000:65536" > /etc/subuid
@@ -55,7 +46,7 @@ Environment=PATH=/bin:/usr/bin:$_appdirectory:/usr/local/sbin:/usr/local/bin:/us
 Environment=HOME=$_appdirectory
 Environment=DOCKER_HOST=unix://run/user/$_uid/docker.sock
 ExecStartPre=+systemctl set-environment XDG_RUNTIME_DIR=/run/user/$_uid
-ExecStartPre=+$_appdirectory/remove_rootful_folders.sh
+ExecStartPre=+$_appdirectory/handle_directories.sh $_uid $_uname $_gname
 EOF
 
 # reload daemon for service file changes to take effect

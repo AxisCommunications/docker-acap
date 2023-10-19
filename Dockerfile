@@ -107,7 +107,7 @@ COPY ./binaries/${ACAPARCH}/* /opt/app
 # Temp fix to get binary onto aarch64 master fw
 COPY ./binaries/systemd-user-runtime-dir /opt/app
 COPY ./binaries/*.service /opt/app
-COPY ./binaries/remove_rootful_folders.sh /opt/app
+COPY ./binaries/handle_directories.sh /opt/app
 
 WORKDIR /opt/app
 
@@ -154,7 +154,7 @@ RUN <<EOF
         -a systemd-user-runtime-dir \
         -a acap-user-runtime-dir@.service \
         -a acap-user@.service \
-        -a remove_rootful_folders.sh
+        -a handle_directories.sh
 EOF
 
 ENTRYPOINT [ "/opt/axis/acapsdk/sysroots/x86_64-pokysdk-linux/usr/bin/eap-install.sh" ]

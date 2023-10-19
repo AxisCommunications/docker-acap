@@ -23,6 +23,7 @@ on:
   pull_request:
     branches:
       - 'main'
+      - 'rootless-preview'
 
 jobs:
   # Builds docker ACAP using the build.sh script, then signs the eap-file in
