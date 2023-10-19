@@ -289,6 +289,19 @@ start_dockerd(void)
       goto end;
     }
 
+    char card_path[100];
+    strcpy(card_path, sd_card_path);
+    strcat(card_path, "/dockerd");
+
+    if (access(card_path, F_OK) == 0 && access(card_path, W_OK) != 0) {
+      syslog(LOG_ERR,
+             "The application user does not have write permissions to the SD "
+             "card directory at %s. Please change the directory permissions or "
+             "remove the directory.",
+             card_path);
+      goto end;
+    }
+
     if (!setup_sdcard()) {
       syslog(LOG_ERR, "Failed to setup SD card.");
       goto end;
