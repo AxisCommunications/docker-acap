@@ -1,11 +1,3 @@
-TODO:
-
-- [x] Add Note that this is a preview of rootless Docker ACAP
-- [x] Describe that AllowRoot toggle needs to be on at installation/uninstallation
-- [x] Add section on what rootless Docker is
-- [x] Add info on limitations with rootless Docker
-- [x] Add info on SD card for use case when upgrading from rootful Docker ACAP
-
 <!-- omit in toc -->
 # The Docker ACAP
 
@@ -247,8 +239,35 @@ Make sure the Docker ACAP, using TLS, is running, then pull and run the
 [hello-world][docker-hello-world] image from Docker Hub:
 
 ```sh
-docker --tlsverify --host tcp://$DEVICE_IP:$DOCKER_PORT pull hello-world
-docker --tlsverify --host tcp://$DEVICE_IP:$DOCKER_PORT run hello-world
+>docker --tlsverify --host tcp://$DEVICE_IP:$DOCKER_PORT pull hello-world
+Using default tag: latest
+latest: Pulling from library/hello-world
+70f5ac315c5a: Pull complete 
+Digest: sha256:88ec0acaa3ec199d3b7eaf73588f4518c25f9d34f58ce9a0df68429c5af48e8d
+Status: Downloaded newer image for hello-world:latest
+docker.io/library/hello-world:latest
+>docker --tlsverify --host tcp://$DEVICE_IP:$DOCKER_PORT run hello-world
+
+Hello from Docker!
+This message shows that your installation appears to be working correctly.
+
+To generate this message, Docker took the following steps:
+ 1. The Docker client contacted the Docker daemon.
+ 2. The Docker daemon pulled the "hello-world" image from the Docker Hub.
+    (arm64v8)
+ 3. The Docker daemon created a new container from that image which runs the
+    executable that produces the output you are currently reading.
+ 4. The Docker daemon streamed that output to the Docker client, which sent it
+    to your terminal.
+
+To try something more ambitious, you can run an Ubuntu container with:
+ $ docker run -it ubuntu bash
+
+Share images, automate workflows, and more with a free Docker ID:
+ https://hub.docker.com/
+
+For more examples and ideas, visit:
+ https://docs.docker.com/get-started/
 
 ```
 
