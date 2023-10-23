@@ -67,6 +67,53 @@ jobs:
           echo "EAP_FILE<<${delimiter}" >> ${GITHUB_ENV}
           echo "${EAP_FILE}" >> ${GITHUB_ENV}
           echo "${delimiter}" >> ${GITHUB_ENV}
+      - name: Upload unsigned artifact 
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.EAP_FILE }}
+          path: build/${{ env.EAP_FILE }}
+      - name: Save full file name
+        id: save_full_file_name
+        run: |
+          if [ ${{ matrix.arch }} = armv7hf ]
+          then
+            echo "EAP_FILE_ARMV7HF=${{ env.EAP_FILE }}" >> $GITHUB_OUTPUT
+          elif [ ${{ matrix.arch }} = aarch64 ]
+          then
+            echo "EAP_FILE_AARCH64=${{ env.EAP_FILE }}" >> $GITHUB_OUTPUT
+          else
+            echo "::error::Non valid architecture '${{ matrix.arch }}' encountered"
+          fi
+
+  sign_artifacts:
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ["armv7hf", "aarch64"]
+      max-parallel: 1
+    outputs:
+      EAP_FILE_ARMV7HF: ${{ steps.save_full_file_name.outputs.EAP_FILE_ARMV7HF }}
+      EAP_FILE_AARCH64: ${{ steps.save_full_file_name.outputs.EAP_FILE_AARCH64 }}
+    steps:
+      - name: Get EAP file name
+        id: full_eap_name
+        run: |
+          if [ ${{ matrix.arch }} = armv7hf ]
+          then
+            echo "EAP_FILE=${{ needs.build.outputs.EAP_FILE_ARMV7HF }}" >> $GITHUB_ENV
+          elif [ ${{ matrix.arch }} = aarch64 ]
+          then
+            echo "EAP_FILE=${{ needs.build.outputs.EAP_FILE_AARCH64 }}" >> $GITHUB_ENV
+          else
+            echo "::error::Non valid architecture '${{ matrix.arch }}' encountered"
+          fi
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ env.EAP_FILE }}
+          path: ./
       - name: Refactor naming of EAP-file for signed output
         run: |
           signed_output=$(echo "${{ env.EAP_FILE }}" | sed 's/\.eap/_signed.eap/')
@@ -109,13 +156,13 @@ jobs:
           fi
 
   # Creates a pre-release in the repository.
-  # This job runs if the workflow is triggered by a tag and the build job was successful.
+  # This job runs if the workflow is triggered by a tag and the sign_artifacts job was successful.
   create_prerelease:
     if: (github.ref_type == 'tag')
     permissions:
       contents: write
     runs-on: ubuntu-latest
-    needs: build
+    needs: sign_artifacts
     outputs:
       RELEASE_ID: ${{ steps.prerelease.outputs.RELEASE_ID }}
     steps:
@@ -151,24 +198,24 @@ jobs:
     permissions:
       contents: write
     runs-on: ubuntu-latest
-    needs: [create_prerelease, build]
+    needs: [create_prerelease, sign_artifacts]
     strategy:
       matrix:
         arch: [armv7hf, aarch64]
     env:
       RELEASE_ID: ${{ needs.create_prerelease.outputs.RELEASE_ID }}
-      EAP_FILE_AARCH64: ${{ needs.build.outputs.EAP_FILE_AARCH64 }}
-      EAP_FILE_ARMV7HF: ${{ needs.build.outputs.EAP_FILE_ARMV7HF }}
+      EAP_FILE_AARCH64: ${{ needs.sign_artifacts.outputs.EAP_FILE_AARCH64 }}
+      EAP_FILE_ARMV7HF: ${{ needs.sign_artifacts.outputs.EAP_FILE_ARMV7HF }}
     steps:
       - name: Get EAP file name
         id: full_eap_name
         run: |
           if [ ${{ matrix.arch }} = armv7hf ]
           then
-            echo "EAP_FILE=${{ needs.build.outputs.EAP_FILE_ARMV7HF }}" >> $GITHUB_ENV
+            echo "EAP_FILE=${{ needs.sign_artifacts.outputs.EAP_FILE_ARMV7HF }}" >> $GITHUB_ENV
           elif [ ${{ matrix.arch }} = aarch64 ]
           then
-            echo "EAP_FILE=${{ needs.build.outputs.EAP_FILE_AARCH64 }}" >> $GITHUB_ENV
+            echo "EAP_FILE=${{ needs.sign_artifacts.outputs.EAP_FILE_AARCH64 }}" >> $GITHUB_ENV
           else
             echo "::error::Non valid architecture '${{ matrix.arch }}' encountered"
           fi
