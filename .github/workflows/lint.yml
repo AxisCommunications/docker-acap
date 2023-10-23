@@ -24,7 +24,7 @@ jobs:
           LINTER_RULES_PATH: /
           IGNORE_GITIGNORED_FILES: true
           VALIDATE_BASH: true
-          VALIDATE_CLANG: true
+          VALIDATE_CLANG_FORMAT: true
           VALIDATE_DOCKERFILE_HADOLINT: true
           VALIDATE_MARKDOWN: true
           VALIDATE_SHELL_SHFMT: true
