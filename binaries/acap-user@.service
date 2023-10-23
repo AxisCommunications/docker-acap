@@ -27,3 +27,4 @@ TasksMax=infinity
 TimeoutStopSec=120s
 KeyringMode=inherit
 OOMScoreAdjust=100
+ExecStartPre=+systemctl set-environment XDG_RUNTIME_DIR=/run/user/%i
