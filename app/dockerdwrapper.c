@@ -289,9 +289,9 @@ start_dockerd(void)
       goto end;
     }
 
-    char card_path[100];
-    strcpy(card_path, sd_card_path);
-    strcat(card_path, "/dockerd");
+    gchar card_path[100];
+    g_stpcpy(card_path, sd_card_path);
+    g_strlcat(card_path, "/dockerd", 100);
 
     if (access(card_path, F_OK) == 0 && access(card_path, W_OK) != 0) {
       syslog(LOG_ERR,
@@ -336,21 +336,16 @@ start_dockerd(void)
         args + args_offset, args_len - args_offset, " %s", "--debug");
   }
 
+  uint port = 2375;
   if (use_tls) {
-    args_offset += g_snprintf(args + args_offset,
-                              args_len - args_offset,
-                              " %s %s%s",
-                              "-p",
-                              IPbuffer,
-                              ":2376:2376/tcp");
-  } else {
-    args_offset += g_snprintf(args + args_offset,
-                              args_len - args_offset,
-                              " %s %s%s",
-                              "-p",
-                              IPbuffer,
-                              ":2375:2375/tcp");
+    port = 2376;
   }
+  args_offset += g_snprintf(args + args_offset,
+                            args_len - args_offset,
+                            " -p %s:%d:%d/tcp",
+                            IPbuffer,
+                            port,
+                            port);
 
   // add dockerd arguments
   args_offset += g_snprintf(
@@ -563,8 +558,7 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
   // manner. Remove it manually.
   gsize path_len = 128;
   gchar path[path_len];
-  uid_t uid;
-  uid = getuid();
+  uid_t uid = getuid();
   g_snprintf(path, path_len, "/var/run/user/%d/docker.pid", uid);
   remove(path);
 
