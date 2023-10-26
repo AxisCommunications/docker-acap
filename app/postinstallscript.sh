@@ -1,7 +1,9 @@
 #!/bin/sh -e
 
-# *** root user required ****
-# TODO Add a check of who the user is and log warning if not root
+if [ "$(id -un)" != "root" ]; then
+    logger -p user.warn "$0: Must be run as 'root' instead of user '$(id -un)'."
+    exit 77 # EX_NOPERM
+fi
 
 # Get name and uid of acap user and group
 _appname=dockerdwrapper
