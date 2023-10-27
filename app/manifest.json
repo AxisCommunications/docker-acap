@@ -5,7 +5,16 @@
             "user": {
                 "groups": [
                     "storage",
-                    "vdo"
+                    "vdo",
+                    "audio",
+                    "video",
+                    "operator",
+                    "viewer",
+                    "streamer",
+                    "ptzdam",
+                    "metadata",
+                    "gpu",
+                    "pipewire"
                 ]
             }
         }
