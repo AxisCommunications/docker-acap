@@ -4,6 +4,7 @@ dockerd
 docker-proxy
 dockerdwrapper
 package.conf.orig
+.vscode
 *.eap
 *.eap.old
 *.pem

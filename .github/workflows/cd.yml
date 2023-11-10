@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - 'main'
+      - 'rootless-preview'
     tags:
       # semver, e.g. 1.2.0 (does not match 0.1.2)
       - '[1-9]+.[0-9]+.[0-9]+'
@@ -22,6 +23,7 @@ on:
   pull_request:
     branches:
       - 'main'
+      - 'rootless-preview'
 
 jobs:
   # Builds docker ACAP using the build.sh script, then signs the eap-file in
