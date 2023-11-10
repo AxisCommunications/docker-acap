@@ -336,10 +336,7 @@ start_dockerd(void)
         args + args_offset, args_len - args_offset, " %s", "--debug");
   }
 
-  uint port = 2375;
-  if (use_tls) {
-    port = 2376;
-  }
+  const uint port = use_tls ? 2376 : 2375;
   args_offset += g_snprintf(args + args_offset,
                             args_len - args_offset,
                             " -p %s:%d:%d/tcp",
@@ -429,10 +426,8 @@ start_dockerd(void)
   }
 
   if (use_ipc_socket) {
-    uid_t uid;
-    uid = getuid();
-    uid_t gid;
-    gid = getgid();
+    uid_t uid = getuid();
+    uid_t gid = getgid();
     // The socket should reside in the user directory and have same group as
     // user
     args_offset += g_snprintf(args + args_offset,
@@ -486,6 +481,7 @@ end:
   free(use_sd_card_value);
   free(use_tls_value);
   free(use_ipc_socket_value);
+  free(use_verbose_value);
   g_clear_error(&error);
 
   return return_value;
@@ -556,11 +552,10 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
 
   // The lockfile might have been left behind if dockerd shut down in a bad
   // manner. Remove it manually.
-  gsize path_len = 128;
-  gchar path[path_len];
   uid_t uid = getuid();
-  g_snprintf(path, path_len, "/var/run/user/%d/docker.pid", uid);
-  remove(path);
+  char *pid_path = g_strdup_printf("/var/run/user/%d/docker.pid", uid);
+  remove(pid_path);
+  free(pid_path);
 
   if (restart_dockerd) {
     restart_dockerd = false;

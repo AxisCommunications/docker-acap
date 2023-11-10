@@ -4,17 +4,9 @@
         "linux": {
             "user": {
                 "groups": [
+                    "sdk",
                     "storage",
-                    "vdo",
-                    "audio",
-                    "video",
-                    "operator",
-                    "viewer",
-                    "streamer",
-                    "ptzadm",
-                    "metadata",
-                    "gpu",
-                    "pipewire"
+                    "vdo"
                 ]
             }
         }

@@ -51,7 +51,7 @@ Environment=XDG_RUNTIME_DIR=/run/user/$_uid
 ExecStartPre=+$_appdirectory/handle_directories.sh $_uid $_uname $_gname
 EOF
 
-# reload daemon for service file changes to take effect
+# Reload daemon for service file changes to take effect
 systemctl daemon-reload
 
 # *** non-root user should be able to do this ****
