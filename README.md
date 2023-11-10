@@ -11,21 +11,28 @@ device.
 > setting the `AllowRoot` toggle to `true` when installing and uninstalling the application.
 > See the [VAPIX documentation][vapix-allow-root] for details.
 >
+> **Known Issues**
+>
+> * Only uid and gid are properly mapped between device and containers, not the other groups that
+> the user is a member of. This means that resources on the device, even if they are volume or device
+> mounted can be inaccessible inside the container. This can also affect usage of unsupported dbus
+>  methods from the container.
+> * iptables use is disabled.
 
 <!-- omit in toc -->
 ## Table of contents
 
-- [Overview](#overview)
-- [Requirements](#requirements)
-- [Installation and Usage](#installation-and-usage)
-  - [Installation](#installation)
-  - [Securing the Docker ACAP using TLS](#securing-the-docker-acap-using-tls)
-  - [Using an SD card as storage](#using-an-sd-card-as-storage)
-  - [Using the Docker ACAP](#using-the-docker-acap)
-- [Building the Docker ACAP](#building-the-docker-acap)
-- [Installing a locally built Docker ACAP](#installing-a-locally-built-docker-acap)
-- [Contributing](#contributing)
-- [License](#license)
+* [Overview](#overview)
+* [Requirements](#requirements)
+* [Installation and Usage](#installation-and-usage)
+  * [Installation](#installation)
+  * [Securing the Docker ACAP using TLS](#securing-the-docker-acap-using-tls)
+  * [Using an SD card as storage](#using-an-sd-card-as-storage)
+  * [Using the Docker ACAP](#using-the-docker-acap)
+* [Building the Docker ACAP](#building-the-docker-acap)
+* [Installing a locally built Docker ACAP](#installing-a-locally-built-docker-acap)
+* [Contributing](#contributing)
+* [License](#license)
 
 ## Overview
 
@@ -49,11 +56,11 @@ the Docker ACAP application.
 
 The following requirements need to be met.
 
-- Axis device:
-  - Axis OS version 11.7 or higher.
-  - The device needs to have ACAP Native SDK support. See [Axis devices & compatibility][devices]
+* Axis device:
+  * Axis OS version 11.7 or higher.
+  * The device needs to have ACAP Native SDK support. See [Axis devices & compatibility][devices]
   for more information.
-  - Additionally, the device must be container capable. To check the compatibility
+  * Additionally, the device must be container capable. To check the compatibility
   of your device run:
 
 ```sh
@@ -69,10 +76,10 @@ ssh root@$DEVICE_IP 'command -v containerd >/dev/null 2>&1 && echo Compatible wi
 where `<device ip>` is the IP address of the Axis device and `<password>` is the root password. Please
 note that you need to enclose your password with quotes (`'`) if it contains special characters.
 
-- Computer:
-  - Either [Docker Desktop][dockerDesktop] version 4.11.1 or higher, or
+* Computer:
+  * Either [Docker Desktop][dockerDesktop] version 4.11.1 or higher, or
   [Docker Engine][dockerEngine] version 20.10.17 or higher.
-  - To build Docker ACAP locally it is required to have [Buildx][buildx] installed.
+  * To build Docker ACAP locally it is required to have [Buildx][buildx] installed.
 
 ## Installation and Usage
 
@@ -81,7 +88,7 @@ The prebuilt Docker ACAP application is signed, read more about signing [here][s
 
 ### Installation
 
-Install and use any image from [prereleases or releases][all-releases] with
+Install and use any signed eap-file from [prereleases or releases][all-releases] with
 a tag on the form `<version>_<ARCH>`, where `<version>` is the docker-acap release
 version and `<ARCH>` is either `armv7hf` or `aarch64` depending on device architecture.
 E.g. `Docker_Daemon_2_0_0_aarch64_signed.eap`.
@@ -126,6 +133,13 @@ This can be done by running the following command on the remote machine:
 scp ca.pem server-cert.pem server-key.pem root@<device ip>:/usr/local/packages/dockerdwrapper/
 ```
 
+Once copied to the Axis device the correct permissions need to be set for the certificates:
+
+```sh
+ssh root@<device IP> 'chown acap-dockerdwrapper /usr/local/packages/dockerdwrapper/*.pem'
+
+```
+
 ##### The Certificate Authority (CA) certificate
 
 This certificate needs to be present in the dockerdwrapper package folder on the
@@ -154,8 +168,8 @@ the Axis device. See below for an example:
 DOCKER_PORT=2376
 docker --tlsverify \
        --tlscacert=ca.pem \
-       --tlscert=cert.pem \
-       --tlskey=key.pem \
+       --tlscert=client-cert.pem \
+       --tlskey=client-key.pem \
        --host tcp://$DEVICE_IP:$DOCKER_PORT \
        version
 ```
@@ -172,7 +186,7 @@ docker --tlsverify \
 ```
 
 where `<client certificate directory>` is the directory on your computer where the files `ca.pem`,
-`cert.pem` and `key.pem` are stored.
+`client-cert.pem` and `client-key.pem` are stored.
 
 ### Using an SD card as storage
 
