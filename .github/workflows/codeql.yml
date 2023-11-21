@@ -25,27 +25,27 @@ on:
 #    - cron: '24 20 * * 6'
 
 jobs:
-  build_image:
-    name: Build-Image
-    runs-on: 'ubuntu-latest'
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Create base image metadata
-        id: meta
-        uses: ./.github/actions/metadata-action
-        with:
-          suffix: '-armv7hf'
-          repository: 'docker-acap'
-          get_version: 'true'
-      - name: Build ${{ env.example }} application
-        uses: ./.github/actions/docker-build-action
-        with:
-          dockerfile: Dockerfile
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: ACAPARCH=armv7hf
-          target: 'source'
+  # build_image:
+  #   name: Build-Image
+  #   runs-on: 'ubuntu-latest'
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
+  #     - name: Create base image metadata
+  #       id: meta
+  #       uses: ./.github/actions/metadata-action
+  #       with:
+  #         suffix: '-armv7hf'
+  #         repository: 'docker-acap'
+  #         get_version: 'true'
+  #     - name: Build ${{ env.example }} application
+  #       uses: ./.github/actions/docker-build-action
+  #       with:
+  #         dockerfile: Dockerfile
+  #         tags: ${{ steps.meta.outputs.tags }}
+  #         labels: ${{ steps.meta.outputs.labels }}
+  #         build-args: ACAPARCH=armv7hf
+  #         target: 'source'
   analyze:
     name: Analyze
     # Runner size impacts CodeQL analysis time. To learn more, please see:
@@ -71,8 +71,8 @@ jobs:
 
     container: 
       image: axisecp/docker-acap:1.4.1-armv7hf
-      volumes: 
-        - ./app/dockerwrapper.c:/opt/app/dockerwrapper.c
+      # volumes: 
+      #   - ./app/dockerwrapper.c:/opt/app/dockerwrapper.c
 
     steps:
     - name: Checkout repository
@@ -104,6 +104,10 @@ jobs:
 
     - name: Build Application using script
       run: |
+        pwd
+        ls -la .
+        cp -r ./app /app/opt
+        cd /app/opt
         . /opt/axis/acapsdk/environment-setup*
         acap-build . \
             -a dockerd \
