@@ -76,6 +76,17 @@ jobs:
       run: ls -la
     - name: inspect3
       run: ls -la /opt/app
+    - name: build
+      run: |
+        cd /opt/app
+        . /opt/axis/acapsdk/environment-setup*
+        acap-build . \
+            -a dockerd \
+            -a docker-init \
+            -a docker-proxy \
+            -a empty_daemon.json \
+            -a ps
+
 
   analyze:
     name: Analyze
