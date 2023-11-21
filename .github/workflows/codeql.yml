@@ -25,6 +25,27 @@ on:
 #    - cron: '24 20 * * 6'
 
 jobs:
+  build_image:
+    name: Build-Image
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Create base image metadata
+        id: meta
+        uses: ./.github/actions/metadata-action
+        with:
+          suffix: '-armv7hf'
+          repository: 'docker-acap'
+          get_version: 'true'
+      - name: Build ${{ env.example }} application
+        uses: ./.github/actions/docker-build-action
+        with:
+          dockerfile: Dockerfile
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: ACAPARCH=armv7hf
+          target: 'source'
   analyze:
     name: Analyze
     # Runner size impacts CodeQL analysis time. To learn more, please see:
@@ -48,9 +69,14 @@ jobs:
         # Use only 'javascript-typescript' to analyze code written in JavaScript, TypeScript or both
         # Learn more about CodeQL language support at https://aka.ms/codeql-docs/language-support
 
+    container: 
+      image: axisecp/docker-acap:1.4.1-armv7hf
+      volumes: 
+        - ./app/dockerwrapper.c:/opt/app/dockerwrapper.c
+
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
@@ -78,7 +104,13 @@ jobs:
 
     - name: Build Application using script
       run: |
-        ./build.sh aarch64
+        . /opt/axis/acapsdk/environment-setup*
+        acap-build . \
+            -a dockerd \
+            -a docker-init \
+            -a docker-proxy \
+            -a empty_daemon.json \
+            -a ps
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v2
