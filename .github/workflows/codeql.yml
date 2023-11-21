@@ -46,6 +46,37 @@ jobs:
   #         labels: ${{ steps.meta.outputs.labels }}
   #         build-args: ACAPARCH=armv7hf
   #         target: 'source'
+  inspect:
+    name: Inspect
+    # Runner size impacts CodeQL analysis time. To learn more, please see:
+    #   - https://gh.io/recommended-hardware-resources-for-running-codeql
+    #   - https://gh.io/supported-runners-and-hardware-resources
+    #   - https://gh.io/using-larger-runners
+    # Consider using larger runners for possible analysis time improvements.
+    runs-on: 'ubuntu-latest'
+    timeout-minutes: 360
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    container: 
+      image: axisecp/docker-acap:1.4.1-armv7hf
+      # volumes: 
+      #   - ./app/dockerwrapper.c:/opt/app/dockerwrapper.c
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    - name: Check for dockerenv file
+      run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
+    - name: inspect1
+      run: pwd
+    - name: inspect2
+      run: ls -la
+    - name: inspect3
+      run: ls -la /opt/app
+
   analyze:
     name: Analyze
     # Runner size impacts CodeQL analysis time. To learn more, please see:
