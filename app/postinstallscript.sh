@@ -10,7 +10,9 @@ _appname=dockerdwrapper
 _appdirectory=/usr/local/packages/$_appname
 _uname="$(stat -c '%U' "$_appdirectory")"
 _uid="$(id "$_uname" -u)"
+_gid="$(id "$_uname" -g)"
 _gname="$(id "$_uname" -gn)"
+_grpsid="$(id "$_uname" -G)"
 
 # If the device supports cgroups v2 we need to start the user.service
 if [ ! -d /sys/fs/cgroup/unified ]; then
@@ -27,9 +29,14 @@ Wants=acap-user@$_uid.service" >> /etc/systemd/system/sdkdockerdwrapper.service
 
 fi
 
-# Create mapping for subuid and subgid - both shall use user name!
-echo "$_uname:100000:65536" > /etc/subuid
-echo "$_uname:100000:65536" > /etc/subgid
+# Create mapping for subuid and subgid - both shall use user id!
+echo "$_uid:100000:65536" >> /etc/subuid
+for gid in $_grpsid ; do
+    if [ "$gid" -ne "$_gid" ]; then
+        echo "$_uid:$gid:1" >> /etc/subgid
+    fi
+done
+echo "$_uid:100000:65536" >> /etc/subgid
 
 # Let root own these two utilities and make the setuid
 chown root:root newuidmap

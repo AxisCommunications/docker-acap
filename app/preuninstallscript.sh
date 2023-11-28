@@ -19,5 +19,6 @@ rm -Rf /etc/systemd/system/acap-user-runtime-dir@.service
 rm -Rf /etc/systemd/system/acap-user@.service
 
 # Remove the subuid/subgid mappings
-sed -i "/$_uname:100000:65536/d" /etc/subuid
-sed -i "/$_uname:100000:65536/d" /etc/subgid
+# TODO - remove any mapping conaining _uid
+sed -i "/$_uid/d" /etc/subuid
+sed -i "/$_uid/d" /etc/subgid
