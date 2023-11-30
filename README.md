@@ -16,7 +16,8 @@ device.
 > * Only uid and gid are properly mapped between device and containers, not the other groups that
 > the user is a member of. This means that resources on the device, even if they are volume or device
 > mounted can be inaccessible inside the container. This can also affect usage of unsupported dbus
->  methods from the container.
+>  methods from the container. See [Using host user secondary groups in container](#using-host-user-secondary-groups-in-container)
+> for how to handle this.
 > * iptables use is disabled.
 
 <!-- omit in toc -->
@@ -294,6 +295,30 @@ and `load` can be used.
 ```sh
 docker save <image on host local repository> | docker --tlsverify --host tcp://$DEVICE_IP:$DOCKER_PORT load
 ```
+
+#### Using host user secondary groups in container
+
+The Docker Compose ACAP is run by a non-root user on the device. This user is set
+up to be a member in a number of secondary groups as listed in the
+[manifest.json](https://github.com/AxisCommunications/docker-compose-acap/blob/rootless-preview/app/manifest.json#L6-L11)
+file. When running a container a user called `root`, (uid 0), belonging to group `root`, (gid 0)
+will be the default user inside the container. It will be mapped to the non-root user on
+the device, and the group will be mapped to the non-root users primary group.
+In order to get access inside the container to resources on the device that are group owned by any
+of the non-root users secondary groups, these need to be added for the container user.
+This can be done by using `group_add` in a docker-compose.yaml (`--group-add` if using Docker cli).
+Unfortunately, adding the name of a secondary group is not supported. Instead the *mapped* id
+of the group need to be used. At the moment of writing this the mappings are:
+
+| device group | container group id |
+| ------------ | ------------------ |
+| datacache    | "1"                |
+| sdk          | "2"                |
+| storage      | "3"                |
+| vdo          | "4"                |
+| optics       | "5"                |
+
+Note that the names of the groups will not be correctly displayed inside the container.
 
 ## Building the Docker ACAP
 
