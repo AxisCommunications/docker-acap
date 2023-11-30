@@ -305,10 +305,10 @@ file. When running a container a user called `root`, (uid 0), belonging to group
 will be the default user inside the container. It will be mapped to the non-root user on
 the device, and the group will be mapped to the non-root users primary group.
 In order to get access inside the container to resources on the device that are group owned by any
-of the non-root users secondary groups these need to be added for the container user.
+of the non-root users secondary groups, these need to be added for the container user.
 This can be done by using `group_add` in a docker-compose.yaml (`--group-add` if using Docker cli).
-Unfortunately, adding the names of the secondary groups are not supported, instead the *mapped* ids
-of the groups need to be used. At the moment of writing this the mappings are
+Unfortunately, adding the name of a secondary group is not supported. Instead the *mapped* id
+of the group need to be used. At the moment of writing this the mappings are:
 
 | device group | container group id |
 | ------------ | ------------------ |
