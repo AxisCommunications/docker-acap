@@ -14,10 +14,6 @@ _uid="$(id "$_uname" -u)"
 # Remove the user folder (this step should only be needed for cgroups v1 system)
 rm -Rf "/run/user/$_uid"
 
-# Remove the service files (this step should only be needed for cgroups v2 system)
-rm -Rf /etc/systemd/system/acap-user-runtime-dir@.service
-rm -Rf /etc/systemd/system/acap-user@.service
-
 # Remove the subuid/subgid mappings
 sed -i "/$_uid/d" /etc/subuid
 sed -i "/$_uid/d" /etc/subgid

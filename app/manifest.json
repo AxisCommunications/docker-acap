@@ -22,7 +22,7 @@
             "embeddedSdkVersion": "3.0",
             "vendorUrl": "https://www.axis.com",
             "runMode": "once",
-            "version": "2.0.1-preview"
+            "version": "2.1.0-preview"
         },
         "installation": {
             "postInstallScript": "postinstallscript.sh"

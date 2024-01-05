@@ -102,11 +102,7 @@ COPY app /opt/app
 COPY --from=ps /export/ps /opt/app
 COPY --from=nsenter /export/nsenter /opt/app
 
-COPY ./binaries/${ACAPARCH}/* /opt/app
-
-# Temp fix to get binary onto aarch64 master fw
-COPY ./binaries/systemd-user-runtime-dir /opt/app
-COPY ./binaries/*.service /opt/app
+# Temp fix to remove 'root' directories 
 COPY ./binaries/handle_directories.sh /opt/app
 
 WORKDIR /opt/app
@@ -149,11 +145,6 @@ RUN <<EOF
         -a rootlesskit \
         -a rootlesskit-docker-proxy \
         -a nsenter \
-        -a newgidmap \
-        -a newuidmap \
-        -a systemd-user-runtime-dir \
-        -a acap-user-runtime-dir@.service \
-        -a acap-user@.service \
         -a handle_directories.sh
 EOF
 
