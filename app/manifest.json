@@ -22,7 +22,7 @@
             "embeddedSdkVersion": "3.0",
             "vendorUrl": "https://www.axis.com",
             "runMode": "once",
-            "version": "2.0.2-fwsync"
+            "version": "2.1.0-fastcgi"
         },
         "installation": {
             "postInstallScript": "postinstallscript.sh"
@@ -53,7 +53,14 @@
             "containers": {
                 "containerHost": true,
                 "createDockerSymlinks": true
-            }
+            },
+            "httpConfig": [
+                {
+                    "access": "admin",
+                    "name": "tls_reciever.cgi",
+                    "type": "fastCgi"
+                }
+            ]
         }
     }
 }
