@@ -38,7 +38,7 @@ The Docker ACAP application is available as a **signed** eap-file in [Releases][
 > Meanwhile, the solution is to allow root to be able to install the Docker ACAP.
 >
 > On the web page of the device:
-> 1. Go Apps page, toggle on `Allow root-privileged apps`.
+> 1. Go to the Apps page, toggle on `Allow root-privileged apps`.
 > 1. Go to System -> Account page, under SSH accounts toggle off `Restrict root access` to be able to send the TLS certificates. Make sure to set the password of the `root` SSH user.
 
 The prebuilt Docker ACAP application is signed, read more about signing [here][signing-documentation].
