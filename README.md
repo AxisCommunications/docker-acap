@@ -33,7 +33,7 @@ it is required to also have [Buildx](https://docs.docker.com/build/install-build
 The Docker ACAP application is available as a **signed** eap-file in [Releases][latest-releases].
 
 > [!IMPORTANT]
-> From AXIS OS 11.8 `root` user is not allowed by default and in 12.0 it will removed. 
+> From AXIS OS 11.8 `root` user is not allowed by default and in 12.0 it will removed. Read more on the [Developer Community](https://www.axis.com/developer-community/news/axis-os-root-acap-signing). \
 > Docker ACAP 1.X requires root and work is ongoing to create a version that does not.
 > Meanwhile, the solution is to allow root to be able to install the Docker ACAP.
 >
