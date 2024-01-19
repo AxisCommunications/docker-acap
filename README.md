@@ -32,6 +32,10 @@ it is required to also have [Buildx](https://docs.docker.com/build/install-build
 
 The Docker ACAP application is available as a **signed** eap-file in [Releases][latest-releases].
 
+> [!IMPORTANT]  
+> On the Apps page it is required to toggle on `Allow root-privileged apps` to be able to install the Docker ACAP
+> In the Settings -> Account page, under SSH accounts it is also required to toggle off `Restrict root access` to be able to send the TLS certificates. Make sure to set the password of the root SSH user. 
+
 The prebuilt Docker ACAP application is signed, read more about signing [here][signing-documentation].
 
 Install and use any image from [prereleases or releases][all-releases] with
