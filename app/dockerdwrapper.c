@@ -717,6 +717,8 @@ main(void)
   loop = g_main_loop_new(NULL, FALSE);
   loop = g_main_loop_ref(loop);
 
+
+
   if (!start_dockerd()) {
     syslog(LOG_ERR, "Starting dockerd failed");
     exit_code = -1;
