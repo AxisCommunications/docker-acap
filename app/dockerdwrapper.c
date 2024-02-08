@@ -466,7 +466,7 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
                                 __attribute__((unused)) gpointer user_data)
 {
   GError *error = NULL;
-  if (!g_spawn_check_wait_status(status, &error)) {
+  if (!g_spawn_check_exit_status(status, &error)) {
     syslog(LOG_ERR, "Dockerd process exited with error: %d", status);
     g_clear_error(&error);
 
