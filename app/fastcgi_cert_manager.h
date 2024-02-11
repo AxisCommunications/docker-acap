@@ -1,5 +1,6 @@
 #include "fcgiapp.h"
 #include <glib.h>
+#include <stdbool.h>
 
 enum HTTP_Request {
     POST,
@@ -13,5 +14,5 @@ typedef void (*fcgi_request_callback)(fcgi_handle handle,
                                       char *file_path);
 
 
-int fcgi_start(fcgi_request_callback cb);
+int fcgi_start(fcgi_request_callback cb, bool verbose);
 void fcgi_stop(void);

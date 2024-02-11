@@ -165,7 +165,6 @@ RUN cp -P /opt/build/uriparser/build/liburiparser.so* .
 # FROM build_image as build
 
 ARG DOCKER_IMAGE_VERSION
-ARG ACAPARCH
 ARG SLIRP4NETNS_VERSION=1.2.0
 ARG ROOTLESS_EXTRAS_VERSION=${DOCKER_IMAGE_VERSION}
 
@@ -211,8 +210,8 @@ EOF
 FROM build as final
 
 COPY app/dockerdwrapper.c /opt/app/dockerdwrapper.c
-COPY app/fastcgi_tls_receiver.h /opt/app/fastcgi_tls_receiver.h
-COPY app/fastcgi_tls_receiver.c /opt/app/fastcgi_tls_receiver.c
+COPY app/fastcgi_cert_manager.h /opt/app/fastcgi_cert_manager.h
+COPY app/fastcgi_cert_manager.c /opt/app/fastcgi_cert_manager.c
 COPY app/Makefile /opt/app/Makefile
 
 RUN <<EOF

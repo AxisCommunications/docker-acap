@@ -33,14 +33,16 @@
 #include <sys/wait.h>
 #include <syslog.h>
 #include <unistd.h>
-#include "fastcgi_tls_receiver.h"
+#include "fastcgi_cert_manager.h"
+
+#define syslog_v(...) if (g_verbose) {syslog(__VA_ARGS__);}
+
+static bool g_verbose = false;
 
 
-gboolean get_and_verify_sd_card_selection(bool* use_sdcard_ret);
-gboolean get_and_verify_tls_selection(bool *use_tls_ret);
-gboolean get_ipc_socket_selection(bool *use_ipc_socket_ret);
-gboolean get_verbose_selection(bool *use_verbose_ret);
-
+/**
+ * @brief Callback called when a well formed fcgi request is received.
+ */
 void callback_action(__attribute__((unused)) fcgi_handle handle,
                      int request_method,
                      char *cert_name,
@@ -71,9 +73,6 @@ static pid_t dockerd_process_pid = -1;
 // Full path to the SD card
 static const char *sd_card_path = "/var/spool/storage/SD_DISK";
 
-// True if the dockerd_exited_callback should restart dockerd
-static bool restart_dockerd = false;
-
 // All ax_parameters the acap has
 static const char *ax_parameters[] = {"IPCSocket",
                                       "SDCardSupport",
@@ -82,9 +81,109 @@ static const char *ax_parameters[] = {"IPCSocket",
 
 static const char *tls_cert_path = "/usr/local/packages/dockerdwrapper/localdata/";
 
-static const char *tls_certs[] = {"ca.pem",
-                                  "server-cert.pem",
-                                  "server-key.pem"};
+typedef enum {PEM_CERT = 0,
+              RSA_PRIVATE_KEY,
+              NUM_CERT_TYPES} cert_types;
+
+static const char *headers[NUM_CERT_TYPES] = {"-----BEGIN CERTIFICATE-----\n",
+                                              "-----BEGIN RSA PRIVATE KEY-----\n"};
+
+static const char *footers[NUM_CERT_TYPES] = {"-----END CERTIFICATE-----\n",
+                                              "-----END RSA PRIVATE KEY-----\n"};
+
+typedef struct {const char *name;
+                int type;
+                } cert;
+
+static cert tls_certs[] = {{"ca.pem", PEM_CERT },
+                           {"server-cert.pem", PEM_CERT},
+                           {"server-key.pem", RSA_PRIVATE_KEY}};
+
+#define NUM_TLS_CERTS   sizeof(tls_certs)/sizeof(cert)
+#define CERT_FILE_MODE  0400
+
+
+/**
+ * @brief Checks if the certificate name is supported
+ * and optionally updates the certificate type.
+ *
+ * @param cert_name the certificate to check
+ * @param cert_type the type to be updated or NULL
+ * @return true if valid, false otherwise.
+ */
+static bool
+supported_cert(char *cert_name, int *cert_type)
+{
+  for (size_t i = 0; i < NUM_TLS_CERTS; ++i) {
+    if (strcmp(cert_name, tls_certs[i].name) == 0){
+      if (cert_type)
+        *cert_type = tls_certs[i].type; /* Update cert_type as well */
+      return true;
+    }
+  }
+
+  syslog(LOG_ERR,"The file_name is not supported. Supported names are \"%s\", \"%s\" and \"%s\".",
+        tls_certs[0].name, tls_certs[1].name, tls_certs[2].name);
+  return false;
+}
+
+/**
+ * @brief Checks if the certificate appears valid according to type.
+ *
+ * @param file_path the certificate to check
+ * @param cert_type the type to validate against
+ * @return true if valid, false otherwise.
+ */
+static bool
+valid_cert(char *file_path, int cert_type)
+{
+  char buffer[128];
+  size_t toread;
+  bool valid = false;
+
+  FILE *fp = fopen(file_path, "r");
+  if (fp == NULL) {
+    syslog(LOG_ERR,"Could not fopen %s", file_path);
+    return false;
+  }
+
+  /* Check header */
+  toread = strlen(headers[cert_type]);
+  if (fseek(fp, 0, SEEK_SET) != 0) {
+    syslog(LOG_ERR, "Could not fseek(0, SEEK_SET) bytes, err: %s", strerror(errno));
+    goto end;
+  }
+  if (fread(buffer, toread, 1, fp) != 1) {
+    syslog(LOG_ERR, "Could not fread %d bytes, err: %s", toread, strerror(errno));
+    goto end;
+  }
+  if (strncmp(buffer, headers[cert_type], toread) != 0) {
+    syslog(LOG_ERR, "Invalid header found");
+    syslog_v(LOG_INFO, "Expected %.*s, found %.*s", toread, headers[cert_type], toread, buffer);
+    goto end;
+  }
+
+  /* Check footer */
+  toread = strlen(footers[cert_type]);
+  if (fseek(fp, -toread, SEEK_END) != 0) {
+    syslog(LOG_ERR, "Could not fseek(%d, SEEK_END) bytes, err: %s", -toread, strerror(errno));
+    goto end;
+  }
+  if (fread(buffer, toread, 1, fp) != 1) {
+    syslog(LOG_ERR, "Could not fread %d bytes, err: %s", toread, strerror(errno));
+    goto end;
+  }
+  if (strncmp(buffer, footers[cert_type], toread) != 0) {
+    syslog(LOG_ERR, "Invalid footer found");
+    syslog_v(LOG_INFO, "Expected %.*s, found %.*s", toread, footers[cert_type], toread, buffer);
+    goto end;
+  }
+  valid = true;
+
+end:
+  fclose(fp);
+  return valid;
+}
 
 /**
  * @brief Signals handling
@@ -252,32 +351,38 @@ setup_sdcard(void)
            res);
     goto end;
   }
-
   res = 0;
 
 end:
-
   free(create_droot_command);
   free(create_eroot_command);
-
   return res == 0;
 }
 
-gboolean
+/**
+ * @brief Gets and verifies the SDCardSupport selection
+ *
+ * @param use_sdcard_ret selection to be updated.
+ * @return True if successful, false otherwise.
+ */
+static gboolean
 get_and_verify_sd_card_selection(bool* use_sdcard_ret)
 {
   gboolean return_value = false;
   bool use_sdcard = *use_sdcard_ret;
   char *use_sd_card_value = get_parameter_value("SDCardSupport");
+  char *sd_file_system = NULL;
+
   if (use_sd_card_value != NULL) {
     bool use_sdcard = strcmp(use_sd_card_value, "yes") == 0;
     if (use_sdcard) {
       // Confirm that the SD card is usable
-      char *sd_file_system = get_sd_filesystem();
+      sd_file_system = get_sd_filesystem();
       if (sd_file_system == NULL) {
         syslog(LOG_ERR,
                "Couldn't identify the file system of the SD card at %s",
                sd_card_path);
+        /* TODO: Sleep and retry on SD not usable? */
         goto end;
       }
 
@@ -315,29 +420,41 @@ get_and_verify_sd_card_selection(bool* use_sdcard_ret)
     *use_sdcard_ret = use_sdcard;
     return_value = true;
   }
+
 end:
   free(use_sd_card_value);
+  free(sd_file_system);
   return return_value;
 }
 
-gboolean get_and_verify_tls_selection(bool *use_tls_ret)
+/**
+ * @brief Gets and verifies the UseTLS selection
+ *
+ * @param use_tls_ret selection to be updated.
+ * @return True if successful, false otherwise.
+ */
+static gboolean get_and_verify_tls_selection(bool *use_tls_ret)
 {
   gboolean return_value = false;
   bool use_tls = *use_tls_ret;
+  char *ca_path = NULL;
+  char *cert_path = NULL;
+  char *key_path = NULL;
+
   char *use_tls_value = get_parameter_value("UseTLS");
   if (use_tls_value != NULL) {
-    use_tls = strcmp(use_tls_value, "yes") == 0;
+    use_tls = (strcmp(use_tls_value, "yes") == 0);
     if (use_tls) {
-      const char *ca_path = g_strdup_printf("%s%s",tls_cert_path,tls_certs[0]);
-      const char *cert_path = g_strdup_printf("%s%s",tls_cert_path,tls_certs[1]);
-      const char *key_path = g_strdup_printf("%s%s",tls_cert_path,tls_certs[2]);
+      char *ca_path = g_strdup_printf("%s%s", tls_cert_path, tls_certs[0].name);
+      char *cert_path = g_strdup_printf("%s%s", tls_cert_path, tls_certs[1].name);
+      char *key_path = g_strdup_printf("%s%s", tls_cert_path, tls_certs[2].name);
 
       bool ca_exists = access(ca_path, F_OK) == 0;
       bool cert_exists = access(cert_path, F_OK) == 0;
       bool key_exists = access(key_path, F_OK) == 0;
 
       if (!ca_exists || !cert_exists || !key_exists) {
-        syslog(LOG_ERR, "One or more TLS certificates missing. Use tls_reciever.cgi to upload valid certificates.");
+        syslog(LOG_ERR, "One or more TLS certificates missing. Use cert_manager.cgi to upload valid certificates.");
       }
 
       if (!ca_exists) {
@@ -359,17 +476,51 @@ gboolean get_and_verify_tls_selection(bool *use_tls_ret)
       if (!ca_exists || !cert_exists || !key_exists) {
         goto end;
       }
+
+      bool ca_read_only = chmod(ca_path, CERT_FILE_MODE) == 0;
+      bool cert_read_only = chmod(cert_path, CERT_FILE_MODE) == 0;
+      bool key_read_only = chmod(key_path, CERT_FILE_MODE) == 0;
+
+      if (!ca_read_only) {
+        syslog(LOG_ERR,
+               "Cannot start using TLS, CA certificate not read only: %s",
+               ca_path);
+      }
+      if (!cert_read_only) {
+        syslog(LOG_ERR,
+               "Cannot start using TLS, server certificate not read only: %s",
+               cert_path);
+      }
+      if (!key_read_only) {
+        syslog(LOG_ERR,
+               "Cannot start using TLS, server key not read only: %s",
+               key_path);
+      }
+
+      if (!ca_read_only || !cert_read_only || !key_read_only) {
+        goto end;
+      }
     }
     syslog(LOG_INFO,"TLS set to %d", use_tls);
     *use_tls_ret = use_tls;
     return_value = true;
   }
+
 end:
   free(use_tls_value);
+  free(ca_path);
+  free(cert_path);
+  free(key_path);
   return return_value;
 }
 
-gboolean
+/**
+ * @brief Gets and verifies the IPCSocket selection
+ *
+ * @param use_ipc_socket_ret selection to be updated.
+ * @return True if successful, false otherwise.
+ */
+static gboolean
 get_ipc_socket_selection(bool *use_ipc_socket_ret)
 {
   gboolean return_value = false;
@@ -385,7 +536,13 @@ get_ipc_socket_selection(bool *use_ipc_socket_ret)
   return return_value;
 }
 
-gboolean
+/**
+ * @brief Gets the Verbose selection
+ *
+ * @param use_verbose_ret selection to be updated.
+ * @return True if successful, false otherwise.
+ */
+static gboolean
 get_verbose_selection(bool *use_verbose_ret)
 {
   gboolean return_value = false;
@@ -395,10 +552,10 @@ get_verbose_selection(bool *use_verbose_ret)
     use_verbose = strcmp(use_verbose_value, "yes") == 0;
     syslog(LOG_INFO,"Verbose set to %d", use_verbose);
     *use_verbose_ret = use_verbose;
+    g_verbose = use_verbose;
     return_value = true;
   }
   free(use_verbose_value);
-  syslog(LOG_INFO,"Verbose set to %d", *use_verbose_ret);
   return return_value;
 }
 
@@ -569,13 +726,11 @@ start_dockerd(bool use_sdcard,
     g_main_loop_quit(loop);
     goto end;
   }
-
   return_value = true;
 
 end:
   g_strfreev(args_split);
   g_clear_error(&error);
-
   return return_value;
 }
 
@@ -619,8 +774,57 @@ stop_dockerd(void)
     syslog(
         LOG_ERR, "Failed to send SIGKILL to child. Error: %s", strerror(errno));
   }
+
 end:
   return killed;
+}
+
+/**
+ * @brief Start fcgi and dockerd.
+ *
+ * @return exit_code. 0 if successful, -1 otherwise
+ */
+static int
+start(void) {
+  bool use_sdcard = false;
+  bool use_tls = false;
+  bool use_ipc_socket = false;
+  bool use_verbose = false;
+  syslog(LOG_INFO,"start called");
+
+  if (!get_verbose_selection(&use_verbose)) {
+    syslog(LOG_INFO, "Failed to get verbose selection. Uninstall and reinstall the acap?");
+    exit_code = -1;
+    goto end;
+  }
+  if (!get_and_verify_tls_selection(&use_tls)) {
+    syslog(LOG_INFO, "Failed to verify tls selection");
+    goto fcgi; /* do not start dockerd */
+  }
+  if (!get_ipc_socket_selection(&use_ipc_socket)) {
+    syslog(LOG_INFO, "Failed to get ipc socket selection");
+    goto fcgi; /* do not start dockerd */
+  }
+  if (!get_and_verify_sd_card_selection(&use_sdcard)) {
+    syslog(LOG_INFO, "Failed to setup sd_card");
+    goto fcgi; /* do not start dockerd */
+  }
+
+  if (!start_dockerd(use_sdcard, use_tls, use_ipc_socket, use_verbose)) {
+    syslog(LOG_ERR, "Failed to start dockerd");
+    goto fcgi; /* could not start dockerd */
+  }
+
+fcgi:
+  /* Start fcgi to cert_manager*/
+  if (fcgi_start(callback_action, use_verbose) != 0) {
+    syslog(LOG_ERR,"Failed to init fcgi_start with callback method");
+    exit_code = -1;
+    goto end;
+  }
+
+end:
+  return exit_code;
 }
 
 /**
@@ -651,47 +855,14 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
   remove(pid_path);
   free(pid_path);
 
-  if (restart_dockerd) {
-    restart_dockerd = false;
-    bool use_sdcard = false;
-    bool use_tls = false;
-    bool use_ipc_socket = false;
-    bool use_verbose = false;
-
-    if (!get_and_verify_sd_card_selection(&use_sdcard)) {
-      syslog(LOG_INFO, "Failed to setup sd_card");
-      exit_code = -1;
+  if (((exit_code = start()) != 0) != 0) {
       g_main_loop_quit(loop);
-    }
-    if (!get_and_verify_tls_selection(&use_tls)) {
-      syslog(LOG_INFO, "Failed to verify tls selection");
-      exit_code = -1;
-      g_main_loop_quit(loop);
-    }
-    if (!get_ipc_socket_selection(&use_ipc_socket)) {
-      syslog(LOG_INFO, "Failed to get ipc socket selection");
-      exit_code = -1;
-      g_main_loop_quit(loop);
-    }
-    if (!get_verbose_selection(&use_verbose)) {
-      syslog(LOG_INFO, "Failed to get verbose selection");
-      exit_code = -1;
-      g_main_loop_quit(loop);
-    }
-    if (!start_dockerd(use_sdcard, use_tls, use_ipc_socket, use_verbose)) {
-      syslog(LOG_ERR, "Failed to restart dockerd, exiting.");
-      exit_code = -1;
-      g_main_loop_quit(loop);
-    }
-  } else {
-    // We shouldn't restart, stop instead.
-    g_main_loop_quit(loop);
   }
 }
 
 /**
  * @brief Callback function called when any of the parameters
- * changes. Will restart the dockerd process with the new setting.
+ * changes. Will restart processes with the new setting.
  *
  * @param name Name of the updated parameter.
  * @param value Value of the updated parameter.
@@ -709,25 +880,30 @@ parameter_changed_callback(const gchar *name,
        ++i) {
     if (strcmp(parname, ax_parameters[i]) == 0) {
       syslog(LOG_INFO, "%s changed to: %s", ax_parameters[i], value);
-      restart_dockerd = true;
       unknown_parameter = false;
     }
   }
 
   if (unknown_parameter) {
     syslog(LOG_WARNING, "Parameter %s is not recognized", name);
-    restart_dockerd = false;
-
-    // No known parameter was changed, do not restart.
+    /* No known parameter was changed, nothing to do */
     return;
   }
 
-  // Stop the currently running process.
-  if (!stop_dockerd()) {
-    syslog(LOG_ERR,
-           "Failed to stop dockerd process. Please restart the acap "
-           "manually.");
-    exit_code = -1;
+  if (!is_process_alive(dockerd_process_pid)) {
+    /* dockerd was not started. Just start */
+    if ((exit_code = start()) != 0) {
+      g_main_loop_quit(loop);
+    }
+  } else {
+    /* Stop the current dockerd process before restarting */
+    if (!stop_dockerd()) {
+      syslog(LOG_ERR,
+            "Failed to stop dockerd process. Please restart the acap "
+            "manually.");
+      exit_code = -1;
+      g_main_loop_quit(loop);
+    }
   }
 }
 
@@ -832,41 +1008,8 @@ main(void)
   loop = g_main_loop_new(NULL, FALSE);
   loop = g_main_loop_ref(loop);
 
-  if (fcgi_start(callback_action)!=0){
-    syslog(LOG_ERR,"Failed to init fcgi_start with callback method");
-    exit_code = -1;
-    goto end;
-  }
-
-  bool use_sdcard = false;
-  bool use_tls = false;
-  bool use_ipc_socket = false;
-  bool use_verbose = false;
-
-  if (!get_and_verify_sd_card_selection(&use_sdcard)) {
-    syslog(LOG_INFO, "Failed to setup sd_card");
-    exit_code = -1;
-    goto end;
-  }
-  if (!get_and_verify_tls_selection(&use_tls)) {
-    syslog(LOG_INFO, "Failed to verify tls selection");
-    exit_code = -1;
-    goto end;
-  }
-  if (!get_ipc_socket_selection(&use_ipc_socket)) {
-    syslog(LOG_INFO, "Failed to get ipc socket selection");
-    exit_code = -1;
-    goto end;
-  }
-  if (!get_verbose_selection(&use_verbose)) {
-    syslog(LOG_INFO, "Failed to get verbose selection");
-    exit_code = -1;
-    goto end;
-  }
-  
-  if (!start_dockerd(use_sdcard, use_tls, use_ipc_socket, use_verbose)) {
-    syslog(LOG_ERR, "Starting dockerd failed");
-    exit_code = -1;
+  /* Start fcgi and dockerd */
+  if ((exit_code = start()) != 0) {
     goto end;
   }
 
@@ -875,12 +1018,14 @@ main(void)
   g_main_loop_unref(loop);
 
 end:
-  if (stop_dockerd()) {
-    syslog(LOG_INFO, "Shutting down. dockerd shut down successfully.");
-  } else {
-    syslog(LOG_WARNING, "Shutting down. Failed to shut down dockerd.");
+  /* Cleanup */
+  if (!is_process_alive(dockerd_process_pid)) {
+    if (stop_dockerd()) {
+      syslog(LOG_INFO, "Shutting down. dockerd shut down successfully.");
+    } else {
+      syslog(LOG_WARNING, "Shutting down. Failed to shut down dockerd.");
+    }
   }
-
   fcgi_stop();
   if (ax_parameter != NULL) {
     for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]);
@@ -903,46 +1048,59 @@ callback_action(__attribute__((unused)) fcgi_handle handle,
                 char *cert_name,
                 char *file_path)
 {
-  syslog(LOG_INFO,"callback_action hit with request %i and cert name %s, filepath %s", request_method, cert_name, file_path);
-  // Check that the cert name is supported
-  bool supported_cert = false;
-  for (size_t i = 0; i < sizeof(tls_certs) / sizeof(tls_certs[0]); ++i) {
-    if (strcmp(cert_name, tls_certs[i]) == 0){
-      supported_cert = true;
+  /* Is cert supported? */
+  int cert_type;
+  if (!supported_cert(cert_name, &cert_type)) {
+    if (file_path && (g_remove(file_path) != 0)) {
+      syslog(LOG_ERR, "Failed to remove %s, err: %s", file_path, strerror(errno));
     }
-  }
-
-  if (!supported_cert){
-    syslog(LOG_ERR,"The cert name to handle is not supported. Supported names are \"%s\", \"%s\" and \"%s\".",tls_certs[0],tls_certs[1],tls_certs[2]);
     return;
   }
 
+  /* Action requested method */
   char* cert_file_with_path = NULL;
   switch (request_method) {
     case POST:
-      cert_file_with_path = g_strdup_printf("%s%s",tls_cert_path,cert_name);
+      /* Is cert valid? */
+      if (!valid_cert(file_path, cert_type)) {
+        if (g_remove(file_path) != 0) {
+          syslog(LOG_ERR, "Failed to remove invalid %s, err: %s", file_path, strerror(errno));
+        }
+        return;
+      }
+
+      /* Use new and update cert mode */
+      cert_file_with_path = g_strdup_printf("%s%s", tls_cert_path, cert_name);
       syslog(LOG_INFO,"Moving %s to %s", file_path, cert_file_with_path);
-      if (g_rename(file_path, cert_file_with_path)!=0){
+      if (g_rename(file_path, cert_file_with_path) != 0) {
         syslog(LOG_ERR, "Failed to move %s to %s, err: %s", file_path, cert_file_with_path, strerror(errno));
-        return;
+        goto end;
       }
-      // TODO change permissions
-      if (g_remove(file_path)!=0){
-        syslog(LOG_ERR, "Failed to remove %s.", file_path);
-        return;
+      if (chmod(cert_file_with_path, CERT_FILE_MODE) != 0) {
+        syslog(LOG_ERR, "Failed to make %s readonly, err: %s", cert_file_with_path, strerror(errno));
+        goto end;
       }
       break;
+
     case DELETE:
-      cert_file_with_path = g_strdup_printf("%s%s",tls_cert_path,cert_name);
-      syslog(LOG_INFO,"Removing %s", cert_file_with_path);
-      // TODO Check if file exists before trying to remove it
-      if (g_remove(cert_file_with_path)!=0){
-        syslog(LOG_ERR, "Failed to remove %s from %s.", cert_name, tls_cert_path);
-        return;
+      /* Delete cert */
+      cert_file_with_path = g_strdup_printf("%s%s", tls_cert_path, cert_name);
+      syslog(LOG_INFO, "Removing %s", cert_file_with_path);
+      if (g_file_test(cert_file_with_path, G_FILE_TEST_EXISTS )) {
+        if (g_remove(cert_file_with_path) != 0) {
+          syslog(LOG_ERR, "Failed to remove %s from %s.", cert_name, tls_cert_path);
+          goto end;
+        }
       }
       break;
+
     default:
-      syslog(LOG_ERR,"Got unsupported request method %i",request_method);
-      return;
+      syslog(LOG_ERR, "Unsupported request method %i", request_method);
+      break;
   }
+
+end:
+  /* Cleanup */
+  free(cert_file_with_path);
+  return;
 }

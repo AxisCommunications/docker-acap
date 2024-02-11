@@ -57,7 +57,7 @@
             "httpConfig": [
                 {
                     "access": "admin",
-                    "name": "tls_reciever.cgi",
+                    "name": "cert_manager.cgi",
                     "type": "fastCgi"
                 }
             ]
