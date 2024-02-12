@@ -23,10 +23,16 @@
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <syslog.h>
 #include <unistd.h>
+
+#define APP_NAME "dockerdwrapper"
+
+/** @brief APP path in a device */
+#define APP_DIRECTORY "/usr/local/packages/" APP_NAME
 
 /**
  * @brief Callback called when the dockerd process exits.
@@ -657,6 +663,46 @@ main(void)
 
   openlog(NULL, LOG_PID, LOG_USER);
   syslog(LOG_INFO, "Started logging.");
+
+  // Get UID of the current user
+  uid_t uid = getuid();
+
+  char path[strlen(APP_DIRECTORY) + 256];
+  sprintf(path,
+          "/bin:/usr/bin:%s:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin",
+          APP_DIRECTORY);
+
+  char docker_host[256];
+  sprintf(docker_host, "unix://run/user/%d/docker.sock", (int)uid);
+
+  char xdg_runtime_dir[256];
+  sprintf(xdg_runtime_dir, "/run/user/%d", (int)uid);
+
+  // Set environment variables
+  if (setenv("PATH", path, 1) != 0) {
+    syslog(LOG_ERR, "Error setting environment PATH.");
+    return -1;
+  }
+
+  if (setenv("HOME", APP_DIRECTORY, 1) != 0) {
+    syslog(LOG_ERR, "Error setting environment APP_LOCATION.");
+    return -1;
+  }
+
+  if (setenv("DOCKER_HOST", docker_host, 1) != 0) {
+    syslog(LOG_ERR, "Error setting environment DOCKER_HOST.");
+    return -1;
+  }
+
+  if (setenv("XDG_RUNTIME_DIR", xdg_runtime_dir, 1) != 0) {
+    syslog(LOG_ERR, "Error setting environment XDG_RUNTIME_DIR.");
+    return -1;
+  }
+
+  syslog(LOG_INFO, "PATH: %s", path);
+  syslog(LOG_INFO, "HOME: %s", APP_DIRECTORY);
+  syslog(LOG_INFO, "DOCKER_HOST: %s", docker_host);
+  syslog(LOG_INFO, "XDG_RUNTIME_DIR: %s", xdg_runtime_dir);
 
   // Setup signal handling.
   init_signals();
