@@ -23,11 +23,10 @@
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <syslog.h>
-#include <unistd.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 #define APP_NAME "dockerdwrapper"
@@ -665,11 +664,13 @@ main(void)
   openlog(NULL, LOG_PID, LOG_USER);
   syslog(LOG_INFO, "Started logging.");
 
- // Get UID of the current user
+  // Get UID of the current user
   uid_t uid = getuid();
 
   char path[strlen(APP_DIRECTORY) + 256];
-  sprintf(path, "/bin:/usr/bin:%s:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin", APP_DIRECTORY);
+  sprintf(path,
+          "/bin:/usr/bin:%s:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin",
+          APP_DIRECTORY);
 
   char docker_host[256];
   sprintf(docker_host, "unix://run/user/%d/docker.sock", (int)uid);
@@ -679,23 +680,23 @@ main(void)
 
   // Set environment variables
   if (setenv("PATH", path, 1) != 0) {
-      perror("Error setting environment PATH");
-      return 1;
+    syslog(LOG_ERR, "Error setting environment PATH.");
+    return -1;
   }
 
   if (setenv("HOME", APP_DIRECTORY, 1) != 0) {
-      perror("Error setting environment APP_LOCATION");
-      return 1;
+    syslog(LOG_ERR, "Error setting environment APP_LOCATION.");
+    return -1;
   }
 
   if (setenv("DOCKER_HOST", docker_host, 1) != 0) {
-      perror("Error setting environment DOCKER_HOST");
-      return 1;
+    syslog(LOG_ERR, "Error setting environment DOCKER_HOST.");
+    return -1;
   }
 
   if (setenv("XDG_RUNTIME_DIR", xdg_runtime_dir, 1) != 0) {
-      perror("Error setting environment XDG_RUNTIME_DIR");
-      return 1;
+    syslog(LOG_ERR, "Error setting environment XDG_RUNTIME_DIR.");
+    return -1;
   }
 
   syslog(LOG_INFO, "PATH: %s", path);
@@ -716,8 +717,6 @@ main(void)
   /* Create the GLib event loop. */
   loop = g_main_loop_new(NULL, FALSE);
   loop = g_main_loop_ref(loop);
-
-
 
   if (!start_dockerd()) {
     syslog(LOG_ERR, "Starting dockerd failed");
