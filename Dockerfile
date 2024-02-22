@@ -102,9 +102,6 @@ COPY app /opt/app
 COPY --from=ps /export/ps /opt/app
 COPY --from=nsenter /export/nsenter /opt/app
 
-# Temp fix to remove 'root' directories 
-COPY ./binaries/handle_directories.sh /opt/app
-
 WORKDIR /opt/app
 
 # Download and extract slirp4netns
