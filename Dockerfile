@@ -141,8 +141,7 @@ RUN <<EOF
         -a slirp4netns \
         -a rootlesskit \
         -a rootlesskit-docker-proxy \
-        -a nsenter \
-        -a handle_directories.sh
+        -a nsenter
 EOF
 
 ENTRYPOINT [ "/opt/axis/acapsdk/sysroots/x86_64-pokysdk-linux/usr/bin/eap-install.sh" ]

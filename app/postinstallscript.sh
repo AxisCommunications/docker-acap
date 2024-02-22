@@ -39,8 +39,6 @@ cat >> /etc/systemd/system/sdkdockerdwrapper.service << EOF
 BindsTo=containerd.service
 After=network-online.target containerd.service var-spool-storage-SD_DISK.mount
 Wants=network-online.target
-[Service]
-ExecStartPre=+$_appdirectory/handle_directories.sh $_uid $_uname $_gname
 EOF
 
 # Reload daemon for service file changes to take effect
