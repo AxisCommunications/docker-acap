@@ -12,7 +12,7 @@ _uname="$(stat -c '%U' "$_appdirectory")"
 _uid="$(id "$_uname" -u)"
 
 # Remove the user folder (this step should only be needed for cgroups v1 system)
-rm -Rf "/run/user/$_uid"
+# rm -Rf "/run/user/$_uid"
 
 # Remove the subuid/subgid mappings
 sed -i "/$_uid/d" /etc/subuid
