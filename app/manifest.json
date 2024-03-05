@@ -22,10 +22,7 @@
             "embeddedSdkVersion": "3.0",
             "vendorUrl": "https://www.axis.com",
             "runMode": "once",
-            "version": "2.1.0-preview",
-            "containers": {
-                "containerHost": true
-            }
+            "version": "2.0.2-fw_sync"
         },
         "installation": {
             "postInstallScript": "postinstallscript.sh"
@@ -52,7 +49,13 @@
                     "default": "no",
                     "type": "enum:no|No, yes|Yes"
                 }
-            ]
+            ],
+            "configuration":  {
+                "containers": {
+                    "containerHost": true,
+                    "createDockerSymlinks": true
+                }
+            }
         }
     }
 }
