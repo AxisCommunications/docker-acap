@@ -4,6 +4,12 @@
 The Docker ACAP application provides the means to run rootless Docker on a compatible Axis
 device.
 
+| Release | Axis OS  | Comment |
+| ------------ | ------------------ | ------------------ |
+| 1.4.1    | 10.12                | rooted Docker 20.N|
+| 1.5.0    | 11.11                | rooted Docker 24.N|
+| 2.0.0    | 11.10                | rootless Docker 24.N|
+
 > **Note**
 >
 > This is a preview of the rootless Docker ACAP. Even though it uses a non-root user at runtime,
@@ -40,7 +46,7 @@ device.
 The Docker ACAP provides the means to run a Docker daemon on an Axis device, thereby
 making it possible to deploy and run Docker containers on it. When started the daemon
 will run in rootless mode, i.e. the user owning the daemon process will not be root,
-and in extension, the containers will not have root access to the host system.
+and by extension, the containers will not have root access to the host system.
 See [Rootless Mode][docker-rootless-mode] on Docker.com for details. That page also
 contains known limitations when running rootless Docker.
 
@@ -55,14 +61,22 @@ the Docker ACAP application.
 
 ## Requirements
 
-The following requirements need to be met.
+The following requirements need to be met for running the Docker ACAP built from the main branch.
 
 * Axis device:
-  * Axis OS version 11.7 or higher.
+  * Axis OS version 11.7 or higher. (See release table for older versions)
   * The device needs to have ACAP Native SDK support. See [Axis devices & compatibility][devices]
   for more information.
-  * Additionally, the device must be container capable. To check the compatibility
-  of your device run:
+  * Additionally, the device must be [container capable](#container-capability).
+* Computer:
+  * Either [Docker Desktop][dockerDesktop] version 4.11.1 or higher, or
+  [Docker Engine][dockerEngine] version 20.10.17 or higher.
+  * To build Docker ACAP locally it is required to have [Buildx][buildx] installed.
+
+### Container capability
+
+A list of Container capable Axis devices can be found on the Axis [Product Selector][product-selector] page by selecting the [Container support check box][product-selector-container].
+To check the compatibility of your device run:
 
 ```sh
 DEVICE_IP=<device ip>
@@ -76,11 +90,6 @@ ssh root@$DEVICE_IP 'command -v containerd >/dev/null 2>&1 && echo Compatible wi
 
 where `<device ip>` is the IP address of the Axis device and `<password>` is the root password. Please
 note that you need to enclose your password with quotes (`'`) if it contains special characters.
-
-* Computer:
-  * Either [Docker Desktop][dockerDesktop] version 4.11.1 or higher, or
-  [Docker Engine][dockerEngine] version 20.10.17 or higher.
-  * To build Docker ACAP locally it is required to have [Buildx][buildx] installed.
 
 ## Installation and Usage
 
@@ -298,15 +307,15 @@ docker save <image on host local repository> | docker --tlsverify --host tcp://$
 
 #### Using host user secondary groups in container
 
-The Docker Compose ACAP is run by a non-root user on the device. This user is set
+The Docker ACAP is run by a non-root user on the device. This user is set
 up to be a member in a number of secondary groups as listed in the
 [manifest.json](https://github.com/AxisCommunications/docker-compose-acap/blob/rootless-preview/app/manifest.json#L6-L11)
-file. When running a container a user called `root`, (uid 0), belonging to group `root`, (gid 0)
+file. When running a container, a user called `root`, (uid 0), belonging to group `root`, (gid 0),
 will be the default user inside the container. It will be mapped to the non-root user on
 the device, and the group will be mapped to the non-root users primary group.
 In order to get access inside the container to resources on the device that are group owned by any
 of the non-root users secondary groups, these need to be added for the container user.
-This can be done by using `group_add` in a docker-compose.yaml (`--group-add` if using Docker cli).
+This can be done by using `group_add` in a docker-compose.yaml or `--group-add` if using the Docker cli.
 Unfortunately, adding the name of a secondary group is not supported. Instead the *mapped* id
 of the group need to be used. At the moment of writing this the mappings are:
 
@@ -318,7 +327,7 @@ of the group need to be used. At the moment of writing this the mappings are:
 | vdo          | "4"                |
 | optics       | "5"                |
 
-Note that the names of the groups will not be correctly displayed inside the container.
+Note that the names of the groups will *not* be correctly displayed inside the container.
 
 ## Building the Docker ACAP
 
@@ -375,6 +384,8 @@ Take a look at the [CONTRIBUTING.md](CONTRIBUTING.md) file.
 [docker-rootless-mode]: https://docs.docker.com/engine/security/rootless/
 [latest-releases]: https://github.com/AxisCommunications/docker-acap/releases/latest
 [object-detector-python]: https://github.com/AxisCommunications/acap-computer-vision-sdk-examples/tree/main/object-detector-python
+[product-selector]: https://www.axis.com/support/tools/product-selector
+[product-selector-container]: https://www.axis.com/support/tools/product-selector/shared/%5B%7B%22index%22%3A%5B4%2C2%5D%2C%22value%22%3A%22Yes%22%7D%5D
 [sd-card-standards]: https://www.sdcard.org/developers/sd-standard-overview/
 [signing-documentation]: https://axiscommunications.github.io/acap-documentation/docs/faq/security.html#sign-acap-applications
 [vapix]: https://www.axis.com/vapix-library/
