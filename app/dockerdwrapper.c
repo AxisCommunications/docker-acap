@@ -154,28 +154,28 @@ valid_cert(char *file_path, int cert_type)
     goto end;
   }
   if (fread(buffer, toread, 1, fp) != 1) {
-    syslog(LOG_ERR, "Could not fread %d bytes, err: %s", toread, strerror(errno));
+    syslog(LOG_ERR, "Could not fread %d bytes, err: %s", (int) toread, strerror(errno));
     goto end;
   }
   if (strncmp(buffer, headers[cert_type], toread) != 0) {
     syslog(LOG_ERR, "Invalid header found");
-    syslog_v(LOG_INFO, "Expected %.*s, found %.*s", toread, headers[cert_type], toread, buffer);
+    syslog_v(LOG_INFO, "Expected %.*s, found %.*s", (int) toread, headers[cert_type], (int) toread, buffer);
     goto end;
   }
 
   /* Check footer */
   toread = strlen(footers[cert_type]);
   if (fseek(fp, -toread, SEEK_END) != 0) {
-    syslog(LOG_ERR, "Could not fseek(%d, SEEK_END) bytes, err: %s", -toread, strerror(errno));
+    syslog(LOG_ERR, "Could not fseek(%d, SEEK_END) bytes, err: %s", (int) -toread, strerror(errno));
     goto end;
   }
   if (fread(buffer, toread, 1, fp) != 1) {
-    syslog(LOG_ERR, "Could not fread %d bytes, err: %s", toread, strerror(errno));
+    syslog(LOG_ERR, "Could not fread %d bytes, err: %s", (int) toread, strerror(errno));
     goto end;
   }
   if (strncmp(buffer, footers[cert_type], toread) != 0) {
     syslog(LOG_ERR, "Invalid footer found");
-    syslog_v(LOG_INFO, "Expected %.*s, found %.*s", toread, footers[cert_type], toread, buffer);
+    syslog_v(LOG_INFO, "Expected %.*s, found %.*s", (int) toread, footers[cert_type], (int) toread, buffer);
     goto end;
   }
   valid = true;
