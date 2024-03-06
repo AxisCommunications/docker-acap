@@ -239,8 +239,6 @@ handle_http(void *data, __attribute__((unused)) void *userdata)
       if (FCGX_GetParam("CONTENT_LENGTH", request->envp) != NULL) {
         int contentLength =
             strtol(FCGX_GetParam("CONTENT_LENGTH", request->envp), NULL, 10);
-        syslog(LOG_INFO, "Content-Length: %d", contentLength);
-
         char *file_path = write_file_from_stream(cert_file_name, contentLength, *request);
         if (file_path == NULL) {
           status = "422 Unprocessable Content";

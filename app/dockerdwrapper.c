@@ -797,12 +797,13 @@ start(void) {
     exit_code = -1;
     goto end;
   }
+  if (!get_ipc_socket_selection(&use_ipc_socket)) {
+    syslog(LOG_INFO, "Failed to get ipc socket selection. Uninstall and reinstall the acap?");
+    exit_code = -1;
+    goto end;
+  }
   if (!get_and_verify_tls_selection(&use_tls)) {
     syslog(LOG_INFO, "Failed to verify tls selection");
-    goto fcgi; /* do not start dockerd */
-  }
-  if (!get_ipc_socket_selection(&use_ipc_socket)) {
-    syslog(LOG_INFO, "Failed to get ipc socket selection");
     goto fcgi; /* do not start dockerd */
   }
   if (!get_and_verify_sd_card_selection(&use_sdcard)) {
@@ -835,8 +836,6 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
                                 gint status,
                                 __attribute__((unused)) gpointer user_data)
 {
-  syslog(LOG_INFO,"dockerd_process_exited callback called");
-
   GError *error = NULL;
   if (!g_spawn_check_wait_status(status, &error)) {
     syslog(LOG_ERR, "Dockerd process exited with error: %d", status);
@@ -872,7 +871,6 @@ parameter_changed_callback(const gchar *name,
                            const gchar *value,
                            __attribute__((unused)) gpointer data)
 {
-  syslog(LOG_INFO,"parameter_changed callback called");
   const gchar *parname = name += strlen("root.dockerdwrapper.");
 
   bool unknown_parameter = true;
