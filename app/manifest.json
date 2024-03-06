@@ -50,11 +50,9 @@
                     "type": "enum:no|No, yes|Yes"
                 }
             ],
-            "configuration":  {
-                "containers": {
-                    "containerHost": true,
-                    "createDockerSymlinks": true
-                }
+            "containers": {
+                "containerHost": true,
+                "createDockerSymlinks": true
             }
         }
     }
