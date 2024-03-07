@@ -1,5 +1,5 @@
 <!-- omit in toc -->
-# The Docker ACAP Application
+# The Docker ACAP application
 
 The Docker ACAP application provides the means to run Docker on a compatible Axis
 device.
@@ -28,12 +28,10 @@ device.
 ## Table of contents
 
 - [Overview](#overview)
-  - [Known Issues](#known-issues)
 - [Requirements](#requirements)
-  - [Container capability](#container-capability)
 - [Installation and Usage](#installation-and-usage)
   - [Installation](#installation)
-  - [Securing the Docker ACAP Application using TLS](#securing-the-docker-acap-application-using-tls)
+  - [Using TLS to secure the Docker ACAP application](#using-tls-to-secure-the-docker-acap-application)
   - [Using an SD card as storage](#using-an-sd-card-as-storage)
   - [Using the Docker ACAP application](#using-the-docker-acap-application)
 - [Building the Docker ACAP application](#building-the-docker-acap-application)
@@ -50,6 +48,7 @@ and by extension, the containers will not have root access to the host system.
 See [Rootless Mode][docker-rootless-mode] on Docker.com for more information. The page also
 contains known limitations when running rootless Docker.
 
+<!-- omit in toc -->
 ### Known Issues
 
 - Only uid and gid are properly mapped between device and containers, not the other groups that the
@@ -64,7 +63,7 @@ for how to handle this.
 > The Docker ACAP application can be run with TLS authentication or without.
 > Be aware that running without TLS authentication is extremely insecure and we
 strongly recommend against this.
-> See [Securing the Docker ACAP Application using TLS](#securing-the-docker-acap-application-using-tls)
+> See [Using TLS to secure the Docker ACAP application](#using-tls-to-secure-the-docker-acap-application)
 for information on how to generate certificates for TLS authentication when using
 the Docker ACAP application.
 
@@ -83,6 +82,7 @@ main branch.
   [Docker Engine][dockerEngine] version 20.10.17 or higher.
   - To build Docker ACAP locally it is required to have [Buildx][buildx] installed.
 
+<!-- omit in toc -->
 ### Container capability
 
 A list of Container capable Axis devices can be found on the Axis [Product Selector][product-selector]
@@ -133,7 +133,7 @@ When migrating from a rootful Docker ACAP application, any version before 2.0, t
 - Restart the device.
 - Install the rootless Docker ACAP application.
 
-### Securing the Docker ACAP Application using TLS
+### Using TLS to secure the Docker ACAP application
 
 The Docker ACAP application can be run either unsecured or in TLS mode. The application uses
 TLS as default. Use the "Use TLS" dropdown in the web interface to switch
@@ -265,7 +265,7 @@ the `--host` flag when running the docker command.
 The port used will change depending on if the Docker ACAP application runs using TLS or not.
 The Docker ACAP application will be reachable on port 2375 when running unsecured, and on
 port 2376 when running secured using TLS. Please read section
-[Securing the Docker ACAP Application using TLS](#securing-the-docker-acap-application-using-tls) for
+[Using TLS to secure the Docker ACAP application](#using-tls-to-secure-the-docker-acap-application) for
 more information.
 Below is an example of how to remotely run a docker command on an Axis device running
 the Docker ACAP in unsecured mode:
@@ -279,7 +279,7 @@ See [Client key and certificate](#client-key-and-certificate) for an example
 of how to remotely run docker commands on a device running a secured Docker ACAP application
 using TLS.
 
-#### Test that the Docker ACAP application can run a container
+#### Run a container using the Docker ACAP application
 
 Make sure the application, using TLS, is running, then pull and run the
 [hello-world][docker-hello-world] image from Docker Hub:
