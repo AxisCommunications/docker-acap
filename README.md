@@ -236,6 +236,14 @@ Go to your device web page above > Click on the tab **App** in the device GUI >
 Add **(+)** sign and browse to the newly built .eap-file > Click **Install** > Run the application by
 enabling the **Start** switch.
 
+## Contributing
+
+Take a look at the [CONTRIBUTING.md](CONTRIBUTING.md) file.
+
+## License
+
+[Apache 2.0](LICENSE)
+
 <!-- Links to external references -->
 <!-- markdownlint-disable MD034 -->
 [all-releases]: https://github.com/AxisCommunications/docker-acap/releases
