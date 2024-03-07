@@ -1,82 +1,93 @@
 <!-- omit in toc -->
-# The Docker ACAP
+# The Docker ACAP Application
 
-The Docker ACAP application provides the means to run rootless Docker on a compatible Axis
+The Docker ACAP application provides the means to run Docker on a compatible Axis
 device.
 
-| Release | Axis OS  | Comment |
-| ------------ | ------------------ | ------------------ |
-| 1.4.1    | 10.12                | rooted Docker 20.N|
-| 1.5.0    | 11.11                | rooted Docker 24.N|
-| 2.0.0    | 11.10                | rootless Docker 24.N|
-
-> **Note**
+<!-- omit in toc -->
+## Notable Releases
+<!-- markdownlint-disable MD013 -->
+| Release                 | AXIS OS min. version | Dockerd version | Type     | Comment                         |
+| ----------------------: | -------------------: | --------------: |----------|---------------------------------|
+| [2.0.N][latest-release] | 11.10                | 24.0.2          | rootless | Latest release                  |
+| [1.4.1][1.4.1-release]  | 10.12                | 20.10.9         | rootful  | Legacy release AXIS OS 2022 LTS |
+| 2.0.N                   | 11.11                | 24.0.2          | rootless | Legacy release AXIS OS 2024 LTS |
+| 1.5.N                   | 11.11                | 24.0.2          | rootful  | Legacy release AXIS OS 2024 LTS |
+<!-- markdownlint-enable MD013 -->
+> [!IMPORTANT]
+> From AXIS OS 12.0 running 'rootful' ACAP applications, i.e. an application setup with the `root` user,
+> will no longer be supported. To install a 'rootful' ACAP application on a device running AXIS OS
+> versions between 11.5 and 11.11, allow root must be enabled. See the [VAPIX documentation][vapix-allow-root]
+> for details. Alternatively, On the web page of the device:
 >
-> This is a preview of the rootless Docker ACAP. Even though it uses a non-root user at runtime,
-> it requires root privileges during installation and uninstallation. This can be accomplished by
-> setting the `AllowRoot` toggle to `true` when installing and uninstalling the application.
-> See the [VAPIX documentation][vapix-allow-root] for details.
->
-> **Known Issues**
->
-> * Only uid and gid are properly mapped between device and containers, not the other groups that
-> the user is a member of. This means that resources on the device, even if they are volume or device
-> mounted can be inaccessible inside the container. This can also affect usage of unsupported dbus
->  methods from the container. See [Using host user secondary groups in container](#using-host-user-secondary-groups-in-container)
-> for how to handle this.
-> * iptables use is disabled.
+> 1. Go to the Apps page, toggle on `Allow root-privileged apps`.
+> 1. Go to System -> Account page, under SSH accounts toggle off `Restrict root access` to be able to
+> send the TLS certificates. Make sure to set the password of the `root` SSH user.
 
 <!-- omit in toc -->
 ## Table of contents
 
-* [Overview](#overview)
-* [Requirements](#requirements)
-* [Installation and Usage](#installation-and-usage)
-  * [Installation](#installation)
-  * [Securing the Docker ACAP using TLS](#securing-the-docker-acap-using-tls)
-  * [Using an SD card as storage](#using-an-sd-card-as-storage)
-  * [Using the Docker ACAP](#using-the-docker-acap)
-* [Building the Docker ACAP](#building-the-docker-acap)
-* [Installing a locally built Docker ACAP](#installing-a-locally-built-docker-acap)
-* [Contributing](#contributing)
-* [License](#license)
+- [Overview](#overview)
+  - [Known Issues](#known-issues)
+- [Requirements](#requirements)
+  - [Container capability](#container-capability)
+- [Installation and Usage](#installation-and-usage)
+  - [Installation](#installation)
+  - [Securing the Docker ACAP Application using TLS](#securing-the-docker-acap-application-using-tls)
+  - [Using an SD card as storage](#using-an-sd-card-as-storage)
+  - [Using the Docker ACAP application](#using-the-docker-acap-application)
+- [Building the Docker ACAP application](#building-the-docker-acap-application)
+- [Installing a locally built Docker ACAP application](#installing-a-locally-built-docker-acap-application)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Overview
 
-The Docker ACAP provides the means to run a Docker daemon on an Axis device, thereby
+The Docker ACAP application provides the means to run a Docker daemon on an Axis device, thereby
 making it possible to deploy and run Docker containers on it. When started the daemon
 will run in rootless mode, i.e. the user owning the daemon process will not be root,
 and by extension, the containers will not have root access to the host system.
-See [Rootless Mode][docker-rootless-mode] on Docker.com for details. That page also
+See [Rootless Mode][docker-rootless-mode] on Docker.com for more information. The page also
 contains known limitations when running rootless Docker.
 
-> **Note**
+### Known Issues
+
+- Only uid and gid are properly mapped between device and containers, not the other groups that the
+user is a member of. This means that resources on the device, even if they are volume or device mounted
+can be inaccessible inside the container. This can also affect usage of unsupported dbus methods from
+the container. See [Using host user secondary groups in container](#using-host-user-secondary-groups-in-container)
+for how to handle this.
+- iptables use is disabled.
+
+> [!NOTE]
 >
 > The Docker ACAP application can be run with TLS authentication or without.
 > Be aware that running without TLS authentication is extremely insecure and we
 strongly recommend against this.
-> See [Securing the Docker ACAP using TLS](#securing-the-docker-acap-using-tls)
+> See [Securing the Docker ACAP Application using TLS](#securing-the-docker-acap-application-using-tls)
 for information on how to generate certificates for TLS authentication when using
 the Docker ACAP application.
 
 ## Requirements
 
-The following requirements need to be met for running the Docker ACAP built from the main branch.
+The following requirements need to be met for running the Docker ACAP application built from the
+main branch.
 
-* Axis device:
-  * Axis OS version 11.7 or higher. (See release table for older versions)
-  * The device needs to have ACAP Native SDK support. See [Axis devices & compatibility][devices]
+- Axis device:
+  - AXIS OS version 11.10 or higher.
+  - The device needs to have ACAP Native SDK support. See [Axis devices & compatibility][devices]
   for more information.
-  * Additionally, the device must be [container capable](#container-capability).
-* Computer:
-  * Either [Docker Desktop][dockerDesktop] version 4.11.1 or higher, or
+  - The device must be [container capable](#container-capability).
+- Computer:
+  - Either [Docker Desktop][dockerDesktop] version 4.11.1 or higher, or
   [Docker Engine][dockerEngine] version 20.10.17 or higher.
-  * To build Docker ACAP locally it is required to have [Buildx][buildx] installed.
+  - To build Docker ACAP locally it is required to have [Buildx][buildx] installed.
 
 ### Container capability
 
-A list of Container capable Axis devices can be found on the Axis [Product Selector][product-selector] page by selecting the [Container support check box][product-selector-container].
-To check the compatibility of your device run:
+A list of Container capable Axis devices can be found on the Axis [Product Selector][product-selector]
+page by checking the [Container support check box][product-selector-container].
+To directly check the compatibility of a device, run:
 
 ```sh
 DEVICE_IP=<device ip>
@@ -93,23 +104,13 @@ note that you need to enclose your password with quotes (`'`) if it contains spe
 
 ## Installation and Usage
 
-The Docker ACAP application is available as a **signed** eap-file in [Releases][latest-releases].
-
-> [!IMPORTANT]
-> From AXIS OS 11.8 `root` user is not allowed by default and in 12.0 it will be disallowed completely. Read more on the [Developer Community](https://www.axis.com/developer-community/news/axis-os-root-acap-signing). \
-> Docker ACAP 1.X requires root and work is ongoing to create a version that does not.
-> Meanwhile, the solution is to allow root to be able to install the Docker ACAP.
->
-> On the web page of the device:
->
-> 1. Go to the Apps page, toggle on `Allow root-privileged apps`.
-> 1. Go to System -> Account page, under SSH accounts toggle off `Restrict root access` to be able to send the TLS certificates. Make sure to set the password of the `root` SSH user.
+The Docker ACAP application is available as a **signed** eap-file in [Releases][latest-release].
 
 The prebuilt Docker ACAP application is signed, read more about signing [here][signing-documentation].
 
 ### Installation
 
-Install and use any signed eap-file from [prereleases or releases][all-releases] with
+Install and use any signed eap-file from [pre-releases or releases][all-releases] with
 a tag on the form `<version>_<ARCH>`, where `<version>` is the docker-acap release
 version and `<ARCH>` is either `armv7hf` or `aarch64` depending on device architecture.
 E.g. `Docker_Daemon_2_0_0_aarch64_signed.eap`.
@@ -122,9 +123,19 @@ where it can be controlled in the device GUI **Apps** tab.
 curl -s https://api.github.com/repos/AxisCommunications/docker-acap/releases/latest | grep "browser_download_url.*Docker_Daemon_.*_<ARCH>\_signed.eap"
 ```
 
-### Securing the Docker ACAP using TLS
+#### Migrating from rootful Docker ACAP application
 
-The Docker ACAP can be run either unsecured or in TLS mode. The Docker ACAP uses
+When migrating from a rootful Docker ACAP application, any version before 2.0, the following is recommended:
+
+- Copy any images that you want to persist from the device to your computer.
+- Stop the Docker ACAP application.
+- If you use the SD card as storage format it or manually remove the `dockerd` directory (`/var/spool/storage/SD-Disk/dockerd`).
+- Restart the device.
+- Install the rootless Docker ACAP application.
+
+### Securing the Docker ACAP Application using TLS
+
+The Docker ACAP application can be run either unsecured or in TLS mode. The application uses
 TLS as default. Use the "Use TLS" dropdown in the web interface to switch
 between the two different modes. It's also possible to toggle this option by
 calling the parameter management API in [VAPIX][vapix] and setting the
@@ -211,7 +222,7 @@ where `<client certificate directory>` is the directory on your computer where t
 
 ### Using an SD card as storage
 
-An SD card might be necessary to run the Docker ACAP correctly. Docker
+An SD card might be necessary to run the Docker ACAP application correctly. Docker
 containers and docker images can be quite large, and putting them on an SD card
 gives more freedom in how many and how large images can be stored. Switching
 between storage on the SD card or internal storage is done by toggling the "SD
@@ -237,24 +248,24 @@ has a significantly higher inference time when using a small and slow SD card.
 To get more informed about specifications, check the
 [SD Card Standards][sd-card-standards].
 
->**Note**
+> [!NOTE]
 >
->If Docker ACAP v1.4 or previous has been used on the device with SD card as storage
+>If Docker ACAP application v1.4 or previous has been used on the device with SD card as storage
 >the storage directory might already be created with root permissions.
->Since v2.0 the Docker ACAP is run in rootless mode and it will then not be able
+>Since v2.0 the Docker ACAP application is run in rootless mode and it will then not be able
 >to access that directory. To solve this, either reformat the SD card or manually
->remove the directory that is used by the Docker ACAP.
+>remove the directory that is used by the Docker ACAP application.
 
-### Using the Docker ACAP
+### Using the Docker ACAP application
 
-The Docker ACAP does not contain the docker client binary. This means that all
+The Docker ACAP application does not contain the docker client binary. This means that all
 calls need to be done from a separate machine. This can be achieved by using
-the -H flag when running the docker command.
+the `--host` flag when running the docker command.
 
-The port used will change depending on if the Docker ACAP runs using TLS or not.
-The Docker ACAP will be reachable on port 2375 when running unsecured, and on
+The port used will change depending on if the Docker ACAP application runs using TLS or not.
+The Docker ACAP application will be reachable on port 2375 when running unsecured, and on
 port 2376 when running secured using TLS. Please read section
-[Securing the Docker ACAP using TLS](#securing-the-docker-acap-using-tls) for
+[Securing the Docker ACAP Application using TLS](#securing-the-docker-acap-application-using-tls) for
 more information.
 Below is an example of how to remotely run a docker command on an Axis device running
 the Docker ACAP in unsecured mode:
@@ -265,12 +276,12 @@ docker --host tcp://$DEVICE_IP:$DOCKER_INSECURE_PORT version
 ```
 
 See [Client key and certificate](#client-key-and-certificate) for an example
-of how to remotely run docker commands on a device running a secured Docker ACAP
+of how to remotely run docker commands on a device running a secured Docker ACAP application
 using TLS.
 
-#### Test that the Docker ACAP can run a container
+#### Test that the Docker ACAP application can run a container
 
-Make sure the Docker ACAP, using TLS, is running, then pull and run the
+Make sure the application, using TLS, is running, then pull and run the
 [hello-world][docker-hello-world] image from Docker Hub:
 
 ```sh
@@ -318,7 +329,7 @@ docker save <image on host local repository> | docker --tlsverify --host tcp://$
 
 #### Using host user secondary groups in container
 
-The Docker ACAP is run by a non-root user on the device. This user is set
+The Docker ACAP application is run by a non-root user on the device. This user is set
 up to be a member in a number of secondary groups as listed in the
 [manifest.json](https://github.com/AxisCommunications/docker-compose-acap/blob/rootless-preview/app/manifest.json#L6-L11)
 file. When running a container, a user called `root`, (uid 0), belonging to group `root`, (gid 0),
@@ -331,7 +342,7 @@ Unfortunately, adding the name of a secondary group is not supported. Instead th
 of the group need to be used. At the moment of writing this the mappings are:
 
 | device group | container group id |
-| ------------ | ------------------ |
+| ------------ | :----------------: |
 | datacache    | "1"                |
 | sdk          | "2"                |
 | storage      | "3"                |
@@ -340,24 +351,28 @@ of the group need to be used. At the moment of writing this the mappings are:
 
 Note that the names of the groups will *not* be correctly displayed inside the container.
 
-## Building the Docker ACAP
+## Building the Docker ACAP application
 
-To build the Docker ACAP use docker buildx with the provided Dockerfile:
+This repository provides a build script that uses Docker to build the application and then extract
+the .eap file:
 
-```sh
-# Build Docker ACAP image
-docker buildx build --file Dockerfile --tag docker-acap:<ARCH> --build-arg ACAPARCH=<ARCH> .
+``` sh
+./build.sh <ARCH>
 ```
 
 where `<ARCH>` is either `armv7hf` or `aarch64`.
 
-To extract the Docker ACAP eap-file use docker cp to copy it to a `build` folder:
+To run the individual commands manually instead:
 
 ```sh
+# Build Docker ACAP image
+docker buildx build --file Dockerfile --tag docker-acap:<ARCH> --build-arg ACAPARCH=<ARCH> .
+
+# Extract the eap-file into a folder called `build`
 docker cp "$(docker create "docker-acap:<ARCH>")":/opt/app/ ./build
 ```
 
-## Installing a locally built Docker ACAP
+## Installing a locally built Docker ACAP application
 
 Installation can be done either by running the locally built docker image:
 
@@ -365,7 +380,7 @@ Installation can be done either by running the locally built docker image:
 docker run --rm docker-acap:<ARCH> <device ip> <rootpasswd> install
 ```
 
-Or by manually installing the .eap file from the `build` folder by using the Web GUI in the device:
+Or by manually installing the .eap file by using the Web GUI in the device:
 
 ```sh
 http://<device ip>/#settings/apps
@@ -385,6 +400,7 @@ Take a look at the [CONTRIBUTING.md](CONTRIBUTING.md) file.
 
 <!-- Links to external references -->
 <!-- markdownlint-disable MD034 -->
+[1.4.1-release]: https://github.com/AxisCommunications/docker-acap/releases/tag/1.4.1
 [all-releases]: https://github.com/AxisCommunications/docker-acap/releases
 [buildx]: https://docs.docker.com/build/install-buildx/
 [devices]: https://axiscommunications.github.io/acap-documentation/docs/axis-devices-and-compatibility#sdk-and-device-compatibility
@@ -393,7 +409,7 @@ Take a look at the [CONTRIBUTING.md](CONTRIBUTING.md) file.
 [docker-hello-world]: https://hub.docker.com/_/hello-world
 [docker-tls]: https://docs.docker.com/engine/security/protect-access/
 [docker-rootless-mode]: https://docs.docker.com/engine/security/rootless/
-[latest-releases]: https://github.com/AxisCommunications/docker-acap/releases/latest
+[latest-release]: https://github.com/AxisCommunications/docker-acap/releases/latest
 [object-detector-python]: https://github.com/AxisCommunications/acap-computer-vision-sdk-examples/tree/main/object-detector-python
 [product-selector]: https://www.axis.com/support/tools/product-selector
 [product-selector-container]: https://www.axis.com/support/tools/product-selector/shared/%5B%7B%22index%22%3A%5B4%2C2%5D%2C%22value%22%3A%22Yes%22%7D%5D

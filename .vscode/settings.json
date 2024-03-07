@@ -8,10 +8,25 @@
       "markdown.extension.list.indentationSize": "inherit",
     "markdown.extension.toc.levels": "1..3",
     "cSpell.words": [
+        "aarch64",
+        "ACAP",
+        "ACAPARCH",
         "anyauth",
+        "armv7hf",
         "Buildx",
         "containerd",
+        "datacache",
+        "dbus",
+        "dockerdwrapper",
+        "hadolint",
         "rootpasswd",
-        "VAPIX"
+        "shellcheck",
+        "shfmt",
+        "tlscacert",
+        "tlscert",
+        "tlskey",
+        "tlsverify",
+        "VAPIX",
+        "vfat"
     ]
 }
