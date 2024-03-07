@@ -44,7 +44,7 @@ runs:
   steps:
     - name: Create metadata for docker image
       id: meta
-      uses: docker/metadata-action@v4
+      uses: docker/metadata-action@v5
       with:
         images: ${{ inputs.repository }}
         # adds the suffix for all tags, even latest.

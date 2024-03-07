@@ -93,7 +93,7 @@ jobs:
             echo "HTTP_RESPONSE is empty or not a valid integer: $HTTP_RESPONSE"
           fi
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ env.SIGNED_EAP_FILE }}
           path: build/${{ env.SIGNED_EAP_FILE }}
@@ -175,7 +175,7 @@ jobs:
             echo "::error::Non valid architecture '${{ matrix.arch }}' encountered"
           fi
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ${{ env.EAP_FILE }}
           path: ./

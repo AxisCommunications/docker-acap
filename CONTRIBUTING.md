@@ -115,13 +115,13 @@ i.e. copying the repository to your account to grant you write access. Continue 
 forked repository to your local machine.
 
 ```sh
-git clone https://github.com/<your username>/AxisCommunications/acap-runtime.git
+git clone https://github.com/<your username>/AxisCommunications/docker-acap.git
 ```
 
 Navigate into the cloned directory and create a new branch:
 
 ```sh
-cd acap-runtime
+cd docker-acap
 git switch -c <branch name>
 ```
 
@@ -178,7 +178,7 @@ docker run --rm \
   -e VALIDATE_MARKDOWN=true \
   -e VALIDATE_SHELL_SHFMT=true \
   -e VALIDATE_YAML=true \
-  github/super-linter:slim-v4
+  ghcr.io/super-linter/super-linter:slim-v6
 ```
 
 See [`.github/workflows/lint.yml`](.github/workflows/lint.yml) for the exact setup used by this project.
@@ -192,7 +192,7 @@ docker run --rm \
   -v $PWD:/tmp/lint \
   -w /tmp/lint \
   --entrypoint /bin/bash \
-  -it github/super-linter:slim-v4
+  -it ghcr.io/super-linter/super-linter:slim-v6
 ```
 
 Then from the container terminal, the following commands can lint the the code base for different
