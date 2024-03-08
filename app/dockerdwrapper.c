@@ -101,6 +101,7 @@ static cert tls_certs[] = {{"ca.pem", PEM_CERT },
 
 #define NUM_TLS_CERTS   sizeof(tls_certs)/sizeof(cert)
 #define CERT_FILE_MODE  0400
+#define READ_WRITE_MODE 0600
 
 
 /**
@@ -1046,38 +1047,47 @@ callback_action(__attribute__((unused)) fcgi_handle handle,
                 char *cert_name,
                 char *file_path)
 {
+  char* cert_file_with_path = NULL;
+
   /* Is cert supported? */
   int cert_type;
   if (!supported_cert(cert_name, &cert_type)) {
-    if (file_path && (g_remove(file_path) != 0)) {
-      syslog(LOG_ERR, "Failed to remove %s, err: %s", file_path, strerror(errno));
-    }
-    return;
+    goto end;
   }
 
   /* Action requested method */
-  char* cert_file_with_path = NULL;
   switch (request_method) {
     case POST:
       /* Is cert valid? */
       if (!valid_cert(file_path, cert_type)) {
-        if (g_remove(file_path) != 0) {
-          syslog(LOG_ERR, "Failed to remove invalid %s, err: %s", file_path, strerror(errno));
-        }
-        return;
+        goto end;
       }
 
-      /* Use new and update cert mode */
+      /* If cert already exists make writeable */
       cert_file_with_path = g_strdup_printf("%s%s", tls_cert_path, cert_name);
+      if (g_file_test(cert_file_with_path, G_FILE_TEST_EXISTS )) {
+        if (chmod(cert_file_with_path, READ_WRITE_MODE) != 0) {
+          syslog(LOG_ERR, "Failed to make %s writeable, err: %s", cert_file_with_path, strerror(errno));
+          goto end;
+        }
+      }
+
+      /* Copy cert, overwriting any existing, and restore mode */
       syslog(LOG_INFO,"Moving %s to %s", file_path, cert_file_with_path);
-      if (g_rename(file_path, cert_file_with_path) != 0) {
-        syslog(LOG_ERR, "Failed to move %s to %s, err: %s", file_path, cert_file_with_path, strerror(errno));
-        goto end;
+      GFile *source = g_file_new_for_path(file_path);
+      GFile *destination = g_file_new_for_path(cert_file_with_path);
+      GError *error = NULL;
+      if (!g_file_copy(source, destination, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, &error)) {
+        syslog(LOG_ERR, "Failed to copy %s to %s, err: %s", file_path, cert_file_with_path, error->message);
+        g_error_free(error);
+        goto post_end;
       }
       if (chmod(cert_file_with_path, CERT_FILE_MODE) != 0) {
         syslog(LOG_ERR, "Failed to make %s readonly, err: %s", cert_file_with_path, strerror(errno));
-        goto end;
       }
+post_end:
+      g_object_unref(source);
+      g_object_unref(destination);
       break;
 
     case DELETE:
@@ -1100,5 +1110,7 @@ callback_action(__attribute__((unused)) fcgi_handle handle,
 end:
   /* Cleanup */
   free(cert_file_with_path);
-  return;
+  if (file_path && (/* Delete original cert */ g_remove(file_path) != 0)) {
+    syslog(LOG_ERR, "Failed to remove %s, err: %s", file_path, strerror(errno));
+  }
 }

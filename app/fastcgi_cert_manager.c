@@ -19,8 +19,7 @@
 #define syslog_v(...) if (g_verbose) {syslog(__VA_ARGS__);}
 
 
-static const char *app_localdata_path =
-  "/usr/local/packages/dockerdwrapper/localdata";
+static const char *tmp_path = "/tmp";
 
 static fcgi_request_callback g_callback;
 const char *g_socket_path = NULL;
@@ -91,7 +90,7 @@ write_file_from_stream(const char *cert_file_name, int contentLength, FCGX_Reque
     boundarytext += strlen("boundary=");
     syslog_v(LOG_INFO, "Boundary text %s%s%s", "SB>", boundarytext, "<EB");
 
-    file_path = g_strdup_printf("%s/%s.XXXXXX", app_localdata_path, cert_file_name);
+    file_path = g_strdup_printf("%s/%s.XXXXXX", tmp_path, cert_file_name);
     file_des = mkstemp(file_path);
     if (file_des == -1) {
       syslog(LOG_ERR, "Failed to create %s, err %s", file_path, strerror(errno));
