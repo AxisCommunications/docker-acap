@@ -24,6 +24,7 @@
 #include <sys/wait.h>
 #include <syslog.h>
 #include <unistd.h>
+#include "sd_disk_storage.h"
 
 struct settings {
   bool use_sdcard;
@@ -207,8 +208,28 @@ get_sd_filesystem(void)
  * @return True if successful, false if setup failed.
  */
 static bool
-setup_sdcard(void)
+setup_sdcard()
 {
+  StorageHandler *sh = g_object_new(G_TYPE_OBJECT, NULL);
+  GCancellable *cancellable = g_cancellable_new();
+
+  GMainLoop *loop = g_main_loop_new(NULL, FALSE);
+
+  handler_create_dockerdfolder_async(sh,
+                                     "dockerd",
+                                     "create dockerd folder",
+                                     cancellable,
+                                     create_dockerdfolder_cb,
+                                     loop);
+
+  g_object_unref(cancellable);
+
+  syslog(LOG_INFO, "%p: start event loop.\n", g_thread_self());
+  g_main_loop_run(loop);
+
+  g_main_loop_unref(loop);
+  g_object_unref(sh);
+
   const char *data_root = "/var/spool/storage/SD_DISK/dockerd/data";
   const char *exec_root = "/var/spool/storage/SD_DISK/dockerd/exec";
   char *create_droot_command = g_strdup_printf("mkdir -p %s", data_root);
@@ -240,6 +261,7 @@ end:
   return res == 0;
 }
 
+// TODO Move to axstorage impl
 /**
  * @brief Gets and verifies the SDCardSupport selection
  *
@@ -253,10 +275,16 @@ get_and_verify_sd_card_selection(bool *use_sdcard_ret)
   bool use_sdcard = *use_sdcard_ret;
   char *use_sd_card_value = get_parameter_value("SDCardSupport");
   char *sd_file_system = NULL;
+  char *sdcard_path = NULL;
 
   if (use_sd_card_value != NULL) {
     bool use_sdcard = strcmp(use_sd_card_value, "yes") == 0;
     if (use_sdcard) {
+      if (!confirm_sdcard_usage()) {
+        syslog(LOG_ERR, "Failed to confirm that SD card is available");
+        goto end;
+      }
+
       // Confirm that the SD card is usable
       sd_file_system = get_sd_filesystem();
       if (sd_file_system == NULL) {
@@ -295,13 +323,18 @@ get_and_verify_sd_card_selection(bool *use_sdcard_ret)
         syslog(LOG_ERR, "Failed to setup SD card.");
         goto end;
       }
+
+      sdcard_path = get_sdcard_path();
+      syslog(LOG_INFO, "SD card path set to %s", sdcard_path);
     }
+    syslog(LOG_INFO, "SD card set to %d", use_sdcard);
     *use_sdcard_ret = use_sdcard;
     return_value = true;
   }
 end:
   free(use_sd_card_value);
   free(sd_file_system);
+  free(sdcard_path);
   return return_value;
 }
 
@@ -466,11 +499,13 @@ start_dockerd(const struct settings *settings)
   }
 
   if (use_sdcard) {
-    args_offset +=
-        g_snprintf(args + args_offset,
-                   args_len - args_offset,
-                   " %s",
-                   "--data-root /var/spool/storage/SD_DISK/dockerd/data");
+    args_offset += g_snprintf(args + args_offset,
+                              args_len - args_offset,
+                              " %s %s/%s",
+                              "--data-root",
+                              get_sdcard_path(),
+                              "data");
+    //             /var/spool/storage/SD_DISK/dockerd/data");
 
     g_strlcat(msg, " using SD card as storage", msg_len);
   } else {
@@ -702,6 +737,8 @@ main(void)
 
   // Setup signal handling.
   init_signals();
+
+  // syslog(LOG_INFO, "Response from storage %i", axstorage_use());
 
   // Setup ax_parameter
   ax_parameter = setup_axparameter();
