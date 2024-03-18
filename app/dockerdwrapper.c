@@ -103,6 +103,13 @@ static cert tls_certs[] = {{"ca.pem", PEM_CERT },
 #define CERT_FILE_MODE  0400
 #define READ_WRITE_MODE 0600
 
+typedef enum {STOPPING = -1,
+              STARTED = 0,
+              START_IN_PROGRESS,
+              START_PENDING} status;
+
+static int g_status = START_IN_PROGRESS;
+
 
 /**
  * @brief Checks if the certificate name is supported
@@ -234,6 +241,7 @@ is_process_alive(int pid)
     return false;
   } else if (return_pid == dockerd_process_pid) {
     // Child is already exited, so not alive.
+    dockerd_process_pid = -1;
     return false;
   }
   return true;
@@ -563,6 +571,10 @@ get_verbose_selection(bool *use_verbose_ret)
 /**
  * @brief Start a new dockerd process.
  *
+ * @param use_sdcard start option.
+ * @param use_tls start option.
+ * @param use_ipc_socket start option.
+ * @param use_verbose start option.
  * @return True if successful, false otherwise
  */
 static bool
@@ -571,6 +583,7 @@ start_dockerd(bool use_sdcard,
               bool use_ipc_socket,
               bool use_verbose)
 {
+  syslog_v(LOG_INFO,"start_dockerd called: %d", g_status);
 
   syslog(LOG_INFO, "starting dockerd with settings: use_sdcard %d, use_tls %d, use_ipc_socket %d, use_verbose %d",use_sdcard,use_tls,use_ipc_socket,use_verbose);
   GError *error = NULL;
@@ -727,57 +740,19 @@ start_dockerd(bool use_sdcard,
     g_main_loop_quit(loop);
     goto end;
   }
+
+  /* TODO: But being alive at this point DOESN'T mean we are up and stable. Sleep for now..*/
+  int post_watch_add_secs = 15;
+  sleep(post_watch_add_secs);
+  syslog_v(LOG_INFO,"start_dockerd: %d: TODO: sleep(%d). Now stable?", g_status, post_watch_add_secs);
+
+  g_status = STARTED;
   return_value = true;
 
 end:
   g_strfreev(args_split);
   g_clear_error(&error);
   return return_value;
-}
-
-/**
- * @brief Stop the currently running dockerd process.
- *
- * @return True if successful, false otherwise
- */
-static bool
-stop_dockerd(void)
-{
-  bool killed = false;
-  if (dockerd_process_pid == -1) {
-    // Nothing to stop.
-    killed = true;
-    goto end;
-  }
-
-  // Send SIGTERM to the process
-  bool sigterm_successfully_sent = kill(dockerd_process_pid, SIGTERM) == 0;
-  if (!sigterm_successfully_sent) {
-    syslog(
-        LOG_ERR, "Failed to send SIGTERM to child. Error: %s", strerror(errno));
-    errno = 0;
-  }
-
-  // Wait before sending a SIGKILL.
-  // The sleep will be interrupted when the dockerd_process_callback arrives,
-  // so we will essentially sleep until dockerd has shut down or 10 seconds
-  // passed.
-  sleep(10);
-
-  if (dockerd_process_pid == -1) {
-    killed = true;
-    goto end;
-  }
-
-  // SIGTERM failed, let's try SIGKILL
-  killed = kill(dockerd_process_pid, SIGKILL) == 0;
-  if (!killed) {
-    syslog(
-        LOG_ERR, "Failed to send SIGKILL to child. Error: %s", strerror(errno));
-  }
-
-end:
-  return killed;
 }
 
 /**
@@ -791,7 +766,7 @@ start(void) {
   bool use_tls = false;
   bool use_ipc_socket = false;
   bool use_verbose = false;
-  syslog(LOG_INFO,"start called");
+  syslog_v(LOG_INFO,"start called: %d", g_status);
 
   if (!get_verbose_selection(&use_verbose)) {
     syslog(LOG_INFO, "Failed to get verbose selection. Uninstall and reinstall the acap?");
@@ -826,7 +801,123 @@ fcgi:
   }
 
 end:
+  syslog_v(LOG_INFO, "TODO: Start pending?: exit_code %d, g_status %d", exit_code, g_status);
+  if ((exit_code == STARTED) && (g_status == START_PENDING)) {
+    /* No error and started, but further restart queued */
+    syslog_v(LOG_INFO, "Restart queued. START_PENDING -> START_IN_PROGRESS");
+    g_status = START_IN_PROGRESS;
+    return start();
+  }
+
+  return (g_status = exit_code);
+}
+
+/**
+ * @brief Attempt to kill process and verify success with specified time.
+ *
+ * @param process_id pointer to the process id to kill.
+ * @param sig the signal to attempt the kill with.
+ * @param secs the maximum time to wait for verification.
+ * @return exit_code. 0 if successful, -1 otherwise
+ */
+static int
+kill_and_verify(int *process_id, uint sig, uint secs)
+{
+  int pid = *process_id;
+  int exit_code;
+  if ((exit_code = kill(pid, sig)) != 0) {
+    syslog(LOG_INFO, "Failed to send %d to process %d. Error: %s",
+           sig, pid, strerror(errno));
+    errno = 0;
+    return exit_code;
+  }
+
+  uint i = 0;
+  while (i++ < secs) {
+    sleep(1);
+    if (*process_id == -1) { /* Set in process exited callback */
+      syslog_v(LOG_INFO,"kill_and_verify: stopped(%d) pid %d after %d secs", sig, pid, i);
+      return 0;
+    }
+  }
+
+  syslog_v(LOG_INFO,"Failed to stop(%d) pid %d after %d secs", sig, pid, secs);
+  return -1;
+}
+
+/**
+ * @brief Stop the currently running dockerd process.
+ *
+ * @return exit_code. 0 if successful, -1 otherwise
+ */
+static int
+stop_dockerd(void)
+{
+  if (dockerd_process_pid == -1) {
+    /* Nothing to stop. */
+    exit_code = 0;
+    goto end;
+  }
+
+  /* Send SIGTERM to the process, wait up to 10 secs */
+  if ((exit_code = kill_and_verify(&dockerd_process_pid, SIGTERM, 10)) == 0) {
+    goto end;
+  }
+  syslog(LOG_WARNING, "Failed to send and verify SIGTERM to child");
+
+  /* SIGTERM failed, try SIGKILL instead, wait up to 10 secs  */
+  if ((exit_code = kill_and_verify(&dockerd_process_pid, SIGKILL, 10)) == 0) {
+    goto end;
+  }
+  syslog(LOG_ERR, "Failed to send and verify SIGKILL to child");
+
+end:
+#if 1
+  /* TODO: Needed? Children all cleaned up already? Sleep for now and assume 0 exit_code.. */
+  sleep(10);
+  exit_code = 0;
+#endif
+
+  if (g_status > STARTED) {
+    /* Restart in progress and|or pending. Continue (leave main loop).. */
+    g_main_loop_quit(loop);
+  }
+
   return exit_code;
+}
+
+/**
+ * @brief Restart fcgi and dockerd.
+ */
+static void
+restart(void)
+{
+  syslog_v(LOG_INFO,"restart called: %d", g_status);
+
+  /* Check and update status */
+  if (g_status > STARTED) {
+    syslog_v(LOG_INFO, "restart called. -> START_PENDING");
+    g_status = START_PENDING;
+    return;
+  } else if (g_status < STARTED) {
+    syslog(LOG_ERR, "Unable to restart, status %d", g_status);
+    return;
+  }
+  syslog_v(LOG_INFO, "restart called. -> START_IN_PROGRESS");
+  g_status = START_IN_PROGRESS;
+
+  if (!is_process_alive(dockerd_process_pid)) {
+    /* dockerd was not started. Just start */
+    if ((exit_code = start()) != 0) {
+      g_main_loop_quit(loop);
+    }
+  } else {
+    /* Stop the current dockerd process before restarting */
+    if ((exit_code = stop_dockerd()) != 0) {
+      syslog(LOG_ERR, "Failed to stop dockerd process");
+      g_main_loop_quit(loop);
+    }
+  }
 }
 
 /**
@@ -838,14 +929,32 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
                                 __attribute__((unused)) gpointer user_data)
 {
   GError *error = NULL;
-  if (!g_spawn_check_wait_status(status, &error)) {
-    syslog(LOG_ERR, "Dockerd process exited with error: %d", status);
-    g_clear_error(&error);
+  syslog_v(LOG_INFO,"dockerd_process_exited_callback called: %d", g_status);
 
-    exit_code = -1;
+  /* Sanity check of pid */
+  if (pid != dockerd_process_pid) {
+    syslog(LOG_ERR, "TODO: fix required? Expecting pid %d, found pid %d: ",
+           dockerd_process_pid, pid);
+    return;
   }
 
-  dockerd_process_pid = -1;
+  if (status == 0) {
+    /* Graceful exit. All good.. */
+    exit_code = 0;
+  } else  if ((status == SIGKILL) || (status == SIGTERM)) {
+    /* Likely here as a result of stop_dockerd().. */
+    syslog_v(LOG_INFO, "stop_dockerd instigated %s exit", (status == SIGKILL) ? "SIGKILL": "SIGTERM");
+    exit_code = 0;
+  } else if (!g_spawn_check_wait_status(status, &error)) {
+    /* Something went wrong..*/
+    syslog(LOG_ERR, "Dockerd process exited with status: %d, error: %s", status, error->message);
+    g_clear_error(&error);
+    exit_code = -1;
+  } else {
+    /* Not clear. Log as warning and continue..*/
+    syslog(LOG_WARNING, "Dockerd process exited with status: %d", status);
+  }
+
   g_spawn_close_pid(pid);
 
   // The lockfile might have been left behind if dockerd shut down in a bad
@@ -855,8 +964,10 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
   remove(pid_path);
   free(pid_path);
 
-  if (((exit_code = start()) != 0) != 0) {
-      g_main_loop_quit(loop);
+  /* Stop if exit was unexpected, otherwise continue */
+  dockerd_process_pid = -1;
+  if (exit_code != 0) {
+    g_main_loop_quit(loop);
   }
 }
 
@@ -889,21 +1000,8 @@ parameter_changed_callback(const gchar *name,
     return;
   }
 
-  if (!is_process_alive(dockerd_process_pid)) {
-    /* dockerd was not started. Just start */
-    if ((exit_code = start()) != 0) {
-      g_main_loop_quit(loop);
-    }
-  } else {
-    /* Stop the current dockerd process before restarting */
-    if (!stop_dockerd()) {
-      syslog(LOG_ERR,
-            "Failed to stop dockerd process. Please restart the acap "
-            "manually.");
-      exit_code = -1;
-      g_main_loop_quit(loop);
-    }
-  }
+  /* Restart to pick up the parameter change */
+  restart();
 }
 
 static AXParameter *
@@ -1005,6 +1103,8 @@ main(void)
 
   /* Create the GLib event loop. */
   loop = g_main_loop_new(NULL, FALSE);
+
+main_loop:
   loop = g_main_loop_ref(loop);
 
   /* Start fcgi and dockerd */
@@ -1014,12 +1114,18 @@ main(void)
 
   /* Run the GLib event loop. */
   g_main_loop_run(loop);
+
+  if (exit_code == 0) {
+    /* Restart */
+    goto main_loop;
+  }
   g_main_loop_unref(loop);
 
 end:
   /* Cleanup */
+  g_status = STOPPING;
   if (!is_process_alive(dockerd_process_pid)) {
-    if (stop_dockerd()) {
+    if ((exit_code = stop_dockerd()) == 0) {
       syslog(LOG_INFO, "Shutting down. dockerd shut down successfully.");
     } else {
       syslog(LOG_WARNING, "Shutting down. Failed to shut down dockerd.");
@@ -1027,17 +1133,22 @@ end:
   }
   fcgi_stop();
   if (ax_parameter != NULL) {
+    syslog_v(LOG_INFO, "Shutting down. unregistering ax_parameter callbacks.");
     for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]);
          ++i) {
       char *parameter_path =
           g_strdup_printf("%s.%s", "root.dockerdwrapper", ax_parameters[i]);
       ax_parameter_unregister_callback(ax_parameter, parameter_path);
+      syslog_v(LOG_INFO, "%d: %s", i, parameter_path);
       free(parameter_path);
     }
     ax_parameter_free(ax_parameter);
   }
 
   g_clear_error(&error);
+  if (exit_code != 0) {
+    syslog(LOG_ERR, "Please restart the acap manually.");
+  }
   return exit_code;
 }
 
@@ -1062,6 +1173,12 @@ callback_action(__attribute__((unused)) fcgi_handle handle,
       if (!valid_cert(file_path, cert_type)) {
         goto end;
       }
+#if 1 /* TODO: Cleanup */
+      if (g_status > STARTED) {
+        syslog_v(LOG_INFO, "Ignoring POST: %d, %s", g_status, file_path);
+        goto end;
+      }
+#endif
 
       /* If cert already exists make writeable */
       cert_file_with_path = g_strdup_printf("%s%s", tls_cert_path, cert_name);
@@ -1091,6 +1208,13 @@ post_end:
       break;
 
     case DELETE:
+#if 1 /* TODO: Cleanup */
+      if (g_status > STARTED) {
+        syslog_v(LOG_INFO, "Ignoring DELETE: %d, %s", g_status, cert_name);
+        goto end;
+      }
+#endif
+
       /* Delete cert */
       cert_file_with_path = g_strdup_printf("%s%s", tls_cert_path, cert_name);
       syslog(LOG_INFO, "Removing %s", cert_file_with_path);
@@ -1104,8 +1228,11 @@ post_end:
 
     default:
       syslog(LOG_ERR, "Unsupported request method %i", request_method);
-      break;
+      goto end;
   }
+
+  /* Restart to pick up the certificate change */
+  restart();
 
 end:
   /* Cleanup */
