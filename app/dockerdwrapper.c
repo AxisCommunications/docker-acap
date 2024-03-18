@@ -14,16 +14,25 @@
  * under the License.
  */
 
+#include <arpa/inet.h>
 #include <axsdk/ax_parameter.h>
 #include <errno.h>
 #include <glib.h>
 #include <mntent.h>
+#include <netdb.h>
+#include <netinet/in.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <syslog.h>
 #include <unistd.h>
+
+#define APP_NAME "dockerdwrapper"
+
+/** @brief APP path in a device */
+#define APP_DIRECTORY "/usr/local/packages/" APP_NAME
 
 /**
  * @brief Callback called when the dockerd process exits.
@@ -49,7 +58,10 @@ static const char *sd_card_path = "/var/spool/storage/SD_DISK";
 static bool restart_dockerd = false;
 
 // All ax_parameters the acap has
-static const char *ax_parameters[] = {"IPCSocket", "SDCardSupport", "UseTLS"};
+static const char *ax_parameters[] = {"IPCSocket",
+                                      "SDCardSupport",
+                                      "UseTLS",
+                                      "Verbose"};
 
 /**
  * @brief Signals handling
@@ -252,13 +264,15 @@ start_dockerd(void)
   char *use_sd_card_value = get_parameter_value("SDCardSupport");
   char *use_tls_value = get_parameter_value("UseTLS");
   char *use_ipc_socket_value = get_parameter_value("IPCSocket");
+  char *use_verbose_value = get_parameter_value("Verbose");
   if (use_sd_card_value == NULL || use_tls_value == NULL ||
-      use_ipc_socket_value == NULL) {
+      use_ipc_socket_value == NULL || use_verbose_value == NULL) {
     goto end;
   }
   bool use_sdcard = strcmp(use_sd_card_value, "yes") == 0;
   bool use_tls = strcmp(use_tls_value, "yes") == 0;
   bool use_ipc_socket = strcmp(use_ipc_socket_value, "yes") == 0;
+  bool use_verbose = strcmp(use_verbose_value, "yes") == 0;
 
   if (use_sdcard) {
     // Confirm that the SD card is usable
@@ -281,17 +295,74 @@ start_dockerd(void)
       goto end;
     }
 
+    gchar card_path[100];
+    g_stpcpy(card_path, sd_card_path);
+    g_strlcat(card_path, "/dockerd", 100);
+
+    if (access(card_path, F_OK) == 0 && access(card_path, W_OK) != 0) {
+      syslog(LOG_ERR,
+             "The application user does not have write permissions to the SD "
+             "card directory at %s. Please change the directory permissions or "
+             "remove the directory.",
+             card_path);
+      goto end;
+    }
+
     if (!setup_sdcard()) {
       syslog(LOG_ERR, "Failed to setup SD card.");
       goto end;
     }
   }
+
+  // get host ip
+  char host_buffer[256];
+  char *IPbuffer;
+  struct hostent *host_entry;
+  gethostname(host_buffer, sizeof(host_buffer));
+  host_entry = gethostbyname(host_buffer);
+  IPbuffer = inet_ntoa(*((struct in_addr *)host_entry->h_addr_list[0]));
+
+  // construct the rootlesskit command
+  args_offset += g_snprintf(args + args_offset,
+                            args_len - args_offset,
+                            "%s %s %s %s %s %s %s %s %s",
+                            "rootlesskit",
+                            "--subid-source=static",
+                            "--net=slirp4netns",
+                            "--disable-host-loopback",
+                            "--copy-up=/etc",
+                            "--copy-up=/run",
+                            "--propagation=rslave",
+                            "--port-driver slirp4netns",
+                            /* don't use same range as company proxy */
+                            "--cidr=10.0.3.0/24");
+
+  if (use_verbose) {
+    args_offset += g_snprintf(
+        args + args_offset, args_len - args_offset, " %s", "--debug");
+  }
+
+  const uint port = use_tls ? 2376 : 2375;
+  args_offset += g_snprintf(args + args_offset,
+                            args_len - args_offset,
+                            " -p %s:%d:%d/tcp",
+                            IPbuffer,
+                            port,
+                            port);
+
+  // add dockerd arguments
   args_offset += g_snprintf(
       args + args_offset,
       args_len - args_offset,
-      "%s %s",
+      " %s %s %s",
       "dockerd",
+      "--iptables=false",
       "--config-file /usr/local/packages/dockerdwrapper/localdata/daemon.json");
+
+  if (!use_verbose) {
+    args_offset += g_snprintf(
+        args + args_offset, args_len - args_offset, " %s", "--log-level=warn");
+  }
 
   g_strlcpy(msg, "Starting dockerd", msg_len);
 
@@ -361,11 +432,18 @@ start_dockerd(void)
   }
 
   if (use_ipc_socket) {
+    uid_t uid = getuid();
+    uid_t gid = getgid();
+    // The socket should reside in the user directory and have same group as
+    // user
     args_offset += g_snprintf(args + args_offset,
                               args_len - args_offset,
-                              " %s",
-                              "-H unix:///var/run/docker.sock");
-
+                              " %s %d %s%d%s",
+                              "--group",
+                              gid,
+                              "-H unix:///var/run/user/",
+                              uid,
+                              "/docker.sock");
     g_strlcat(msg, " with IPC socket.", msg_len);
   } else {
     g_strlcat(msg, " without IPC socket.", msg_len);
@@ -373,6 +451,7 @@ start_dockerd(void)
 
   // Log startup information to syslog.
   syslog(LOG_INFO, "%s", msg);
+  syslog(LOG_INFO, "%s", args); // TODO Remove this before release of rootless
 
   args_split = g_strsplit(args, " ", 0);
   result = g_spawn_async(NULL,
@@ -408,6 +487,7 @@ end:
   free(use_sd_card_value);
   free(use_tls_value);
   free(use_ipc_socket_value);
+  free(use_verbose_value);
   g_clear_error(&error);
 
   return return_value;
@@ -466,7 +546,7 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
                                 __attribute__((unused)) gpointer user_data)
 {
   GError *error = NULL;
-  if (!g_spawn_check_exit_status(status, &error)) {
+  if (!g_spawn_check_wait_status(status, &error)) {
     syslog(LOG_ERR, "Dockerd process exited with error: %d", status);
     g_clear_error(&error);
 
@@ -478,7 +558,10 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
 
   // The lockfile might have been left behind if dockerd shut down in a bad
   // manner. Remove it manually.
-  remove("/var/run/docker.pid");
+  uid_t uid = getuid();
+  char *pid_path = g_strdup_printf("/var/run/user/%d/docker.pid", uid);
+  remove(pid_path);
+  free(pid_path);
 
   if (restart_dockerd) {
     restart_dockerd = false;
@@ -580,6 +663,46 @@ main(void)
 
   openlog(NULL, LOG_PID, LOG_USER);
   syslog(LOG_INFO, "Started logging.");
+
+  // Get UID of the current user
+  uid_t uid = getuid();
+
+  char path[strlen(APP_DIRECTORY) + 256];
+  sprintf(path,
+          "/bin:/usr/bin:%s:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin",
+          APP_DIRECTORY);
+
+  char docker_host[256];
+  sprintf(docker_host, "unix://run/user/%d/docker.sock", (int)uid);
+
+  char xdg_runtime_dir[256];
+  sprintf(xdg_runtime_dir, "/run/user/%d", (int)uid);
+
+  // Set environment variables
+  if (setenv("PATH", path, 1) != 0) {
+    syslog(LOG_ERR, "Error setting environment PATH.");
+    return -1;
+  }
+
+  if (setenv("HOME", APP_DIRECTORY, 1) != 0) {
+    syslog(LOG_ERR, "Error setting environment APP_LOCATION.");
+    return -1;
+  }
+
+  if (setenv("DOCKER_HOST", docker_host, 1) != 0) {
+    syslog(LOG_ERR, "Error setting environment DOCKER_HOST.");
+    return -1;
+  }
+
+  if (setenv("XDG_RUNTIME_DIR", xdg_runtime_dir, 1) != 0) {
+    syslog(LOG_ERR, "Error setting environment XDG_RUNTIME_DIR.");
+    return -1;
+  }
+
+  syslog(LOG_INFO, "PATH: %s", path);
+  syslog(LOG_INFO, "HOME: %s", APP_DIRECTORY);
+  syslog(LOG_INFO, "DOCKER_HOST: %s", docker_host);
+  syslog(LOG_INFO, "XDG_RUNTIME_DIR: %s", xdg_runtime_dir);
 
   // Setup signal handling.
   init_signals();
