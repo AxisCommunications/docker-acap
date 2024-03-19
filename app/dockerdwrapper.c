@@ -465,7 +465,6 @@ start_dockerd(bool use_sdcard, bool use_tls, bool use_ipc_socket)
 
   // Log startup information to syslog.
   syslog(LOG_INFO, "%s", msg);
-  syslog(LOG_INFO, "%s", args); // log entire dockerd command
 
   args_split = g_strsplit(args, " ", 0);
   result = g_spawn_async(NULL,
