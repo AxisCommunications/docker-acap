@@ -53,7 +53,7 @@ contains known limitations when running rootless Docker.
 
 - Only uid and gid are properly mapped between device and containers, not the other groups that the
 user is a member of. This means that resources on the device, even if they are volume or device mounted
-can be inaccessible inside the container. This can also affect usage of unsupported dbus methods from
+can be inaccessible inside the container. This can also affect usage of unsupported D-Bus methods from
 the container. See [Using host user secondary groups in container](#using-host-user-secondary-groups-in-container)
 for how to handle this.
 - iptables use is disabled.
@@ -129,6 +129,7 @@ When migrating from a rootful Docker ACAP application, any version before 2.0, t
 
 - Copy any images that you want to persist from the device to your computer.
 - Stop the Docker ACAP application.
+- Uninstall the Docker ACAP application.
 - If you use the SD card as storage format it or manually remove the `dockerd` directory (`/var/spool/storage/SD-Disk/dockerd`).
 - Restart the device.
 - Install the rootless Docker ACAP application.
@@ -356,7 +357,7 @@ Note that the names of the groups will *not* be correctly displayed inside the c
 This repository provides a build script that uses Docker to build the application and then extract
 the .eap file:
 
-``` sh
+```sh
 ./build.sh <ARCH>
 ```
 
