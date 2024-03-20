@@ -38,7 +38,7 @@ RUN git clone --depth 1 -b $PROCPS_VERSION 'https://gitlab.com/procps-ng/procps'
 
 ARG BUILD_CACHE=build.cache
 RUN echo ac_cv_func_realloc_0_nonnull=yes >$BUILD_CACHE \
- && echo ac_cv_func_malloc_0_nonnull=yes >>$BUILD_CACHE
+    && echo ac_cv_func_malloc_0_nonnull=yes >>$BUILD_CACHE
 RUN <<EOF
     . /opt/axis/acapsdk/environment-setup*
     ./autogen.sh
@@ -55,17 +55,28 @@ RUN cp $BUILD_DIR/ps/pscommand ps
 
 FROM build_image as build
 
+WORKDIR /opt/app
+
 ARG DOCKER_IMAGE_VERSION
 ENV DOCKERVERSION ${DOCKER_IMAGE_VERSION}
 ARG ACAPARCH
 ENV ARCH ${ACAPARCH}
 
-# Copy over axparameter from the acap-sdk
+# Copy axparameter from the acap-sdk
 COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/include/axsdk/ax_parameter /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/include/axsdk
 COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/libaxparameter.so /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/libaxparameter.so
 COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/libaxparameter.so.1 /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/libaxparameter.so.1
 COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/libaxparameter.so.1.0 /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/libaxparameter.so.1.0
 COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/pkgconfig/axparameter.pc /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/pkgconfig/axparameter.pc
+
+# # Copy axstorage from the acap-sdk
+# COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/include/axsdk/axstorage.h /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/include/axsdk
+# COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/include/axsdk/axstorage /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/include/axsdk/axstorage
+# COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/libaxstorage.so /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/libaxstorage.so
+# COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/libaxstorage.so.1 /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/libaxstorage.so.1
+# COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/libaxstorage.so.1.0 /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/libaxstorage.so.1.0
+# COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/pkgconfig/axstorage.pc /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/pkgconfig/axstorage.pc
+
 
 COPY app /opt/app
 COPY --from=ps /export/ps /opt/app
@@ -83,7 +94,7 @@ RUN <<EOF
     tar -xz -f docker_binaries.tgz --strip-components=1 docker/docker-proxy ;
 EOF
 
-WORKDIR /opt/app
+# WORKDIR /opt/app
 RUN <<EOF
     . /opt/axis/acapsdk/environment-setup*
     acap-build . \
