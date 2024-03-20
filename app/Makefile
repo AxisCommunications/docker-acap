@@ -5,7 +5,7 @@ PKGS = gio-2.0 glib-2.0 axparameter axstorage
 CFLAGS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) pkg-config --cflags $(PKGS))
 LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) pkg-config --libs $(PKGS))
 
-CFLAGS += -W -Wformat=2 -Wpointer-arith -Wbad-function-cast -Wstrict-prototypes \
+CFLAGS += -W -Wformat=2 -Wpointer-arith -Wbad-function-cast \
 		-Wmissing-prototypes -Winline -Wdisabled-optimization -Wfloat-equal -Wall -Werror \
 		-Wno-unused-variable
 
