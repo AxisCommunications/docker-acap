@@ -25,6 +25,8 @@
 #include <sysexits.h>
 #include <syslog.h>
 #include <unistd.h>
+#include "sd_disk_storage.h"
+#include "storage.h"
 
 struct settings {
   char *data_root;
@@ -163,6 +165,7 @@ end:
   return parameter_value;
 }
 
+#if 0
 /**
  * @brief Retrieve the file system type of the device containing this path.
  *
@@ -210,7 +213,9 @@ get_filesystem_of_path(const char *path)
   errno = EINVAL;
   return NULL;
 }
+#endif
 
+#if 0
 /**
  * @brief Setup the sd card.
  *
@@ -222,6 +227,23 @@ setup_sdcard(const char *data_root)
   g_autofree char *sd_file_system = NULL;
   g_autofree char *create_droot_command =
       g_strdup_printf("mkdir -p %s", data_root);
+
+  GMainLoop *loop = g_main_loop_new(NULL, FALSE);
+
+  handler_create_dockerdfolder_async(sh,
+                                     "dockerd",
+                                     "create dockerd folder",
+                                     cancellable,
+                                     create_dockerdfolder_cb,
+                                     loop);
+
+  g_object_unref(cancellable);
+
+  syslog(LOG_INFO, "%p: start event loop.\n", g_thread_self());
+  g_main_loop_run(loop);
+
+  g_main_loop_unref(loop);
+  g_object_unref(sh);
 
   int res = system(create_droot_command);
   if (res != 0) {
@@ -263,6 +285,7 @@ setup_sdcard(const char *data_root)
 
   return true;
 }
+#endif
 
 // A parameter of type "bool:no,yes" is guaranteed to contain one of those
 // strings, but user code is still needed to interpret it as a Boolean type.
@@ -273,6 +296,8 @@ is_parameter_yes(const char *name)
   return value && strcmp(value, "yes") == 0;
 }
 
+#if 0
+// TODO Move to axstorage impl
 /**
  * @brief Gets and verifies the SDCardSupport selection
  *
@@ -285,14 +310,29 @@ get_and_verify_sd_card_selection(char **data_root)
   if (is_parameter_yes("SDCardSupport")) {
     *data_root = g_strdup_printf("%s/data", dockerd_path_on_sd_card);
     if (!setup_sdcard(*data_root)) {
+
+
+
+
+  
+  char *sdcard_path = NULL;
+        syslog(LOG_ERR, "Failed to confirm that SD card is available");
+        goto end;
+      }
+
       syslog(LOG_ERR, "Failed to setup SD card.");
       return false;
     }
   } else {
     *data_root = NULL;
+
+      sdcard_path = get_sdcard_path();
+      syslog(LOG_INFO, "SD card path set to %s", sdcard_path);
   }
   return true;
+  free(sdcard_path);
 }
+#endif
 
 /**
  * @brief Gets and verifies the UseTLS selection
@@ -388,10 +428,13 @@ read_settings(struct settings *settings)
 // Log an error and return false if it failed to start properly.
 static bool
 start_dockerd(const struct settings *settings)
-{
+  bool use_sdcard = settings->use_sdcard;
   const char *data_root = settings->data_root;
   const bool use_tls = settings->use_tls;
   const bool use_ipc_socket = settings->use_ipc_socket;
+  bool use_tls = settings->use_tls;
+  bool use_ipc_socket_value= settings->use_ipc_socket;
+
 
   GError *error = NULL;
 
@@ -451,6 +494,11 @@ start_dockerd(const struct settings *settings)
                               args_len - args_offset,
                               " --data-root %s",
                               data_root);
+                              " %s %s/%s",
+                              "--data-root",
+                              get_sdcard_path(),
+                              "data");
+    //             /var/spool/storage/SD_DISK/dockerd/data");
 
   if (use_ipc_socket) {
     g_strlcat(msg, " with IPC socket.", msg_len);
@@ -505,6 +553,61 @@ read_settings_and_start_dockerd(void)
   bool success = read_settings(&settings) && start_dockerd(&settings);
   free(settings.data_root);
   return success;
+}
+struct dockerd_settings {
+  bool use_sdcard;
+  bool use_tls;
+  bool use_ipc_socket;
+  bool storage_is_available;
+  struct storage* storage;
+};
+
+static struct dockerd_settings g_dockerd_settings = {};
+
+static bool read_dockerd_settings_async(struct dockerd_settings* settings) {
+  settings->storage_is_available = FALSE;
+  
+  if (!get_and_verify_tls_selection(&settings->use_tls)) {
+    syslog(LOG_INFO, "Failed to verify tls selection");
+    return FALSE;
+  }
+  if (!get_ipc_socket_selection(&settings->use_ipc_socket)) {
+    syslog(LOG_INFO, "Failed to get ipc socket selection");
+    return FALSE;
+  }
+
+  if (!storage_set_location(settings->storage,
+                            is_parameter_yes("SDCardSupport") ?
+                                LOCATION_SDCARD :
+                                LOCATION_INTERNAL)) {
+    syslog(LOG_ERR, "Failed to select storage locaton");
+    return FALSE;
+  }
+  return TRUE;
+}
+
+static gboolean
+start_dockerd_when_storage_is_available(void *dockerd_settings_void_ptr)
+{
+  fprintf(stderr, "%s\n", __FUNCTION__);
+  struct dockerd_settings *settings = dockerd_settings_void_ptr;
+  if (!settings->storage_is_available)
+    return TRUE; // Check again later.
+
+  if (!start_dockerd(settings)) {
+    syslog(LOG_ERR, "Starting dockerd failed");
+    g_main_loop_quit(loop);
+  }
+
+  return FALSE; // Tell GLib not to make this call again.
+}
+
+static bool read_dockerd_settings_and_start_dockerd_when_storage_is_available(dockerd_settings* settings) {
+  if(!read_dockerd_settings_async(settigns))
+    return FALSE;
+
+  g_timeout_add_seconds(1, start_dockerd_when_storage_is_available, settings);
+  return TRUE;
 }
 
 /**
@@ -575,6 +678,7 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
   if (restart_dockerd) {
     restart_dockerd = false;
     if (!read_settings_and_start_dockerd()) {
+    if (!read_dockerd_settings_and_start_dockerd_when_storage_is_available(&g_dockerd_settings)) {
       quit_program(EX_DATAERR);
     }
   } else {
@@ -662,10 +766,26 @@ end:
   return ax_parameter;
 }
 
+static void
+on_storage_available(const char *path)
+{
+  printf("on_storage_available(%s)\n", path);
+  g_dockerd_settings.storage_is_available = TRUE;
+}
+
+static void
+on_storage_revoked()
+{
+  printf("on_storage_revoked()\n");
+  g_dockerd_settings.storage_is_available = FALSE;
+  stop_dockerd();
+}
+
 int
 main(void)
 {
   AXParameter *ax_parameter = NULL;
+  struct storage *storage = NULL;
 
   openlog(NULL, LOG_PID, LOG_USER);
   syslog(LOG_INFO, "Started logging.");
@@ -685,6 +805,10 @@ main(void)
   while (application_exit_code == EX_KEEP_RUNNING) {
     if (!read_settings_and_start_dockerd())
       quit_program(EX_SOFTWARE);
+  // struct dockerd_settings *settings =
+  //     g_malloc0(sizeof(struct dockerd_settings));
+  struct dockerd_settings *settings = &g_dockerd_settings;
+  if(!read_dockerd_settings_and_start_dockerd_when_storage_is_available(settigns))
     g_main_loop_run(loop);
   }
 
@@ -708,4 +832,7 @@ main(void)
   }
 
   return application_exit_code;
+  storage_free(storage);
+
+  printf("exit(%d)\n\n", exit_code);
 }
