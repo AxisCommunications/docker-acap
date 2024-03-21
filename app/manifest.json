@@ -27,12 +27,17 @@
                 },
                 {
                     "name": "UseTLS",
-                    "default": "yes",
+                    "default": "no",
+                    "type": "enum:no|No, yes|Yes"
+                },
+                {
+                    "name": "TCPSocket",
+                    "default": "no",
                     "type": "enum:no|No, yes|Yes"
                 },
                 {
                     "name": "IPCSocket",
-                    "default": "no",
+                    "default": "yes",
                     "type": "enum:no|No, yes|Yes"
                 }
             ]

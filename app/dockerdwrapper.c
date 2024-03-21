@@ -345,6 +345,27 @@ end:
 }
 
 /**
+ * @brief Gets and verifies the TCPSocket selection
+ *
+ * @param use_tcp_socket_ret selection to be updated.
+ * @return True if successful, false otherwise.
+ */
+static gboolean
+get_tcp_socket_selection(bool *use_tcp_socket_ret)
+{
+  gboolean return_value = false;
+  bool use_tcp_socket = *use_tcp_socket_ret;
+  char *use_tcp_socket_value = get_parameter_value("TCPSocket");
+  if (use_tcp_socket_value != NULL) {
+    use_tcp_socket = strcmp(use_tcp_socket_value, "yes") == 0;
+    *use_tcp_socket_ret = use_tcp_socket;
+    return_value = true;
+  }
+  free(use_tcp_socket_value);
+  return return_value;
+}
+
+/**
  * @brief Gets and verifies the IPCSocket selection
  *
  * @param use_ipc_socket_ret selection to be updated.
@@ -378,7 +399,10 @@ read_settings(struct settings *settings)
 // Return true if dockerd was successfully started.
 // Log an error and return false if it failed to start properly.
 static bool
-start_dockerd(const struct settings *settings)
+start_dockerd(bool use_sdcard,
+              bool use_tls,
+              bool use_tcp_socket,
+              bool use_ipc_socket)
 {
   const char *data_root = settings->data_root;
   const bool use_tls = settings->use_tls;
@@ -410,28 +434,29 @@ start_dockerd(const struct settings *settings)
     const char *cert_path =
         "/usr/local/packages/dockerdwrapper/server-cert.pem";
     const char *key_path = "/usr/local/packages/dockerdwrapper/server-key.pem";
+    if (use_tcp_socket) {
+      args_offset += g_snprintf(args + args_offset,
+                                args_len - args_offset,
+                                " %s %s %s %s %s %s %s %s",
+                                "-H tcp://0.0.0.0:2376",
+                                "--tlsverify",
+                                "--tlscacert",
+                                ca_path,
+                                "--tlscert",
+                                cert_path,
+                                "--tlskey",
+                                key_path);
 
-    args_offset += g_snprintf(args + args_offset,
-                              args_len - args_offset,
-                              " %s %s %s %s %s %s %s %s",
-                              "-H tcp://0.0.0.0:2376",
-                              "--tlsverify",
-                              "--tlscacert",
-                              ca_path,
-                              "--tlscert",
-                              cert_path,
-                              "--tlskey",
-                              key_path);
-
-    g_strlcat(msg, " in TLS mode", msg_len);
-  } else {
+      g_strlcat(msg, " in TLS mode with TCP socket", msg_len);
+    }
+  } else if (use_tcp_socket && !use_tls) {
     args_offset += g_snprintf(args + args_offset,
                               args_len - args_offset,
                               " %s %s",
                               "-H tcp://0.0.0.0:2375",
                               "--tls=false");
 
-    g_strlcat(msg, " in unsecured mode", msg_len);
+    g_strlcat(msg, " in unsecured mode with TCP socket", msg_len);
   }
 
   g_autofree char *data_root_msg = g_strdup_printf(
@@ -448,6 +473,9 @@ start_dockerd(const struct settings *settings)
     args_offset += g_snprintf(args + args_offset,
                               args_len - args_offset,
                               " -H unix:///var/run/docker.sock");
+           "Dockerd fails to start. Either IPC socket or TCP socket should be "
+           "selected.");
+    goto end;
   } else {
     g_strlcat(msg, " without IPC socket.", msg_len);
   }
@@ -569,6 +597,13 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
   if (restart_dockerd) {
     restart_dockerd = false;
     if (!read_settings_and_start_dockerd()) {
+    bool use_tcp_socket = false;
+    if (!get_tcp_socket_selection(&use_tcp_socket)) {
+      syslog(LOG_ERR, "Failed to get tcp socket selection");
+      exit_code = -1;
+      g_main_loop_quit(loop);
+    }
+    if (!start_dockerd(use_sdcard, use_tls, use_tcp_socket, use_ipc_socket)) {
       exit_code = -1;
       g_main_loop_quit(loop);
     }
@@ -672,6 +707,13 @@ main(void)
   loop = g_main_loop_ref(loop);
 
   if (!read_settings_and_start_dockerd()) {
+  bool use_tcp_socket = false;
+  if (!get_tcp_socket_selection(&use_tcp_socket)) {
+    syslog(LOG_INFO, "Failed to get tcp socket selection");
+    exit_code = -1;
+    goto end;
+  }
+  if (!start_dockerd(use_sdcard, use_tls, use_tcp_socket, use_ipc_socket)) {
     exit_code = -1;
     goto end;
   }
