@@ -406,11 +406,8 @@ read_settings(struct settings *settings)
   return true;
 }
 
-/**
- * @brief Start a new dockerd process.
- *
- * @return True if successful, false otherwise
- */
+// Return true if dockerd was successfully started.
+// Log an error and return false it it failed to start properly.
 static bool
 start_dockerd(const struct settings *settings)
 {
@@ -505,7 +502,7 @@ start_dockerd(const struct settings *settings)
                          &error);
   if (!result) {
     syslog(LOG_ERR,
-           "Could not execv the dockerd process. Return value: %d, error: %s",
+           "Starting dockerd failed: execv returned: %d, error: %s",
            result,
            error->message);
     goto end;
@@ -515,7 +512,8 @@ start_dockerd(const struct settings *settings)
   g_child_watch_add(dockerd_process_pid, dockerd_process_exited_callback, NULL);
 
   if (!is_process_alive(dockerd_process_pid)) {
-    // The process died during adding of callback, tell loop to quit.
+    syslog(LOG_ERR,
+           "Starting dockerd failed: Process died unexpectedly during startup");
     exit_code = -1;
     g_main_loop_quit(loop);
     goto end;
