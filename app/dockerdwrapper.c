@@ -56,7 +56,10 @@ static const char *dockerd_path_on_sd_card =
 static bool restart_dockerd = false;
 
 // All ax_parameters the acap has
-static const char *ax_parameters[] = {"IPCSocket", "SDCardSupport", "UseTLS"};
+static const char *ax_parameters[] = {"IPCSocket",
+                                      "SDCardSupport",
+                                      "TCPSocket",
+                                      "UseTLS"};
 
 static const char *tls_cert_path = "/usr/local/packages/dockerdwrapper/";
 
