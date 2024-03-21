@@ -419,13 +419,13 @@ start_dockerd(void)
     g_strlcat(msg, " in unsecured mode", msg_len);
   }
 
-  if (use_sdcard) {
-    args_offset +=
-        g_snprintf(args + args_offset,
-                   args_len - args_offset,
-                   " %s",
-                   "--data-root /var/spool/storage/SD_DISK/dockerd/data");
+  const char *data_root =
+      use_sdcard ? "/var/spool/storage/SD_DISK/dockerd/data" :
+                   "/usr/local/packages/dockerdwrapper/localdata/data";
+  args_offset += g_snprintf(
+      args + args_offset, args_len - args_offset, " --data-root %s", data_root);
 
+  if (use_sdcard) {
     g_strlcat(msg, " using SD card as storage", msg_len);
   } else {
     g_strlcat(msg, " using internal storage", msg_len);
