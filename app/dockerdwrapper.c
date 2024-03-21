@@ -49,7 +49,8 @@ static int exit_code = 0;
 static pid_t dockerd_process_pid = -1;
 
 // Full path to the SD card
-static const char *sd_card_path = "/var/spool/storage/SD_DISK";
+static const char *dockerd_path_on_sd_card =
+    "/var/spool/storage/SD_DISK/dockerd";
 
 // True if the dockerd_exited_callback should restart dockerd
 static bool restart_dockerd = false;
@@ -154,21 +155,21 @@ end:
 }
 
 /**
- * @brief Retrieve the file system type of the SD card as a string.
+ * @brief Retrieve the file system type of the device containing this path.
  *
  * @return The file system type as a string (ext4/ext3/vfat etc...) if
  * successful, NULL otherwise.
  */
 static char *
-get_sd_filesystem(void)
+get_filesystem_of_path(const char *path)
 {
   char buf[PATH_MAX];
   struct stat sd_card_stat;
-  int stat_result = stat(sd_card_path, &sd_card_stat);
+  int stat_result = stat(path, &sd_card_stat);
   if (stat_result != 0) {
     syslog(LOG_ERR,
            "Cannot store data on the SD card, no storage exists at %s",
-           sd_card_path);
+           path);
     return NULL;
   }
 
@@ -207,10 +208,11 @@ get_sd_filesystem(void)
  * @return True if successful, false if setup failed.
  */
 static bool
-setup_sdcard(void)
+setup_sdcard(const char *dockerd_path)
 {
-  const char *data_root = "/var/spool/storage/SD_DISK/dockerd/data";
-  const char *exec_root = "/var/spool/storage/SD_DISK/dockerd/exec";
+  g_autofree char *sd_file_system = NULL;
+  g_autofree char *data_root = g_strdup_printf("%s/data", dockerd_path);
+  g_autofree char *exec_root = g_strdup_printf("%s/exec", dockerd_path);
   char *create_droot_command = g_strdup_printf("mkdir -p %s", data_root);
   char *create_eroot_command = g_strdup_printf("mkdir -p %s", exec_root);
   int res = system(create_droot_command);
@@ -227,6 +229,35 @@ setup_sdcard(void)
            "Failed to create exec_root folder at: %s. Error code: %d",
            exec_root,
            res);
+    goto end;
+  }
+
+  // Confirm that the SD card is usable
+  sd_file_system = get_filesystem_of_path(dockerd_path);
+  if (sd_file_system == NULL) {
+    syslog(LOG_ERR,
+           "Couldn't identify the file system of the SD card at %s",
+           dockerd_path);
+    goto end;
+  }
+
+  if (strcmp(sd_file_system, "vfat") == 0 ||
+      strcmp(sd_file_system, "exfat") == 0) {
+    syslog(LOG_ERR,
+           "The SD card at %s uses file system %s which does not support "
+           "Unix file permissions. Please reformat to a file system that "
+           "support Unix file permissions, such as ext4 or xfs.",
+           dockerd_path,
+           sd_file_system);
+    goto end;
+  }
+
+  if (access(dockerd_path, F_OK) == 0 && access(dockerd_path, W_OK) != 0) {
+    syslog(LOG_ERR,
+           "The application user does not have write permissions to the SD "
+           "card directory at %s. Please change the directory permissions or "
+           "remove the directory.",
+           dockerd_path);
     goto end;
   }
 
@@ -252,46 +283,11 @@ get_and_verify_sd_card_selection(bool *use_sdcard_ret)
   gboolean return_value = false;
   bool use_sdcard = *use_sdcard_ret;
   char *use_sd_card_value = get_parameter_value("SDCardSupport");
-  char *sd_file_system = NULL;
 
   if (use_sd_card_value != NULL) {
     bool use_sdcard = strcmp(use_sd_card_value, "yes") == 0;
     if (use_sdcard) {
-      // Confirm that the SD card is usable
-      sd_file_system = get_sd_filesystem();
-      if (sd_file_system == NULL) {
-        syslog(LOG_ERR,
-               "Couldn't identify the file system of the SD card at %s",
-               sd_card_path);
-        goto end;
-      }
-
-      if (strcmp(sd_file_system, "vfat") == 0 ||
-          strcmp(sd_file_system, "exfat") == 0) {
-        syslog(LOG_ERR,
-               "The SD card at %s uses file system %s which does not support "
-               "Unix file permissions. Please reformat to a file system that "
-               "support Unix file permissions, such as ext4 or xfs.",
-               sd_card_path,
-               sd_file_system);
-        goto end;
-      }
-
-      gchar card_path[100];
-      g_stpcpy(card_path, sd_card_path);
-      g_strlcat(card_path, "/dockerd", 100);
-
-      if (access(card_path, F_OK) == 0 && access(card_path, W_OK) != 0) {
-        syslog(
-            LOG_ERR,
-            "The application user does not have write permissions to the SD "
-            "card directory at %s. Please change the directory permissions or "
-            "remove the directory.",
-            card_path);
-        goto end;
-      }
-
-      if (!setup_sdcard()) {
+      if (!setup_sdcard(dockerd_path_on_sd_card)) {
         syslog(LOG_ERR, "Failed to setup SD card.");
         goto end;
       }
@@ -301,7 +297,6 @@ get_and_verify_sd_card_selection(bool *use_sdcard_ret)
   }
 end:
   free(use_sd_card_value);
-  free(sd_file_system);
   return return_value;
 }
 
