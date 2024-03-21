@@ -49,7 +49,8 @@ static int exit_code = 0;
 static pid_t dockerd_process_pid = -1;
 
 // Full path to the SD card
-static const char *sd_card_path = "/var/spool/storage/SD_DISK";
+static const char *dockerd_path_on_sd_card =
+    "/var/spool/storage/SD_DISK/dockerd";
 
 // True if the dockerd_exited_callback should restart dockerd
 static bool restart_dockerd = false;
@@ -154,21 +155,21 @@ end:
 }
 
 /**
- * @brief Retrieve the file system type of the SD card as a string.
+ * @brief Retrieve the file system type of the device containing this path.
  *
  * @return The file system type as a string (ext4/ext3/vfat etc...) if
  * successful, NULL otherwise.
  */
 static char *
-get_sd_filesystem(void)
+get_filesystem_of_path(const char *path)
 {
   char buf[PATH_MAX];
   struct stat sd_card_stat;
-  int stat_result = stat(sd_card_path, &sd_card_stat);
+  int stat_result = stat(path, &sd_card_stat);
   if (stat_result != 0) {
     syslog(LOG_ERR,
            "Cannot store data on the SD card, no storage exists at %s",
-           sd_card_path);
+           path);
     return NULL;
   }
 
@@ -258,11 +259,11 @@ get_and_verify_sd_card_selection(bool *use_sdcard_ret)
     bool use_sdcard = strcmp(use_sd_card_value, "yes") == 0;
     if (use_sdcard) {
       // Confirm that the SD card is usable
-      sd_file_system = get_sd_filesystem();
+      sd_file_system = get_filesystem_of_path(dockerd_path_on_sd_card);
       if (sd_file_system == NULL) {
         syslog(LOG_ERR,
                "Couldn't identify the file system of the SD card at %s",
-               sd_card_path);
+               dockerd_path_on_sd_card);
         goto end;
       }
 
@@ -272,22 +273,19 @@ get_and_verify_sd_card_selection(bool *use_sdcard_ret)
                "The SD card at %s uses file system %s which does not support "
                "Unix file permissions. Please reformat to a file system that "
                "support Unix file permissions, such as ext4 or xfs.",
-               sd_card_path,
+               dockerd_path_on_sd_card,
                sd_file_system);
         goto end;
       }
 
-      gchar card_path[100];
-      g_stpcpy(card_path, sd_card_path);
-      g_strlcat(card_path, "/dockerd", 100);
-
-      if (access(card_path, F_OK) == 0 && access(card_path, W_OK) != 0) {
+      if (access(dockerd_path_on_sd_card, F_OK) == 0 &&
+          access(dockerd_path_on_sd_card, W_OK) != 0) {
         syslog(
             LOG_ERR,
             "The application user does not have write permissions to the SD "
             "card directory at %s. Please change the directory permissions or "
             "remove the directory.",
-            card_path);
+            dockerd_path_on_sd_card);
         goto end;
       }
 
