@@ -407,7 +407,7 @@ read_settings(struct settings *settings)
 }
 
 // Return true if dockerd was successfully started.
-// Log an error and return false it it failed to start properly.
+// Log an error and return false if it failed to start properly.
 static bool
 start_dockerd(const struct settings *settings)
 {
