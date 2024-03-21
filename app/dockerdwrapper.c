@@ -25,6 +25,12 @@
 #include <syslog.h>
 #include <unistd.h>
 
+struct settings {
+  bool use_sdcard;
+  bool use_tls;
+  bool use_ipc_socket;
+};
+
 /**
  * @brief Callback called when the dockerd process exits.
  */
@@ -382,14 +388,33 @@ get_ipc_socket_selection(bool *use_ipc_socket_ret)
   return return_value;
 }
 
-/**
- * @brief Start a new dockerd process.
- *
- * @return True if successful, false otherwise
- */
 static bool
-start_dockerd(bool use_sdcard, bool use_tls, bool use_ipc_socket)
+read_settings(struct settings *settings)
 {
+  if (!get_and_verify_sd_card_selection(&settings->use_sdcard)) {
+    syslog(LOG_ERR, "Failed to setup sd_card");
+    return false;
+  }
+  if (!get_and_verify_tls_selection(&settings->use_tls)) {
+    syslog(LOG_ERR, "Failed to verify tls selection");
+    return false;
+  }
+  if (!get_ipc_socket_selection(&settings->use_ipc_socket)) {
+    syslog(LOG_ERR, "Failed to get ipc socket selection");
+    return false;
+  }
+  return true;
+}
+
+// Return true if dockerd was successfully started.
+// Log an error and return false if it failed to start properly.
+static bool
+start_dockerd(const struct settings *settings)
+{
+  const bool use_sdcard = settings->use_sdcard;
+  const bool use_tls = settings->use_tls;
+  const bool use_ipc_socket = settings->use_ipc_socket;
+
   GError *error = NULL;
 
   bool return_value = false;
@@ -477,7 +502,7 @@ start_dockerd(bool use_sdcard, bool use_tls, bool use_ipc_socket)
                          &error);
   if (!result) {
     syslog(LOG_ERR,
-           "Could not execv the dockerd process. Return value: %d, error: %s",
+           "Starting dockerd failed: execv returned: %d, error: %s",
            result,
            error->message);
     goto end;
@@ -487,7 +512,8 @@ start_dockerd(bool use_sdcard, bool use_tls, bool use_ipc_socket)
   g_child_watch_add(dockerd_process_pid, dockerd_process_exited_callback, NULL);
 
   if (!is_process_alive(dockerd_process_pid)) {
-    // The process died during adding of callback, tell loop to quit.
+    syslog(LOG_ERR,
+           "Starting dockerd failed: Process died unexpectedly during startup");
     exit_code = -1;
     g_main_loop_quit(loop);
     goto end;
@@ -498,6 +524,13 @@ end:
   g_strfreev(args_split);
   g_clear_error(&error);
   return return_value;
+}
+
+static bool
+read_settings_and_start_dockerd(void)
+{
+  struct settings settings = {0};
+  return read_settings(&settings) && start_dockerd(&settings);
 }
 
 /**
@@ -569,27 +602,7 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
 
   if (restart_dockerd) {
     restart_dockerd = false;
-    bool use_sdcard = false;
-    bool use_tls = false;
-    bool use_ipc_socket = false;
-
-    if (!get_and_verify_sd_card_selection(&use_sdcard)) {
-      syslog(LOG_ERR, "Failed to setup sd_card");
-      exit_code = -1;
-      g_main_loop_quit(loop);
-    }
-    if (!get_and_verify_tls_selection(&use_tls)) {
-      syslog(LOG_ERR, "Failed to verify tls selection");
-      exit_code = -1;
-      g_main_loop_quit(loop);
-    }
-    if (!get_ipc_socket_selection(&use_ipc_socket)) {
-      syslog(LOG_ERR, "Failed to get ipc socket selection");
-      exit_code = -1;
-      g_main_loop_quit(loop);
-    }
-    if (!start_dockerd(use_sdcard, use_tls, use_ipc_socket)) {
-      syslog(LOG_ERR, "Failed to restart dockerd, exiting.");
+    if (!read_settings_and_start_dockerd()) {
       exit_code = -1;
       g_main_loop_quit(loop);
     }
@@ -694,6 +707,7 @@ main(void)
   ax_parameter = setup_axparameter();
   if (ax_parameter == NULL) {
     syslog(LOG_ERR, "Error in setup_axparameter: %s", error->message);
+    exit_code = -1;
     goto end;
   }
 
@@ -701,28 +715,7 @@ main(void)
   loop = g_main_loop_new(NULL, FALSE);
   loop = g_main_loop_ref(loop);
 
-  bool use_sdcard = false;
-  bool use_tls = false;
-  bool use_ipc_socket = false;
-
-  if (!get_and_verify_sd_card_selection(&use_sdcard)) {
-    syslog(LOG_INFO, "Failed to setup sd_card");
-    exit_code = -1;
-    goto end;
-  }
-  if (!get_and_verify_tls_selection(&use_tls)) {
-    syslog(LOG_INFO, "Failed to verify tls selection");
-    exit_code = -1;
-    goto end;
-  }
-  if (!get_ipc_socket_selection(&use_ipc_socket)) {
-    syslog(LOG_INFO, "Failed to get ipc socket selection");
-    exit_code = -1;
-    goto end;
-  }
-
-  if (!start_dockerd(use_sdcard, use_tls, use_ipc_socket)) {
-    syslog(LOG_ERR, "Starting dockerd failed");
+  if (!read_settings_and_start_dockerd()) {
     exit_code = -1;
     goto end;
   }
