@@ -14,8 +14,14 @@
  * under the License.
  */
 
+// needed for nftw
+#define _DEFAULT_SOURCE
+#define _XOPEN_SOURCE 500
+//
+
 #include <axsdk/ax_parameter.h>
 #include <errno.h>
+#include <ftw.h>
 #include <glib.h>
 #include <mntent.h>
 #include <stdbool.h>
@@ -154,6 +160,114 @@ end:
   return parameter_value;
 }
 
+static bool
+create_dir_if_not_exists(char *base_path, const char *new_dir, mode_t mode)
+{
+  const char *combined_path = g_strdup_printf("%s/%s", base_path, new_dir);
+  syslog(LOG_INFO, "Create dir %s", combined_path);
+  int res = mkdir(combined_path, mode);
+  if (res != 0) {
+    if (EEXIST == errno) // TODO verify that the existing object is a directory
+                         // and set mode
+      res = 0;
+    else
+      syslog(LOG_ERR,
+             "Failed to create directory %s, Error code: %d",
+             combined_path,
+             errno);
+  }
+  return res == 0;
+}
+
+static bool
+move_file_or_symlink(const char *old_path, const char *new_path)
+{
+  const char *move_command = g_strdup_printf("mv %s %s", old_path, new_path);
+  syslog(LOG_INFO, "Move object %s to %s", old_path, new_path);
+  int res = system(move_command);
+  if (res != 0) {
+    syslog(LOG_ERR,
+           "Failed to rename %s to %s, error: %d",
+           old_path,
+           new_path,
+           res);
+  }
+
+  return res == 0;
+}
+
+static char *old_top_dir = NULL;
+static char *new_top_dir = NULL;
+
+/* Used from nftw to move file or sym link */
+static int
+move_directory_or_file(const char *path,
+                       __attribute__((unused)) const struct stat *sb,
+                       int typeflag,
+                       __attribute__((unused)) struct FTW *pathinfo)
+{
+  int ret = 0;
+  int offset = strlen(old_top_dir);
+  char *new_path = g_strdup_printf("%s%s", new_top_dir, path + offset);
+  switch (typeflag) {
+    case FTW_D:
+      // Create dir if not already existing
+      if (!create_dir_if_not_exists(new_top_dir, path + offset, 0777))
+        ret = -1;
+      break;
+    case FTW_F:
+    case FTW_SL:
+    case FTW_SLN:
+      if (!move_file_or_symlink(path, new_path))
+        ret = -1;
+      break;
+    default:
+      syslog(LOG_ERR,
+             "Failed to handle object %s with typeflag %d",
+             path,
+             typeflag);
+      ret = -1;
+  }
+
+  free(new_path);
+  return ret;
+}
+
+static bool
+migrate_from_old_sdcard_setup(void)
+{
+  const char *old_sdcard_path = "/var/spool/storage/SD_DISK/dockerd";
+  struct stat directory_stat;
+  int stat_result = stat(old_sdcard_path, &directory_stat);
+  if (stat(old_sdcard_path, &directory_stat) != 0) {
+    // no data to move
+    return true;
+  }
+
+  old_top_dir = g_strdup(old_sdcard_path);
+  new_top_dir =
+      g_strdup("/var/spool/storage/SD_DISK/areas/dockerdwrapper/dockerd");
+
+  // Recursively move files in app directory. Do not traverse down in symlink
+  // directories
+  if (nftw(old_sdcard_path, move_directory_or_file, 10, FTW_PHYS) != 0) {
+    syslog(LOG_ERR, "Failed moving files from %s", old_sdcard_path);
+    return false;
+  }
+
+  // Remove the old, by now, empty, directory structure
+  char *remove_dir_command = g_strdup_printf("rm -r %s", old_sdcard_path);
+  int res = system(remove_dir_command);
+  if (res != 0) {
+    syslog(LOG_ERR,
+           "Failed to remove dir structure at: %s. Error code: %d",
+           old_sdcard_path,
+           res);
+    return false;
+  }
+  return true;
+}
+
 /**
  * @brief Retrieve the file system type of the SD card as a string.
  *
@@ -230,8 +344,10 @@ setup_sdcard()
   g_main_loop_unref(loop);
   g_object_unref(sh);
 
-  const char *data_root = "/var/spool/storage/SD_DISK/dockerd/data";
-  const char *exec_root = "/var/spool/storage/SD_DISK/dockerd/exec";
+  const char *data_root =
+      "/var/spool/storage/SD_DISK/areas/dockerdwrapper/dockerd/data";
+  const char *exec_root =
+      "/var/spool/storage/SD_DISK/areas/dockerdwrapper/dockerd/exec";
   char *create_droot_command = g_strdup_printf("mkdir -p %s", data_root);
   char *create_eroot_command = g_strdup_printf("mkdir -p %s", exec_root);
   int res = system(create_droot_command);
@@ -248,6 +364,11 @@ setup_sdcard()
            "Failed to create exec_root folder at: %s. Error code: %d",
            exec_root,
            res);
+    goto end;
+  }
+
+  if (!migrate_from_old_sdcard_setup()) {
+    syslog(LOG_ERR, "Failed to migrate data from old data-root");
     goto end;
   }
 
@@ -310,12 +431,12 @@ get_and_verify_sd_card_selection(bool *use_sdcard_ret)
       g_strlcat(card_path, "/dockerd", 100);
 
       if (access(card_path, F_OK) == 0 && access(card_path, W_OK) != 0) {
-        syslog(
-            LOG_ERR,
-            "The application user does not have write permissions to the SD "
-            "card directory at %s. Please change the directory permissions or "
-            "remove the directory.",
-            card_path);
+        syslog(LOG_ERR,
+               "The application user does not have write permissions to the SD "
+               "card directory at %s. Please change the directory permissions "
+               "or "
+               "remove the directory.",
+               card_path);
         goto end;
       }
 
@@ -460,12 +581,13 @@ start_dockerd(const struct settings *settings)
   guint args_offset = 0;
   gchar **args_split = NULL;
 
-  args_offset += g_snprintf(
-      args + args_offset,
-      args_len - args_offset,
-      "%s %s",
-      "dockerd",
-      "--config-file /usr/local/packages/dockerdwrapper/localdata/daemon.json");
+  args_offset +=
+      g_snprintf(args + args_offset,
+                 args_len - args_offset,
+                 "%s %s",
+                 "dockerd",
+                 "--config-file "
+                 "/usr/local/packages/dockerdwrapper/localdata/daemon.json");
 
   g_strlcpy(msg, "Starting dockerd", msg_len);
 
@@ -499,13 +621,13 @@ start_dockerd(const struct settings *settings)
   }
 
   if (use_sdcard) {
-    args_offset += g_snprintf(args + args_offset,
-                              args_len - args_offset,
-                              " %s %s/%s",
-                              "--data-root",
-                              get_sdcard_path(),
-                              "data");
-    //             /var/spool/storage/SD_DISK/dockerd/data");
+    args_offset += g_snprintf(
+        args + args_offset,
+        args_len - args_offset,
+        " %s",
+        "--data-root "
+        "/var/spool/storage/SD_DISK/areas/dockerdwrapper/dockerd/data");
+    //  "--data-root /var/spool/storage/SD_DISK/dockerd/data");
 
     g_strlcat(msg, " using SD card as storage", msg_len);
   } else {
