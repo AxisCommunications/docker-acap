@@ -756,63 +756,6 @@ end:
 }
 
 /**
- * @brief Start fcgi and dockerd.
- *
- * @return exit_code. 0 if successful, -1 otherwise
- */
-static int
-start(void) {
-  bool use_sdcard = false;
-  bool use_tls = false;
-  bool use_ipc_socket = false;
-  bool use_verbose = false;
-  syslog_v(LOG_INFO,"start called: %d", g_status);
-
-  if (!get_verbose_selection(&use_verbose)) {
-    syslog(LOG_INFO, "Failed to get verbose selection. Uninstall and reinstall the acap?");
-    exit_code = -1;
-    goto end;
-  }
-  if (!get_ipc_socket_selection(&use_ipc_socket)) {
-    syslog(LOG_INFO, "Failed to get ipc socket selection. Uninstall and reinstall the acap?");
-    exit_code = -1;
-    goto end;
-  }
-  if (!get_and_verify_tls_selection(&use_tls)) {
-    syslog(LOG_INFO, "Failed to verify tls selection");
-    goto fcgi; /* do not start dockerd */
-  }
-  if (!get_and_verify_sd_card_selection(&use_sdcard)) {
-    syslog(LOG_INFO, "Failed to setup sd_card");
-    goto fcgi; /* do not start dockerd */
-  }
-
-  if (!start_dockerd(use_sdcard, use_tls, use_ipc_socket, use_verbose)) {
-    syslog(LOG_ERR, "Failed to start dockerd");
-    goto fcgi; /* could not start dockerd */
-  }
-
-fcgi:
-  /* Start fcgi to cert_manager*/
-  if (fcgi_start(callback_action, use_verbose) != 0) {
-    syslog(LOG_ERR,"Failed to init fcgi_start with callback method");
-    exit_code = -1;
-    goto end;
-  }
-
-end:
-  syslog_v(LOG_INFO, "TODO: Start pending?: exit_code %d, g_status %d", exit_code, g_status);
-  if ((exit_code == STARTED) && (g_status == START_PENDING)) {
-    /* No error and started, but further restart queued */
-    syslog_v(LOG_INFO, "Restart queued. START_PENDING -> START_IN_PROGRESS");
-    g_status = START_IN_PROGRESS;
-    return start();
-  }
-
-  return (g_status = exit_code);
-}
-
-/**
  * @brief Attempt to kill process and verify success with specified time.
  *
  * @param process_id pointer to the process id to kill.
@@ -869,17 +812,12 @@ stop_dockerd(void)
   if ((exit_code = kill_and_verify(&dockerd_process_pid, SIGKILL, 10)) == 0) {
     goto end;
   }
-  syslog(LOG_ERR, "Failed to send and verify SIGKILL to child");
+  syslog_v(LOG_INFO, "Ignoring apparent failed SIGKILL to child");
+  exit_code = 0;
 
 end:
-#if 1
-  /* TODO: Needed? Children all cleaned up already? Sleep for now and assume 0 exit_code.. */
-  sleep(10);
-  exit_code = 0;
-#endif
-
   if (g_status > STARTED) {
-    /* Restart in progress and|or pending. Continue (leave main loop).. */
+    /* Restart in progress and|or pending. Continue (quit the main loop).. */
     g_main_loop_quit(loop);
   }
 
@@ -887,7 +825,98 @@ end:
 }
 
 /**
- * @brief Restart fcgi and dockerd.
+ * @brief Stop dockerd and quit the main loop (to effect a restart).
+ *
+ * @param quit. Quits main loop if true, otherwise just stops.
+ */
+static void
+stop_and_quit_main_loop(bool quit)
+{
+  if (!is_process_alive(dockerd_process_pid)) {
+    /* dockerd was not started. Just start (quit the main loop) */
+    exit_code = 0;
+    if (quit) {
+      g_main_loop_quit(loop);
+    }
+  } else {
+    /* Stop the current dockerd process before restarting */
+    if ((exit_code = stop_dockerd()) != 0) {
+      syslog(LOG_ERR, "Failed to stop dockerd process");
+      if (quit) {
+        g_main_loop_quit(loop);
+      }
+    }
+  }
+}
+
+/**
+ * @brief Start fcgi and dockerd. Called from outside the main loop.
+ *
+ * @return exit_code. 0 if successful, -1 otherwise
+ */
+static int
+start(void) {
+  bool use_sdcard = false;
+  bool use_tls = false;
+  bool use_ipc_socket = false;
+  bool use_verbose = false;
+  syslog_v(LOG_INFO,"start called: %d", g_status);
+
+  if (g_status > STARTED) {
+    /* Restarting. Sleep previously part of stop_dockerd.. */
+    syslog_v(LOG_INFO, "TODO: Children all cleaned up already? Sleep(10) before starting.. Required? Should only be after stop_dockerd in any case.. ");
+    sleep(10);
+  }
+
+  if (!get_verbose_selection(&use_verbose)) {
+    syslog(LOG_INFO, "Failed to get verbose selection. Uninstall and reinstall the acap?");
+    exit_code = -1;
+    goto end;
+  }
+  if (!get_ipc_socket_selection(&use_ipc_socket)) {
+    syslog(LOG_INFO, "Failed to get ipc socket selection. Uninstall and reinstall the acap?");
+    exit_code = -1;
+    goto end;
+  }
+  if (!get_and_verify_tls_selection(&use_tls)) {
+    syslog(LOG_INFO, "Failed to verify tls selection");
+    goto fcgi; /* do not start dockerd */
+  }
+  if (!get_and_verify_sd_card_selection(&use_sdcard)) {
+    syslog(LOG_INFO, "Failed to setup sd_card");
+    goto fcgi; /* do not start dockerd */
+  }
+
+  if (!start_dockerd(use_sdcard, use_tls, use_ipc_socket, use_verbose)) {
+    syslog(LOG_ERR, "Failed to start dockerd");
+    goto fcgi; /* could not start dockerd */
+  }
+
+fcgi:
+  /* Start fcgi to cert_manager*/
+  if (fcgi_start(callback_action, use_verbose) != 0) {
+    syslog(LOG_ERR,"Failed to init fcgi_start with callback method");
+    exit_code = -1;
+    goto end;
+  }
+
+end:
+  /* Update status. Start again if START_PENDING and no errors */
+  if ((exit_code == 0) && (g_status-- > STARTED)) {
+    if (g_status > STARTED) {
+      stop_and_quit_main_loop(/* No need to quit main loop */ false);
+      return start();
+    }
+  } else {
+    g_status = exit_code;
+  }
+
+  syslog_v(LOG_INFO, "start: -> g_status %d, exit_code %d", g_status, exit_code);
+  return exit_code;
+}
+
+/**
+ * @brief Restart fcgi and dockerd. Called from inside the main loop.
  */
 static void
 restart(void)
@@ -906,18 +935,8 @@ restart(void)
   syslog_v(LOG_INFO, "restart called. -> START_IN_PROGRESS");
   g_status = START_IN_PROGRESS;
 
-  if (!is_process_alive(dockerd_process_pid)) {
-    /* dockerd was not started. Just start */
-    if ((exit_code = start()) != 0) {
-      g_main_loop_quit(loop);
-    }
-  } else {
-    /* Stop the current dockerd process before restarting */
-    if ((exit_code = stop_dockerd()) != 0) {
-      syslog(LOG_ERR, "Failed to stop dockerd process");
-      g_main_loop_quit(loop);
-    }
-  }
+  /* Stop dockerd and quit the main loop to effect a restart */
+  stop_and_quit_main_loop(true);
 }
 
 /**
@@ -1173,12 +1192,6 @@ callback_action(__attribute__((unused)) fcgi_handle handle,
       if (!valid_cert(file_path, cert_type)) {
         goto end;
       }
-#if 1 /* TODO: Cleanup */
-      if (g_status > STARTED) {
-        syslog_v(LOG_INFO, "Ignoring POST: %d, %s", g_status, file_path);
-        goto end;
-      }
-#endif
 
       /* If cert already exists make writeable */
       cert_file_with_path = g_strdup_printf("%s%s", tls_cert_path, cert_name);
@@ -1208,13 +1221,6 @@ post_end:
       break;
 
     case DELETE:
-#if 1 /* TODO: Cleanup */
-      if (g_status > STARTED) {
-        syslog_v(LOG_INFO, "Ignoring DELETE: %d, %s", g_status, cert_name);
-        goto end;
-      }
-#endif
-
       /* Delete cert */
       cert_file_with_path = g_strdup_printf("%s%s", tls_cert_path, cert_name);
       syslog(LOG_INFO, "Removing %s", cert_file_with_path);
