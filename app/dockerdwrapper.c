@@ -110,7 +110,7 @@ is_process_alive(int pid)
   if (return_pid == -1) {
     // Report errors as dead.
     return false;
-  } else if (return_pid == dockerd_process_pid) {
+  } else if (return_pid == pid) {
     // Child is already exited, so not alive.
     return false;
   }
