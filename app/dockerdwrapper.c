@@ -212,24 +212,16 @@ setup_sdcard(const char *dockerd_path)
 {
   g_autofree char *sd_file_system = NULL;
   g_autofree char *data_root = g_strdup_printf("%s/data", dockerd_path);
-  g_autofree char *exec_root = g_strdup_printf("%s/exec", dockerd_path);
-  char *create_droot_command = g_strdup_printf("mkdir -p %s", data_root);
-  char *create_eroot_command = g_strdup_printf("mkdir -p %s", exec_root);
+  g_autofree char *create_droot_command =
+      g_strdup_printf("mkdir -p %s", data_root);
+
   int res = system(create_droot_command);
   if (res != 0) {
     syslog(LOG_ERR,
            "Failed to create data_root folder at: %s. Error code: %d",
            data_root,
            res);
-    goto end;
-  }
-  res = system(create_eroot_command);
-  if (res != 0) {
-    syslog(LOG_ERR,
-           "Failed to create exec_root folder at: %s. Error code: %d",
-           exec_root,
-           res);
-    goto end;
+    return false;
   }
 
   // Confirm that the SD card is usable
@@ -238,7 +230,7 @@ setup_sdcard(const char *dockerd_path)
     syslog(LOG_ERR,
            "Couldn't identify the file system of the SD card at %s",
            dockerd_path);
-    goto end;
+    return false;
   }
 
   if (strcmp(sd_file_system, "vfat") == 0 ||
@@ -249,7 +241,7 @@ setup_sdcard(const char *dockerd_path)
            "support Unix file permissions, such as ext4 or xfs.",
            dockerd_path,
            sd_file_system);
-    goto end;
+    return false;
   }
 
   if (access(dockerd_path, F_OK) == 0 && access(dockerd_path, W_OK) != 0) {
@@ -258,17 +250,10 @@ setup_sdcard(const char *dockerd_path)
            "card directory at %s. Please change the directory permissions or "
            "remove the directory.",
            dockerd_path);
-    goto end;
+    return false;
   }
 
-  res = 0;
-
-end:
-
-  free(create_droot_command);
-  free(create_eroot_command);
-
-  return res == 0;
+  return true;
 }
 
 /**
