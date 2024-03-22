@@ -130,16 +130,16 @@ When migrating from a rootful Docker ACAP application, any version before 2.0, t
 - Copy any images that you want to persist from the device to your computer.
 - Stop the Docker ACAP application.
 - Uninstall the Docker ACAP application.
-- If you use the SD card as storage format it or manually remove the `dockerd` directory (`/var/spool/storage/SD-Disk/dockerd`).
+- If you use the SD card as storage either format it or manually remove the `dockerd` directory (`/var/spool/storage/SD_Disk/dockerd`).
 - Restart the device.
 - Install the rootless Docker ACAP application.
 
 ### Using TLS to secure the Docker ACAP application
 
-The Docker ACAP application can be run either unsecured or in TLS mode. The application uses
-TLS as default. Use the "Use TLS" dropdown in the web interface to switch
-between the two different modes. It's also possible to toggle this option by
-calling the parameter management API in [VAPIX][vapix] and setting the
+When using the Docker ACAP application with TCP socket, the application can be run in either TLS or
+unsecured mode. The default selection is to use TLS mode. To change this use the "Use TLS" dropdown
+in the web interface to switch between the two different modes. It's also possible to toggle this
+option by calling the parameter management API in [VAPIX][vapix] and setting the
 `root.dockerdwrapper.UseTLS` parameter to `yes` or `no`. The following commands would enable TLS:
 
 ```sh
@@ -269,7 +269,7 @@ port 2376 when running secured using TLS. Please read section
 [Using TLS to secure the Docker ACAP application](#using-tls-to-secure-the-docker-acap-application) for
 more information.
 Below is an example of how to remotely run a docker command on an Axis device running
-the Docker ACAP in unsecured mode:
+the Docker ACAP application in unsecured mode:
 
 ```sh
 DOCKER_INSECURE_PORT=2375
