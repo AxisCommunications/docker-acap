@@ -38,6 +38,7 @@ The Docker ACAP application is available as a **signed** eap-file in [Releases][
 > Meanwhile, the solution is to allow root to be able to install the Docker ACAP.
 >
 > On the web page of the device:
+>
 > 1. Go to the Apps page, toggle on `Allow root-privileged apps`.
 > 1. Go to System -> Account page, under SSH accounts toggle off `Restrict root access` to be able to send the TLS certificates. Make sure to set the password of the `root` SSH user.
 
@@ -73,16 +74,15 @@ It's also possible to build and use a locally built image. See the
 ## Securing the Docker ACAP using TLS
 
 The Docker Compose ACAP application can be run in either TLS mode or unsecured mode. The Docker Compose
-ACAP application uses unsecured mode by default. These modes can be used with or without TCP and IPC
-sockets. There is an option to choose between "TCPSocket" and "IPCSocket" socket parameters. It should
-be noted that if TCP and IPC sockets are not enabled, Dockerd will not start.
+ACAP application uses TLS mode by default. These modes can be used with or without TCP and IPC sockets.
+It should be noted that if TCP and IPC sockets are not enabled, Dockerd will not start.
 
-Use the "Use TLS", "TCP Socket" and "IPC Socket" dropdowns in the web interface to switch between the
+Use the "Use TLS" and "TCP Socket" dropdowns in the web interface to switch between the
 two different modes(yes/no). Whenever these settings change, the Docker daemon will automatically restart.
 It's also possible to toggle this option by calling the parameter management API in
-[VAPIX](https://www.axis.com/vapix-library/) and setting `root.dockerdwrapperwithcompose.UseTLS`,
-`root.dockerdwrapperwithcompose.TCPSocket` and `root.dockerdwrapperwithcompose.IPCSocket` parameters
-to `yes` or `no`. The following commands would enable those parameters:
+[VAPIX](https://www.axis.com/vapix-library/) and setting `root.dockerdwrapperwithcompose.UseTLS` and
+`root.dockerdwrapperwithcompose.TCPSocket` parameters to `yes` or `no`.
+The following commands would enable those parameters:
 
 ```sh
 DEVICE_IP=<device ip>
@@ -101,13 +101,6 @@ Enable TCP Socket:
 ```sh
 curl -s --anyauth -u "root:$DEVICE_PASSWORD" \
   "http://$DEVICE_IP/axis-cgi/param.cgi?action=update&root.dockerdwrapperwithcompose.TCPSocket=yes"
-```
-
-Enable IPC Socket:
-
-```sh
-curl -s --anyauth -u "root:$DEVICE_PASSWORD" \
-  "http://$DEVICE_IP/axis-cgi/param.cgi?action=update&root.dockerdwrapperwithcompose.IPCSocket=yes"
 ```
 
 Note that the dockerd service will be restarted every time TLS is activated or
@@ -238,6 +231,7 @@ docker buildx build --file Dockerfile --tag docker-acap:<ARCH> --build-arg ACAPA
 where `<ARCH>` is either `armv7hf` or `aarch64`.
 
 To extract the Docker ACAP eap-file use docker cp to copy it to a `build` folder:
+
 ```sh
 docker cp "$(docker create "docker-acap:<ARCH>")":/opt/app/ ./build
 ```
