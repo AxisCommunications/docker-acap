@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <sysexits.h>
 #include <syslog.h>
 #include <unistd.h>
 
@@ -42,8 +43,9 @@ static void dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
 // Loop run on the main process
 static GMainLoop *loop = NULL;
 
-// Exit code
-static int exit_code = 0;
+// Exit code of this program. Set using 'quit_program()'.
+#define EX_KEEP_RUNNING -1
+static int application_exit_code = EX_KEEP_RUNNING;
 
 // Pid of the running dockerd process
 static pid_t dockerd_process_pid = -1;
@@ -51,9 +53,6 @@ static pid_t dockerd_process_pid = -1;
 // Full path to the SD card
 static const char *dockerd_path_on_sd_card =
     "/var/spool/storage/SD_DISK/dockerd";
-
-// True if the dockerd_exited_callback should restart dockerd
-static bool restart_dockerd = false;
 
 // All ax_parameters the acap has
 static const char *ax_parameters[] = {"IPCSocket", "SDCardSupport", "UseTLS"};
@@ -63,6 +62,13 @@ static const char *tls_cert_path = "/usr/local/packages/dockerdwrapper/";
 static const char *tls_certs[] = {"ca.pem",
                                   "server-cert.pem",
                                   "server-key.pem"};
+
+static void
+quit_program(int exit_code)
+{
+  application_exit_code = exit_code;
+  g_main_loop_quit(loop);
+}
 
 /**
  * @brief Signals handling
@@ -76,7 +82,7 @@ handle_signals(__attribute__((unused)) int signal_num)
     case SIGINT:
     case SIGTERM:
     case SIGQUIT:
-      g_main_loop_quit(loop);
+      quit_program(EX_OK);
   }
 }
 
@@ -478,8 +484,7 @@ start_dockerd(const struct settings *settings)
   if (!is_process_alive(dockerd_process_pid)) {
     syslog(LOG_ERR,
            "Starting dockerd failed: Process died unexpectedly during startup");
-    exit_code = -1;
-    g_main_loop_quit(loop);
+    quit_program(EX_SOFTWARE);
     goto end;
   }
   return_value = true;
@@ -514,7 +519,7 @@ stop_dockerd(void)
     goto end;
   }
 
-  // Send SIGTERM to the process
+  syslog(LOG_INFO, "Sending SIGTERM to dockerd.");
   bool sigterm_successfully_sent = kill(dockerd_process_pid, SIGTERM) == 0;
   if (!sigterm_successfully_sent) {
     syslog(
@@ -555,8 +560,6 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
   if (!g_spawn_check_exit_status(status, &error)) {
     syslog(LOG_ERR, "Dockerd process exited with error: %d", status);
     g_clear_error(&error);
-
-    exit_code = -1;
   }
 
   dockerd_process_pid = -1;
@@ -566,16 +569,7 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
   // manner. Remove it manually.
   remove("/var/run/docker.pid");
 
-  if (restart_dockerd) {
-    restart_dockerd = false;
-    if (!read_settings_and_start_dockerd()) {
-      exit_code = -1;
-      g_main_loop_quit(loop);
-    }
-  } else {
-    // We shouldn't restart, stop instead.
-    g_main_loop_quit(loop);
-  }
+  g_main_loop_quit(loop); // Trigger a restart of dockerd from main()
 }
 
 /**
@@ -596,16 +590,8 @@ parameter_changed_callback(const gchar *name,
        ++i) {
     if (strcmp(parname, ax_parameters[i]) == 0) {
       syslog(LOG_INFO, "%s changed to: %s", ax_parameters[i], value);
-      restart_dockerd = true;
+      g_main_loop_quit(loop); // Trigger a restart of dockerd from main()
     }
-  }
-
-  // Stop the currently running process.
-  if (!stop_dockerd()) {
-    syslog(LOG_ERR,
-           "Failed to stop dockerd process. Please restart the acap "
-           "manually.");
-    exit_code = -1;
   }
 }
 
@@ -651,10 +637,11 @@ int
 main(void)
 {
   AXParameter *ax_parameter = NULL;
-  exit_code = 0;
 
   openlog(NULL, LOG_PID, LOG_USER);
   syslog(LOG_INFO, "Started logging.");
+
+  loop = g_main_loop_new(NULL, FALSE);
 
   // Setup signal handling.
   init_signals();
@@ -663,29 +650,20 @@ main(void)
   ax_parameter = setup_axparameter();
   if (ax_parameter == NULL) {
     syslog(LOG_ERR, "Error in setup_axparameter");
-    exit_code = -1;
-    goto end;
+    quit_program(EX_SOFTWARE);
   }
 
-  /* Create the GLib event loop. */
-  loop = g_main_loop_new(NULL, FALSE);
-  loop = g_main_loop_ref(loop);
+  while (application_exit_code == EX_KEEP_RUNNING) {
+    if (dockerd_process_pid == -1 && !read_settings_and_start_dockerd())
+      quit_program(EX_SOFTWARE);
 
-  if (!read_settings_and_start_dockerd()) {
-    exit_code = -1;
-    goto end;
+    g_main_loop_run(loop);
+
+    if (!stop_dockerd())
+      syslog(LOG_WARNING, "Failed to shut down dockerd.");
   }
 
-  /* Run the GLib event loop. */
-  g_main_loop_run(loop);
   g_main_loop_unref(loop);
-
-end:
-  if (stop_dockerd()) {
-    syslog(LOG_INFO, "Shutting down. dockerd shut down successfully.");
-  } else {
-    syslog(LOG_WARNING, "Shutting down. Failed to shut down dockerd.");
-  }
 
   if (ax_parameter != NULL) {
     for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]);
@@ -698,5 +676,5 @@ end:
     ax_parameter_free(ax_parameter);
   }
 
-  return exit_code;
+  return application_exit_code;
 }
