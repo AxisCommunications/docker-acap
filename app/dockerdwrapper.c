@@ -592,22 +592,12 @@ parameter_changed_callback(const gchar *name,
 {
   const gchar *parname = name += strlen("root.dockerdwrapper.");
 
-  bool unknown_parameter = true;
   for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]);
        ++i) {
     if (strcmp(parname, ax_parameters[i]) == 0) {
       syslog(LOG_INFO, "%s changed to: %s", ax_parameters[i], value);
       restart_dockerd = true;
-      unknown_parameter = false;
     }
-  }
-
-  if (unknown_parameter) {
-    syslog(LOG_WARNING, "Parameter %s is not recognized", name);
-    restart_dockerd = false;
-
-    // No known parameter was changed, do not restart.
-    return;
   }
 
   // Stop the currently running process.
