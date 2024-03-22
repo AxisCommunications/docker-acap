@@ -1,8 +1,10 @@
 build*/
 tmp/
 dockerd
+docker-compose
+docker-init
 docker-proxy
-dockerdwrapper
+dockerdwrapperwithcompose
 package.conf.orig
 *.eap
 *.eap.old
