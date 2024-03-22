@@ -160,9 +160,6 @@ RUN if [ "$ACAPARCH" = armv7hf ]; then \
 
 WORKDIR /opt/app/lib
 RUN cp -P /opt/build/uriparser/build/liburiparser.so* .
-# COPY --from=uriparser /opt/build/uriparser/build/liburiparser.so* /opt/app/lib/. 
-#WORKDIR /opt/app
-# FROM build_image as build
 
 ARG DOCKER_IMAGE_VERSION
 ARG SLIRP4NETNS_VERSION=1.2.0
