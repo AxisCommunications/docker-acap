@@ -478,6 +478,7 @@ start_dockerd(const struct settings *settings)
     args_offset += g_snprintf(args + args_offset,
                               args_len - args_offset,
                               " -H unix:///var/run/docker.sock");
+    g_strlcat(msg, " with IPC socket.", msg_len);
   } else {
     g_strlcat(msg, " without IPC socket.", msg_len);
   }
