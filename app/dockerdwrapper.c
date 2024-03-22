@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <sysexits.h>
 #include <syslog.h>
 #include <unistd.h>
 
@@ -42,8 +43,9 @@ static void dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
 // Loop run on the main process
 static GMainLoop *loop = NULL;
 
-// Exit code
-static int exit_code = 0;
+// Exit code of this program. Set using 'quit_program()'.
+#define EX_KEEP_RUNNING -1
+static int application_exit_code = EX_KEEP_RUNNING;
 
 // Pid of the running dockerd process
 static pid_t dockerd_process_pid = -1;
@@ -64,6 +66,13 @@ static const char *tls_certs[] = {"ca.pem",
                                   "server-cert.pem",
                                   "server-key.pem"};
 
+static void
+quit_program(int exit_code)
+{
+  application_exit_code = exit_code;
+  g_main_loop_quit(loop);
+}
+
 /**
  * @brief Signals handling
  *
@@ -76,7 +85,7 @@ handle_signals(__attribute__((unused)) int signal_num)
     case SIGINT:
     case SIGTERM:
     case SIGQUIT:
-      g_main_loop_quit(loop);
+      quit_program(EX_OK);
   }
 }
 
@@ -478,8 +487,7 @@ start_dockerd(const struct settings *settings)
   if (!is_process_alive(dockerd_process_pid)) {
     syslog(LOG_ERR,
            "Starting dockerd failed: Process died unexpectedly during startup");
-    exit_code = -1;
-    g_main_loop_quit(loop);
+    quit_program(EX_SOFTWARE);
     goto end;
   }
   return_value = true;
@@ -555,8 +563,6 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
   if (!g_spawn_check_exit_status(status, &error)) {
     syslog(LOG_ERR, "Dockerd process exited with error: %d", status);
     g_clear_error(&error);
-
-    exit_code = -1;
   }
 
   dockerd_process_pid = -1;
@@ -569,8 +575,7 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
   if (restart_dockerd) {
     restart_dockerd = false;
     if (!read_settings_and_start_dockerd()) {
-      exit_code = -1;
-      g_main_loop_quit(loop);
+      quit_program(EX_DATAERR);
     }
   } else {
     // We shouldn't restart, stop instead.
@@ -615,7 +620,7 @@ parameter_changed_callback(const gchar *name,
     syslog(LOG_ERR,
            "Failed to stop dockerd process. Please restart the acap "
            "manually.");
-    exit_code = -1;
+    quit_program(EX_SOFTWARE);
   }
 }
 
@@ -661,10 +666,11 @@ int
 main(void)
 {
   AXParameter *ax_parameter = NULL;
-  exit_code = 0;
 
   openlog(NULL, LOG_PID, LOG_USER);
   syslog(LOG_INFO, "Started logging.");
+
+  loop = g_main_loop_new(NULL, FALSE);
 
   // Setup signal handling.
   init_signals();
@@ -673,29 +679,22 @@ main(void)
   ax_parameter = setup_axparameter();
   if (ax_parameter == NULL) {
     syslog(LOG_ERR, "Error in setup_axparameter");
-    exit_code = -1;
-    goto end;
+    quit_program(EX_SOFTWARE);
   }
 
-  /* Create the GLib event loop. */
-  loop = g_main_loop_new(NULL, FALSE);
-  loop = g_main_loop_ref(loop);
-
-  if (!read_settings_and_start_dockerd()) {
-    exit_code = -1;
-    goto end;
+  while (application_exit_code == EX_KEEP_RUNNING) {
+    if (!read_settings_and_start_dockerd())
+      quit_program(EX_SOFTWARE);
+    g_main_loop_run(loop);
   }
 
-  /* Run the GLib event loop. */
-  g_main_loop_run(loop);
-  g_main_loop_unref(loop);
-
-end:
   if (stop_dockerd()) {
     syslog(LOG_INFO, "Shutting down. dockerd shut down successfully.");
   } else {
     syslog(LOG_WARNING, "Shutting down. Failed to shut down dockerd.");
   }
+
+  g_main_loop_unref(loop);
 
   if (ax_parameter != NULL) {
     for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]);
@@ -708,5 +707,5 @@ end:
     ax_parameter_free(ax_parameter);
   }
 
-  return exit_code;
+  return application_exit_code;
 }
