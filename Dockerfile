@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-ARG DOCKER_IMAGE_VERSION=25.0.5
+ARG DOCKER_IMAGE_VERSION=26.0.0
 
 ARG REPO=axisecp
 ARG ACAPARCH=armv7hf
