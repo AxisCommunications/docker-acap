@@ -58,7 +58,7 @@ the Docker ACAP application.
 The following requirements need to be met.
 
 * Axis device:
-  * Axis OS version 11.7 or higher.
+  * Axis OS version 11.10 or higher.
   * The device needs to have ACAP Native SDK support. See [Axis devices & compatibility][devices]
   for more information.
   * Additionally, the device must be container capable. To check the compatibility
@@ -123,8 +123,10 @@ calling the parameter management API in [VAPIX][vapix] and setting the
 
 ```sh
 export DEVICE_IP=<device ip>
+export DEVICE_USER='<admin>'
+export DEVICE_PASSWORD='<password>'
 
-curl -s --anyauth -u "root:<device root password>" \
+curl -s --anyauth --user $DEVICE_USER:$DEVICE_PASSWORD \
   "http://$DEVICE_IP/axis-cgi/param.cgi?action=update&root.dockerdwrapper.UseTLS=yes"
 ```
 
@@ -134,41 +136,74 @@ Running the ACAP without TLS requires no further setup.
 
 #### TLS Setup
 
-TLS requires a keys and certificates to work, which are listed in the
+TLS requires keys and certificates to work, which are listed in the
 subsections below. For more information on how to generate these files, please
 consult the official [Docker documentation][docker-tls].
-Most of these keys and certificates need to be moved to the Axis device. There are multiple ways to
+Some of these keys and certificates need to be moved to the Axis device. Currently there are multiple ways to
 achieve this, for example by using `scp` to copy the files from a remote machine onto the device.
 This can be done by running the following command on the remote machine:
 
 ```sh
-scp ca.pem server-cert.pem server-key.pem root@<device ip>:/usr/local/packages/dockerdwrapper/
+scp ca.pem server-cert.pem server-key.pem root@$DEVICE_IP:/usr/local/packages/dockerdwrapper/localdata/
 ```
 
 Once copied to the Axis device the correct permissions need to be set for the certificates:
 
 ```sh
-ssh root@<device IP> 'chown acap-dockerdwrapper /usr/local/packages/dockerdwrapper/*.pem'
+ssh root@$DEVICE_IP 'chown acap-dockerdwrapper /usr/local/packages/dockerdwrapper/localdata/*.pem'
 
 ```
 
+When root ssh access is removed from the device (Axis OS version 12.0 and higher) the preferred method is to use the cert_manager.cgi packaged with the ACAP to install the required keys and certificates on the device with the relevant priviledges. A user with admin rights is required in conjunction with the cert_manager.cgi.
+
+Three HTTP request methods are associated with the cert_manager.cgi, GET, POST and DELETE. GET is used only for accessing help or usage information. POST is used to upload keys or certificates to the device, whereas DELETE is used to remove them. The name of the key or certifcate must be supplied when POST'ing or DELETE'ing.
+
+GET may be used to confirm valid names and example cURL usage. The cert_manager.cgi usage and help can be obtained from your host machine as follows
+
+```sh
+export DEVICE_IP=<device ip>
+export DEVICE_USER='<admin>'
+export DEVICE_PASSWORD='<password>'
+
+curl --anyauth --user $DEVICE_USER:$DEVICE_PASSWORD -X GET "http://$DEVICE_IP/local/dockerdwrapper/cert_manager.cgi"
+```
+
+A note on where the keys and certificates are stored on the device. Older versions of the ACAP simply stored them in `/usr/local/packages/dockerdwrapper/`. As a consequence any certificates were not preserved on ACAP upgrade.
+
+Newer versions of the ACAP and the cert:manager.cgi instead place them in `/usr/local/packages/dockerdwrapper/localdata` which will be backed up and restored as appropriate during subsequent upgrade of the ACAP.
+
+The ACAP expects and requires keys and certificates to be owned by the user `acap-dockerdwrapper` and will not start in TLS mode if it detects that this is not the case.
+
+
 ##### The Certificate Authority (CA) certificate
 
-This certificate needs to be present in the dockerdwrapper package folder on the
+This certificate needs to be present in the dockerdwrapper package localdata folder on the
 Axis device and be named `ca.pem`. The full path of the file should be
-`/usr/local/packages/dockerdwrapper/ca.pem`.
+`/usr/local/packages/dockerdwrapper/localdata/ca.pem`. The cert_manager.cgi can be used to achieve this from your host machine as follows.
+
+```sh
+curl --anyauth --user $DEVICE_USER:$DEVICE_PASSWORD -F file=@ca.pem -X POST "http://$DEVICE_IP/local/dockerdwrapper/cert_manager.cgi?file_name=ca.pem"
+```
 
 ##### The server certificate
 
 This certificate needs to be present in the dockerdwrapper package folder on the
 Axis device and be named `server-cert.pem`. The full path of the file should be
-`/usr/local/packages/dockerdwrapper/server-cert.pem`.
+`/usr/local/packages/dockerdwrapper/localdata/server-cert.pem`. The cert_manager.cgi can be used to achieve this from your host machine as follows.
+
+```sh
+curl --anyauth --user $DEVICE_USER:$DEVICE_PASSWORD -F file=@server-cert.pem -X POST "http://$DEVICE_IP/local/dockerdwrapper/cert_manager.cgi?file_name=server-cert.pem"
+```
 
 ##### The private server key
 
 This key needs to be present in the dockerdwrapper package folder on the Axis device
 and be named `server-key.pem`. The full path of the file should be
-`/usr/local/packages/dockerdwrapper/server-key.pem`.
+`/usr/local/packages/dockerdwrapper/localdata/server-key.pem`. The cert_manager.cgi can be used to achieve this from your host machine as follows.
+
+```sh
+curl --anyauth --user $DEVICE_USER:$DEVICE_PASSWORD -F file=@server-key.pem -X POST "http://$DEVICE_IP/local/dockerdwrapper/cert_manager.cgi?file_name=server-key.pem"
+```
 
 ##### Client key and certificate
 
