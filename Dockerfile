@@ -1,11 +1,12 @@
 # syntax=docker/dockerfile:1
 
-ARG DOCKER_IMAGE_VERSION=24.0.2
+ARG DOCKER_VERSION=24.0.2
+ARG DOCKER_COMPOSE_VERSION=v2.18.1
 
 ARG REPO=axisecp
 ARG ACAPARCH=armv7hf
 
-ARG VERSION=1.3
+ARG VERSION=1.10
 ARG UBUNTU_VERSION=22.04
 ARG NATIVE_SDK=acap-native-sdk
 
@@ -29,8 +30,9 @@ RUN <<EOF
         autopoint \
         gettext \
         git \
-        libtool
+        libtool 
     ln -s /usr/bin/libtoolize /usr/bin/libtool
+
 EOF
 
 WORKDIR $BUILD_DIR
@@ -55,10 +57,9 @@ RUN cp $BUILD_DIR/ps/pscommand ps
 
 FROM build_image as build
 
-ARG DOCKER_IMAGE_VERSION
-ENV DOCKERVERSION ${DOCKER_IMAGE_VERSION}
+ARG DOCKER_VERSION
+ARG DOCKER_COMPOSE_VERSION
 ARG ACAPARCH
-ENV ARCH ${ACAPARCH}
 
 # Copy over axparameter from the acap-sdk
 COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/include/axsdk/ax_parameter /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/include/axsdk
@@ -70,24 +71,31 @@ COPY --from=acap-sdk /opt/axis/acapsdk/sysroots/${ACAPARCH}/usr/lib/pkgconfig/ax
 COPY app /opt/app
 COPY --from=ps /export/ps /opt/app
 
-# Download and extract dockerd and its dependencies
+# Get docker* binaries and scripts
 RUN <<EOF
     if [ "$ACAPARCH" = "armv7hf" ]; then
         export DOCKER_ARCH="armhf";
+        export DOCKER_COMPOSE_ARCH="armv7";
     elif [ "$ACAPARCH" = "aarch64" ]; then
         export DOCKER_ARCH="aarch64";
+        export DOCKER_COMPOSE_ARCH="aarch64";
     fi;
-    curl -Lo docker_binaries.tgz "https://download.docker.com/linux/static/stable/${DOCKER_ARCH}/docker-${DOCKER_IMAGE_VERSION}.tgz" ;
+    curl -Lo docker_binaries.tgz "https://download.docker.com/linux/static/stable/${DOCKER_ARCH}/docker-${DOCKER_VERSION}.tgz" ;
+    tar -xz -f docker_binaries.tgz --strip-components=1 docker/docker ;
     tar -xz -f docker_binaries.tgz --strip-components=1 docker/dockerd ;
     tar -xz -f docker_binaries.tgz --strip-components=1 docker/docker-init ;
     tar -xz -f docker_binaries.tgz --strip-components=1 docker/docker-proxy ;
+    curl -Lo docker-compose "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-linux-${DOCKER_COMPOSE_ARCH}" ;
+    chmod +x docker-compose
 EOF
 
 WORKDIR /opt/app
 RUN <<EOF
     . /opt/axis/acapsdk/environment-setup*
     acap-build . \
+        -a docker \
         -a dockerd \
+        -a docker-compose \
         -a docker-init \
         -a docker-proxy \
         -a empty_daemon.json \
