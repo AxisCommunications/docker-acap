@@ -75,7 +75,8 @@ It's also possible to build and use a locally built image. See the
 
 The Docker Compose ACAP application can be run in either TLS mode or unsecured mode. The Docker Compose
 ACAP application uses TLS mode by default. These modes can be used with or without TCP and IPC sockets.
-It should be noted that if TCP and IPC sockets are not enabled, Dockerd will not start.
+It is important to note that Dockerd will fail to start if TCP socket or IPC socket parameters are not
+selected, one of these sockets must be set to `yes`.
 
 Use the "Use TLS" and "TCP Socket" dropdowns in the web interface to switch between the
 two different modes(yes/no). Whenever these settings change, the Docker daemon will automatically restart.
@@ -218,6 +219,10 @@ docker -H=<device ip>:$DOCKER_INSECURE_PORT version
 See [Client key and certificate](#client-key-and-certificate) for an example
 of how to remotely run docker commands on a device running a secured Docker ACAP
 using TLS.
+
+The application can provide a TCP socket if the TCP Socket setting is set to `yes` and an IPC socket
+if the IPC Socket setting is set to `yes`. Please be aware that at least one of these sockets must be
+selected for the application to start.
 
 ## Building the Docker ACAP
 

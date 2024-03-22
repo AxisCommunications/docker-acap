@@ -37,7 +37,7 @@
                 },
                 {
                     "name": "IPCSocket",
-                    "default": "yes",
+                    "default": "no",
                     "type": "enum:no|No, yes|Yes"
                 }
             ]
