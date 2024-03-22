@@ -256,6 +256,15 @@ setup_sdcard(const char *dockerd_path)
   return true;
 }
 
+// A parameter of type "bool:no,yes" is guaranteed to contain one of those
+// strings, but user code is still needed to interpret it as a Boolean type.
+static bool
+is_parameter_yes(const char *name)
+{
+  g_autofree char *value = get_parameter_value(name);
+  return value && strcmp(value, "yes") == 0;
+}
+
 /**
  * @brief Gets and verifies the SDCardSupport selection
  *
@@ -266,11 +275,9 @@ static gboolean
 get_and_verify_sd_card_selection(bool *use_sdcard_ret)
 {
   gboolean return_value = false;
-  bool use_sdcard = *use_sdcard_ret;
-  char *use_sd_card_value = get_parameter_value("SDCardSupport");
+  const bool use_sdcard = is_parameter_yes("SDCardSupport");
 
-  if (use_sd_card_value != NULL) {
-    bool use_sdcard = strcmp(use_sd_card_value, "yes") == 0;
+  {
     if (use_sdcard) {
       if (!setup_sdcard(dockerd_path_on_sd_card)) {
         syslog(LOG_ERR, "Failed to setup SD card.");
@@ -281,7 +288,6 @@ get_and_verify_sd_card_selection(bool *use_sdcard_ret)
     return_value = true;
   }
 end:
-  free(use_sd_card_value);
   return return_value;
 }
 
@@ -295,14 +301,12 @@ static gboolean
 get_and_verify_tls_selection(bool *use_tls_ret)
 {
   gboolean return_value = false;
-  bool use_tls = *use_tls_ret;
   char *ca_path = NULL;
   char *cert_path = NULL;
   char *key_path = NULL;
 
-  char *use_tls_value = get_parameter_value("UseTLS");
-  if (use_tls_value != NULL) {
-    use_tls = strcmp(use_tls_value, "yes") == 0;
+  const bool use_tls = is_parameter_yes("UseTLS");
+  {
     if (use_tls) {
       char *ca_path = g_strdup_printf("%s%s", tls_cert_path, tls_certs[0]);
       char *cert_path = g_strdup_printf("%s%s", tls_cert_path, tls_certs[1]);
@@ -340,7 +344,6 @@ get_and_verify_tls_selection(bool *use_tls_ret)
     return_value = true;
   }
 end:
-  free(use_tls_value);
   free(ca_path);
   free(cert_path);
   free(key_path);
@@ -356,16 +359,8 @@ end:
 static gboolean
 get_ipc_socket_selection(bool *use_ipc_socket_ret)
 {
-  gboolean return_value = false;
-  bool use_ipc_socket = *use_ipc_socket_ret;
-  char *use_ipc_socket_value = get_parameter_value("IPCSocket");
-  if (use_ipc_socket_value != NULL) {
-    use_ipc_socket = strcmp(use_ipc_socket_value, "yes") == 0;
-    *use_ipc_socket_ret = use_ipc_socket;
-    return_value = true;
-  }
-  free(use_ipc_socket_value);
-  return return_value;
+  *use_ipc_socket_ret = is_parameter_yes("IPCSocket");
+  return true;
 }
 
 static bool
