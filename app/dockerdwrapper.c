@@ -25,6 +25,7 @@
 #include <sysexits.h>
 #include <syslog.h>
 #include <unistd.h>
+#include "sd_disk_storage.h"
 
 struct settings {
   char *data_root;
@@ -499,14 +500,13 @@ end:
   return return_value;
 }
 
-static bool
+static void
 read_settings_and_start_dockerd(struct app_state *app_state)
 {
   struct settings settings = {0};
-  bool success = read_settings(&settings, app_state) &&
-                 start_dockerd(&settings, app_state);
+  if (read_settings(&settings, app_state))
+    start_dockerd(&settings, app_state);
   free(settings.data_root);
-  return success;
 }
 
 /**
@@ -563,7 +563,7 @@ dockerd_process_exited_callback(GPid pid,
 {
   struct app_state *app_state = app_state_void_ptr;
   GError *error = NULL;
-  if (!g_spawn_check_exit_status(status, &error)) {
+  if (!g_spawn_check_wait_status(status, &error)) {
     syslog(LOG_ERR, "Dockerd process exited with error: %d", status);
     g_clear_error(&error);
   }
@@ -639,12 +639,20 @@ end:
   return ax_parameter;
 }
 
+static void
+sd_card_callback(const char *sd_card_area, void *app_state_void_ptr)
+{
+  struct app_state *app_state = app_state_void_ptr;
+  if (!sd_card_area)
+    stop_dockerd(); // Block here until dockerd has stopped using the SD card.
+  app_state->sd_card_area = sd_card_area ? strdup(sd_card_area) : NULL;
+  g_main_loop_quit(loop); // Trigger a restart of dockerd from main()
+}
+
 int
 main(void)
 {
   struct app_state app_state = {0};
-  app_state.sd_card_area = strdup("/var/spool/storage/SD_DISK/dockerd");
-
   AXParameter *ax_parameter = NULL;
 
   openlog(NULL, LOG_PID, LOG_USER);
@@ -655,6 +663,9 @@ main(void)
   // Setup signal handling.
   init_signals();
 
+  struct sd_disk_storage *sd_disk_storage =
+      sd_disk_storage_init(sd_card_callback, &app_state);
+
   // Setup ax_parameter
   ax_parameter = setup_axparameter();
   if (ax_parameter == NULL) {
@@ -663,9 +674,8 @@ main(void)
   }
 
   while (application_exit_code == EX_KEEP_RUNNING) {
-    if (dockerd_process_pid == -1 &&
-        !read_settings_and_start_dockerd(&app_state))
-      quit_program(EX_SOFTWARE);
+    if (dockerd_process_pid == -1)
+      read_settings_and_start_dockerd(&app_state);
 
     g_main_loop_run(loop);
 
@@ -686,6 +696,7 @@ main(void)
     ax_parameter_free(ax_parameter);
   }
 
+  sd_disk_storage_free(sd_disk_storage);
   free(app_state.sd_card_area);
   return application_exit_code;
 }
