@@ -434,18 +434,31 @@ start_dockerd(const struct settings *settings)
     goto end;
   }
 
+  if (use_ipc_socket) {
+    g_strlcat(msg, " with IPC socket and", msg_len);
+    args_offset += g_snprintf(args + args_offset,
+                              args_len - args_offset,
+                              " -H unix:///var/run/docker.sock");
+  } else {
+    g_strlcat(msg, " without IPC socket and", msg_len);
+  }
+
   if (use_tcp_socket) {
+    g_strlcat(msg, " with TCP socket", msg_len);
+    const uint port = use_tls ? 2376 : 2375;
+    args_offset += g_snprintf(args + args_offset,
+                              args_len - args_offset,
+                              " -H tcp://0.0.0.0:%d",
+                              port);
     if (use_tls) {
       const char *ca_path = "/usr/local/packages/dockerdwrapper/ca.pem";
       const char *cert_path =
           "/usr/local/packages/dockerdwrapper/server-cert.pem";
       const char *key_path =
           "/usr/local/packages/dockerdwrapper/server-key.pem";
-
       args_offset += g_snprintf(args + args_offset,
                                 args_len - args_offset,
-                                " %s %s %s %s %s %s %s %s",
-                                "-H tcp://0.0.0.0:2376",
+                                " %s %s %s %s %s %s %s",
                                 "--tlsverify",
                                 "--tlscacert",
                                 ca_path,
@@ -453,38 +466,24 @@ start_dockerd(const struct settings *settings)
                                 cert_path,
                                 "--tlskey",
                                 key_path);
-
-      g_strlcat(msg, " in TLS mode with TCP socket", msg_len);
+      g_strlcat(msg, " in TLS mode", msg_len);
     } else {
-      args_offset += g_snprintf(args + args_offset,
-                                args_len - args_offset,
-                                " %s %s",
-                                "-H tcp://0.0.0.0:2375",
-                                "--tls=false");
-
-      g_strlcat(msg, " in unsecured mode with TCP socket", msg_len);
+      args_offset += g_snprintf(
+          args + args_offset, args_len - args_offset, " --tls=false");
+      g_strlcat(msg, " in unsecured mode", msg_len);
     }
   } else {
-    g_strlcat(msg, " in unsecured mode", msg_len);
+    g_strlcat(msg, " without TCP socket in unsecured mode", msg_len);
   }
 
   g_autofree char *data_root_msg = g_strdup_printf(
-      " using %s as storage", data_root ? data_root : "/var/lib/docker");
+      " using %s as storage.", data_root ? data_root : "/var/lib/docker");
   g_strlcat(msg, data_root_msg, msg_len);
   if (data_root)
     args_offset += g_snprintf(args + args_offset,
                               args_len - args_offset,
                               " --data-root %s",
                               data_root);
-
-  if (use_ipc_socket) {
-    g_strlcat(msg, " with IPC socket.", msg_len);
-    args_offset += g_snprintf(args + args_offset,
-                              args_len - args_offset,
-                              " -H unix:///var/run/docker.sock");
-  } else {
-    g_strlcat(msg, " without IPC socket.", msg_len);
-  }
 
   // Log startup information to syslog.
   syslog(LOG_INFO, "%s", msg);
