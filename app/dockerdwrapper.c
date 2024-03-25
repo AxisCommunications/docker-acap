@@ -26,7 +26,7 @@
 #include <unistd.h>
 
 struct settings {
-  bool use_sdcard;
+  char *data_root;
   bool use_tls;
   bool use_ipc_socket;
 };
@@ -208,10 +208,9 @@ get_filesystem_of_path(const char *path)
  * @return True if successful, false if setup failed.
  */
 static bool
-setup_sdcard(const char *dockerd_path)
+setup_sdcard(const char *data_root)
 {
   g_autofree char *sd_file_system = NULL;
-  g_autofree char *data_root = g_strdup_printf("%s/data", dockerd_path);
   g_autofree char *create_droot_command =
       g_strdup_printf("mkdir -p %s", data_root);
 
@@ -225,11 +224,11 @@ setup_sdcard(const char *dockerd_path)
   }
 
   // Confirm that the SD card is usable
-  sd_file_system = get_filesystem_of_path(dockerd_path);
+  sd_file_system = get_filesystem_of_path(data_root);
   if (sd_file_system == NULL) {
     syslog(LOG_ERR,
            "Couldn't identify the file system of the SD card at %s",
-           dockerd_path);
+           data_root);
     return false;
   }
 
@@ -239,17 +238,17 @@ setup_sdcard(const char *dockerd_path)
            "The SD card at %s uses file system %s which does not support "
            "Unix file permissions. Please reformat to a file system that "
            "support Unix file permissions, such as ext4 or xfs.",
-           dockerd_path,
+           data_root,
            sd_file_system);
     return false;
   }
 
-  if (access(dockerd_path, F_OK) == 0 && access(dockerd_path, W_OK) != 0) {
+  if (access(data_root, F_OK) == 0 && access(data_root, W_OK) != 0) {
     syslog(LOG_ERR,
            "The application user does not have write permissions to the SD "
            "card directory at %s. Please change the directory permissions or "
            "remove the directory.",
-           dockerd_path);
+           data_root);
     return false;
   }
 
@@ -272,23 +271,18 @@ is_parameter_yes(const char *name)
  * @return True if successful, false otherwise.
  */
 static gboolean
-get_and_verify_sd_card_selection(bool *use_sdcard_ret)
+get_and_verify_sd_card_selection(char **data_root)
 {
-  gboolean return_value = false;
-  const bool use_sdcard = is_parameter_yes("SDCardSupport");
-
-  {
-    if (use_sdcard) {
-      if (!setup_sdcard(dockerd_path_on_sd_card)) {
-        syslog(LOG_ERR, "Failed to setup SD card.");
-        goto end;
-      }
+  if (is_parameter_yes("SDCardSupport")) {
+    *data_root = g_strdup_printf("%s/data", dockerd_path_on_sd_card);
+    if (!setup_sdcard(*data_root)) {
+      syslog(LOG_ERR, "Failed to setup SD card.");
+      return false;
     }
-    *use_sdcard_ret = use_sdcard;
-    return_value = true;
+  } else {
+    *data_root = NULL;
   }
-end:
-  return return_value;
+  return true;
 }
 
 /**
@@ -366,7 +360,7 @@ get_ipc_socket_selection(bool *use_ipc_socket_ret)
 static bool
 read_settings(struct settings *settings)
 {
-  if (!get_and_verify_sd_card_selection(&settings->use_sdcard)) {
+  if (!get_and_verify_sd_card_selection(&settings->data_root)) {
     syslog(LOG_ERR, "Failed to setup sd_card");
     return false;
   }
@@ -386,7 +380,7 @@ read_settings(struct settings *settings)
 static bool
 start_dockerd(const struct settings *settings)
 {
-  const bool use_sdcard = settings->use_sdcard;
+  const char *data_root = settings->data_root;
   const bool use_tls = settings->use_tls;
   const bool use_ipc_socket = settings->use_ipc_socket;
 
@@ -440,25 +434,20 @@ start_dockerd(const struct settings *settings)
     g_strlcat(msg, " in unsecured mode", msg_len);
   }
 
-  if (use_sdcard) {
-    args_offset +=
-        g_snprintf(args + args_offset,
-                   args_len - args_offset,
-                   " %s",
-                   "--data-root /var/spool/storage/SD_DISK/dockerd/data");
-
-    g_strlcat(msg, " using SD card as storage", msg_len);
-  } else {
-    g_strlcat(msg, " using internal storage", msg_len);
-  }
-
-  if (use_ipc_socket) {
+  g_autofree char *data_root_msg = g_strdup_printf(
+      " using %s as storage", data_root ? data_root : "/var/lib/docker");
+  g_strlcat(msg, data_root_msg, msg_len);
+  if (data_root)
     args_offset += g_snprintf(args + args_offset,
                               args_len - args_offset,
-                              " %s",
-                              "-H unix:///var/run/docker.sock");
+                              " --data-root %s",
+                              data_root);
 
+  if (use_ipc_socket) {
     g_strlcat(msg, " with IPC socket.", msg_len);
+    args_offset += g_snprintf(args + args_offset,
+                              args_len - args_offset,
+                              " -H unix:///var/run/docker.sock");
   } else {
     g_strlcat(msg, " without IPC socket.", msg_len);
   }
@@ -505,7 +494,9 @@ static bool
 read_settings_and_start_dockerd(void)
 {
   struct settings settings = {0};
-  return read_settings(&settings) && start_dockerd(&settings);
+  bool success = read_settings(&settings) && start_dockerd(&settings);
+  free(settings.data_root);
+  return success;
 }
 
 /**
