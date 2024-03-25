@@ -464,6 +464,8 @@ start_dockerd(const struct settings *settings)
 
       g_strlcat(msg, " in unsecured mode with TCP socket", msg_len);
     }
+  } else {
+    g_strlcat(msg, " in unsecured mode", msg_len);
   }
 
   g_autofree char *data_root_msg = g_strdup_printf(
