@@ -434,12 +434,14 @@ start_dockerd(const struct settings *settings)
     goto end;
   }
 
-  if (use_tls) {
-    const char *ca_path = "/usr/local/packages/dockerdwrapper/ca.pem";
-    const char *cert_path =
-        "/usr/local/packages/dockerdwrapper/server-cert.pem";
-    const char *key_path = "/usr/local/packages/dockerdwrapper/server-key.pem";
-    if (use_tcp_socket) {
+  if (use_tcp_socket) {
+    if (use_tls) {
+      const char *ca_path = "/usr/local/packages/dockerdwrapper/ca.pem";
+      const char *cert_path =
+          "/usr/local/packages/dockerdwrapper/server-cert.pem";
+      const char *key_path =
+          "/usr/local/packages/dockerdwrapper/server-key.pem";
+
       args_offset += g_snprintf(args + args_offset,
                                 args_len - args_offset,
                                 " %s %s %s %s %s %s %s %s",
@@ -453,15 +455,15 @@ start_dockerd(const struct settings *settings)
                                 key_path);
 
       g_strlcat(msg, " in TLS mode with TCP socket", msg_len);
-    }
-  } else if (use_tcp_socket && !use_tls) {
-    args_offset += g_snprintf(args + args_offset,
-                              args_len - args_offset,
-                              " %s %s",
-                              "-H tcp://0.0.0.0:2375",
-                              "--tls=false");
+    } else {
+      args_offset += g_snprintf(args + args_offset,
+                                args_len - args_offset,
+                                " %s %s",
+                                "-H tcp://0.0.0.0:2375",
+                                "--tls=false");
 
-    g_strlcat(msg, " in unsecured mode with TCP socket", msg_len);
+      g_strlcat(msg, " in unsecured mode with TCP socket", msg_len);
+    }
   }
 
   g_autofree char *data_root_msg = g_strdup_printf(
@@ -478,7 +480,6 @@ start_dockerd(const struct settings *settings)
     args_offset += g_snprintf(args + args_offset,
                               args_len - args_offset,
                               " -H unix:///var/run/docker.sock");
-    g_strlcat(msg, " with IPC socket.", msg_len);
   } else {
     g_strlcat(msg, " without IPC socket.", msg_len);
   }
