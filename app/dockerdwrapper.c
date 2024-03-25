@@ -357,7 +357,7 @@ end:
 static gboolean
 get_tcp_socket_selection(bool *use_tcp_socket_ret)
 {
-  *use_tcp_socket_ret = get_parameter_value("TCPSocket");
+  *use_tcp_socket_ret = is_parameter_yes("TCPSocket");
   return true;
 }
 
