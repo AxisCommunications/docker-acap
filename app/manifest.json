@@ -31,6 +31,11 @@
                     "type": "enum:no|No, yes|Yes"
                 },
                 {
+                    "name": "TCPSocket",
+                    "default": "yes",
+                    "type": "enum:no|No, yes|Yes"
+                },
+                {
                     "name": "IPCSocket",
                     "default": "no",
                     "type": "enum:no|No, yes|Yes"
