@@ -539,7 +539,7 @@ read_settings_and_start_dockerd(struct app_state *app_state)
 
   bool success = read_settings(&settings, app_state) &&
                  start_dockerd(&settings, app_state);
- 
+
   free(settings.data_root);
   return success;
 }
