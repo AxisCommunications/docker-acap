@@ -33,6 +33,10 @@ struct settings {
   bool use_ipc_socket;
 };
 
+struct app_state {
+  char *sd_card_area;
+};
+
 /**
  * @brief Callback called when the dockerd process exits.
  */
@@ -50,10 +54,6 @@ static int application_exit_code = EX_KEEP_RUNNING;
 
 // Pid of the running dockerd process
 static pid_t dockerd_process_pid = -1;
-
-// Full path to the SD card
-static const char *dockerd_path_on_sd_card =
-    "/var/spool/storage/SD_DISK/dockerd";
 
 // All ax_parameters the acap has
 static const char *ax_parameters[] = {"IPCSocket",
@@ -274,25 +274,31 @@ is_parameter_yes(const char *name)
   return value && strcmp(value, "yes") == 0;
 }
 
-/**
- * @brief Gets and verifies the SDCardSupport selection
- *
- * @param use_sdcard_ret selection to be updated.
- * @return True if successful, false otherwise.
- */
-static gboolean
-get_and_verify_sd_card_selection(char **data_root)
+// Return data root matching the current SDCardSupport selection.
+//
+// If SDCardSupport is "yes", data root will be located on the proved SD card
+// area. Passing NULL as SD card area signals that the SD card is not availble.
+static char *
+prepare_data_root(const char *sd_card_area)
 {
   if (is_parameter_yes("SDCardSupport")) {
-    *data_root = g_strdup_printf("%s/data", dockerd_path_on_sd_card);
-    if (!setup_sdcard(*data_root)) {
-      syslog(LOG_ERR, "Failed to setup SD card.");
-      return false;
+    if (!sd_card_area) {
+      syslog(
+          LOG_ERR,
+          "SD card was requested, but no SD card is available at the moment.");
+      return NULL;
     }
+    char *data_root = g_strdup_printf("%s/data", sd_card_area);
+    if (!setup_sdcard(data_root)) {
+      syslog(LOG_ERR, "Failed to setup SD card.");
+      free(data_root);
+      return NULL;
+    }
+    return data_root;
   } else {
-    *data_root = NULL;
+    return strdup(
+        "/var/lib/docker"); // Same location as if --data-root is omitted
   }
-  return true;
 }
 
 /**
@@ -381,12 +387,8 @@ get_ipc_socket_selection(bool *use_ipc_socket_ret)
 }
 
 static bool
-read_settings(struct settings *settings)
+read_settings(struct settings *settings, const struct app_state *app_state)
 {
-  if (!get_and_verify_sd_card_selection(&settings->data_root)) {
-    syslog(LOG_ERR, "Failed to setup sd_card");
-    return false;
-  }
   if (!get_and_verify_tls_selection(&settings->use_tls)) {
     syslog(LOG_ERR, "Failed to verify tls selection");
     return false;
@@ -399,13 +401,17 @@ read_settings(struct settings *settings)
     syslog(LOG_ERR, "Failed to get ipc socket selection");
     return false;
   }
+  if (!(settings->data_root = prepare_data_root(app_state->sd_card_area))) {
+    syslog(LOG_ERR, "Failed to set up dockerd data root");
+    return false;
+  }
   return true;
 }
 
 // Return true if dockerd was successfully started.
 // Log an error and return false if it failed to start properly.
 static bool
-start_dockerd(const struct settings *settings)
+start_dockerd(const struct settings *settings, struct app_state *app_state)
 {
   const char *data_root = settings->data_root;
   const bool use_tls = settings->use_tls;
@@ -482,14 +488,11 @@ start_dockerd(const struct settings *settings)
     g_strlcat(msg, " without TCP socket", msg_len);
   }
 
-  g_autofree char *data_root_msg = g_strdup_printf(
-      " using %s as storage.", data_root ? data_root : "/var/lib/docker");
+  g_autofree char *data_root_msg =
+      g_strdup_printf(" using %s as storage.", data_root);
   g_strlcat(msg, data_root_msg, msg_len);
-  if (data_root)
-    args_offset += g_snprintf(args + args_offset,
-                              args_len - args_offset,
-                              " --data-root %s",
-                              data_root);
+  args_offset += g_snprintf(
+      args + args_offset, args_len - args_offset, " --data-root %s", data_root);
 
   // Log startup information to syslog.
   syslog(LOG_INFO, "%s", msg);
@@ -512,7 +515,8 @@ start_dockerd(const struct settings *settings)
   }
 
   // Watch the child process.
-  g_child_watch_add(dockerd_process_pid, dockerd_process_exited_callback, NULL);
+  g_child_watch_add(
+      dockerd_process_pid, dockerd_process_exited_callback, app_state);
 
   if (!is_process_alive(dockerd_process_pid)) {
     syslog(LOG_ERR,
@@ -529,10 +533,13 @@ end:
 }
 
 static bool
-read_settings_and_start_dockerd(void)
+read_settings_and_start_dockerd(struct app_state *app_state)
 {
   struct settings settings = {0};
-  bool success = read_settings(&settings) && start_dockerd(&settings);
+
+  bool success = read_settings(&settings, app_state) &&
+                 start_dockerd(&settings, app_state);
+
   free(settings.data_root);
   return success;
 }
@@ -585,10 +592,11 @@ end:
  * @brief Callback called when the dockerd process exits.
  */
 static void
-dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
+dockerd_process_exited_callback(GPid pid,
                                 gint status,
-                                __attribute__((unused)) gpointer user_data)
+                                gpointer app_state_void_ptr)
 {
+  struct app_state *app_state = app_state_void_ptr;
   GError *error = NULL;
   if (!g_spawn_check_exit_status(status, &error)) {
     syslog(LOG_ERR, "Dockerd process exited with error: %d", status);
@@ -669,6 +677,9 @@ end:
 int
 main(void)
 {
+  struct app_state app_state = {0};
+  app_state.sd_card_area = strdup("/var/spool/storage/SD_DISK/dockerd");
+
   AXParameter *ax_parameter = NULL;
 
   openlog(NULL, LOG_PID, LOG_USER);
@@ -687,7 +698,9 @@ main(void)
   }
 
   while (application_exit_code == EX_KEEP_RUNNING) {
-    if (dockerd_process_pid == -1 && !read_settings_and_start_dockerd())
+    if (dockerd_process_pid == -1 &&
+        !read_settings_and_start_dockerd(&app_state))
+
       quit_program(EX_SOFTWARE);
 
     g_main_loop_run(loop);
@@ -709,5 +722,6 @@ main(void)
     ax_parameter_free(ax_parameter);
   }
 
+  free(app_state.sd_card_area);
   return application_exit_code;
 }
