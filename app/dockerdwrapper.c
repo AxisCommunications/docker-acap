@@ -104,12 +104,15 @@ static const cert_spec cert_specs[NUM_CERT_TYPES] = {
 
 typedef struct {
   const char *name;
-  int type;
+  int *type;
 } cert;
 
-static cert tls_certs[] = {{"ca.pem", PEM_CERT},
-                           {"server-cert.pem", PEM_CERT},
-                           {"server-key.pem", RSA_PRIVATE_KEY}};
+static int ALL_CERTS[] = {PEM_CERT, -1};
+static int ALL_KEYS[] = {PRIVATE_KEY, RSA_PRIVATE_KEY, -1};
+
+static cert tls_certs[] = {{"ca.pem", ALL_CERTS},
+                           {"server-cert.pem", ALL_CERTS},
+                           {"server-key.pem", ALL_KEYS}};
 
 #define NUM_TLS_CERTS sizeof(tls_certs) / sizeof(cert)
 #define CERT_FILE_MODE 0400
@@ -129,11 +132,11 @@ static int g_status = START_IN_PROGRESS;
  * and optionally updates the certificate type.
  *
  * @param cert_name the certificate to check
- * @param cert_type the type to be updated or NULL
+ * @param cert_type pointer to the type(s) to be updated or NULL
  * @return true if valid, false otherwise.
  */
 static bool
-supported_cert(char *cert_name, int *cert_type)
+supported_cert(char *cert_name, int **cert_type)
 {
   for (size_t i = 0; i < NUM_TLS_CERTS; ++i) {
     if (strcmp(cert_name, tls_certs[i].name) == 0) {
@@ -245,13 +248,14 @@ end:
  * @brief Checks if the certificate appears valid according to type.
  *
  * @param file_path the certificate to check
- * @param cert_type the type to validate against
+ * @param cert_type pointer to the type(s) to validate against
  * @return true if valid, false otherwise.
  */
 static bool
-valid_cert(char *file_path, int cert_type)
+valid_cert(char *file_path, int *cert_type)
 {
   bool valid = false;
+  uint i;
 
   FILE *fp = fopen(file_path, "r");
   if (fp == NULL) {
@@ -259,18 +263,21 @@ valid_cert(char *file_path, int cert_type)
     return false;
   }
 
-  /* Check header */
-  if (!find_header(fp, cert_specs[cert_type].header)) {
-    syslog(LOG_ERR, "Invalid header found");
-    goto end;
-  }
+  for (i = 0; (cert_type[i] >= 0) && (cert_type[i] < NUM_CERT_TYPES); i++) {
+    /* Check for header */
+    if (!find_header(fp, cert_specs[cert_type[i]].header)) {
+      continue;
+    }
 
-  /* Check footer */
-  if (!find_footer(fp, cert_specs[cert_type].footer)) {
-    syslog(LOG_ERR, "Invalid footer found");
+    /* Check for corresponding footer */
+    if (!find_footer(fp, cert_specs[cert_type[i]].footer)) {
+      continue;
+    }
+
+    valid = true;
     goto end;
   }
-  valid = true;
+  syslog(LOG_ERR, "No valid header & footer combination found");
 
 end:
   fclose(fp);
@@ -1293,7 +1300,7 @@ callback_action(__attribute__((unused)) fcgi_handle handle,
   char *cert_file_with_path = NULL;
 
   /* Is cert supported? */
-  int cert_type;
+  int *cert_type;
   if (!supported_cert(cert_name, &cert_type)) {
     goto end;
   }
