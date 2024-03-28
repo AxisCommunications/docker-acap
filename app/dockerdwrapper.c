@@ -85,15 +85,22 @@ static const char *ax_parameters[] = {"IPCSocket",
 
 static const char *tls_cert_path = APP_LOCALDATA;
 
-typedef enum { PEM_CERT = 0, RSA_PRIVATE_KEY, NUM_CERT_TYPES } cert_types;
+typedef enum {
+  PEM_CERT = 0,
+  PRIVATE_KEY,
+  RSA_PRIVATE_KEY,
+  NUM_CERT_TYPES
+} cert_types;
 
-static const char *headers[NUM_CERT_TYPES] = {
-    "-----BEGIN CERTIFICATE-----\n",
-    "-----BEGIN RSA PRIVATE KEY-----\n"};
+typedef struct {
+  const char *header;
+  const char *footer;
+} cert_spec;
 
-static const char *footers[NUM_CERT_TYPES] = {
-    "-----END CERTIFICATE-----\n",
-    "-----END RSA PRIVATE KEY-----\n"};
+static const cert_spec cert_specs[NUM_CERT_TYPES] = {
+    {"-----BEGIN CERTIFICATE-----\n", "-----END CERTIFICATE-----\n"},
+    {"-----BEGIN PRIVATE KEY-----\n", "-----END PRIVATE KEY-----\n"},
+    {"-----BEGIN RSA PRIVATE KEY-----\n", "-----END RSA PRIVATE KEY-----\n"}};
 
 typedef struct {
   const char *name;
@@ -253,13 +260,13 @@ valid_cert(char *file_path, int cert_type)
   }
 
   /* Check header */
-  if (!find_header(fp, headers[cert_type])) {
+  if (!find_header(fp, cert_specs[cert_type].header)) {
     syslog(LOG_ERR, "Invalid header found");
     goto end;
   }
 
   /* Check footer */
-  if (!find_footer(fp, footers[cert_type])) {
+  if (!find_footer(fp, cert_specs[cert_type].footer)) {
     syslog(LOG_ERR, "Invalid footer found");
     goto end;
   }
