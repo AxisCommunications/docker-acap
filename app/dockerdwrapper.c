@@ -146,27 +146,21 @@ supported_cert(char *cert_name, int *cert_type)
 }
 
 /**
- * @brief Checks if the certificate appears valid according to type.
+ * @brief Checks if the file has the same header.
  *
- * @param file_path the certificate to check
- * @param cert_type the type to validate against
- * @return true if valid, false otherwise.
+ * @param fp FILE pointer for the file to check
+ * @param header the type to validate against
+ * @return true if found, false otherwise.
  */
 static bool
-valid_cert(char *file_path, int cert_type)
+find_header(FILE *fp, const char *header)
 {
   char buffer[128];
   size_t toread;
-  bool valid = false;
-
-  FILE *fp = fopen(file_path, "r");
-  if (fp == NULL) {
-    syslog(LOG_ERR, "Could not fopen %s", file_path);
-    return false;
-  }
+  bool found = false;
 
   /* Check header */
-  toread = strlen(headers[cert_type]);
+  toread = strlen(header);
   if (fseek(fp, 0, SEEK_SET) != 0) {
     syslog(LOG_ERR,
            "Could not fseek(0, SEEK_SET) bytes, err: %s",
@@ -180,19 +174,37 @@ valid_cert(char *file_path, int cert_type)
            strerror(errno));
     goto end;
   }
-  if (strncmp(buffer, headers[cert_type], toread) != 0) {
-    syslog(LOG_ERR, "Invalid header found");
+  if (strncmp(buffer, header, toread) != 0) {
     syslog_v(LOG_INFO,
-             "Expected %.*s, found %.*s",
+             "Expecting %.*s, found %.*s",
              (int)toread,
-             headers[cert_type],
+             header,
              (int)toread,
              buffer);
     goto end;
   }
+  found = true;
+
+end:
+  return found;
+}
+
+/**
+ * @brief Checks if the file has the same footer.
+ *
+ * @param fp FILE pointer for the file to check
+ * @param header the type to validate against
+ * @return true if found, false otherwise.
+ */
+static bool
+find_footer(FILE *fp, const char *footer)
+{
+  char buffer[128];
+  size_t toread;
+  bool found = false;
 
   /* Check footer */
-  toread = strlen(footers[cert_type]);
+  toread = strlen(footer);
   if (fseek(fp, -toread, SEEK_END) != 0) {
     syslog(LOG_ERR,
            "Could not fseek(%d, SEEK_END) bytes, err: %s",
@@ -207,14 +219,48 @@ valid_cert(char *file_path, int cert_type)
            strerror(errno));
     goto end;
   }
-  if (strncmp(buffer, footers[cert_type], toread) != 0) {
-    syslog(LOG_ERR, "Invalid footer found");
+  if (strncmp(buffer, footer, toread) != 0) {
     syslog_v(LOG_INFO,
-             "Expected %.*s, found %.*s",
+             "Expecting %.*s, found %.*s",
              (int)toread,
-             footers[cert_type],
+             footer,
              (int)toread,
              buffer);
+    goto end;
+  }
+  found = true;
+
+end:
+  return found;
+}
+
+/**
+ * @brief Checks if the certificate appears valid according to type.
+ *
+ * @param file_path the certificate to check
+ * @param cert_type the type to validate against
+ * @return true if valid, false otherwise.
+ */
+static bool
+valid_cert(char *file_path, int cert_type)
+{
+  bool valid = false;
+
+  FILE *fp = fopen(file_path, "r");
+  if (fp == NULL) {
+    syslog(LOG_ERR, "Could not fopen %s", file_path);
+    return false;
+  }
+
+  /* Check header */
+  if (!find_header(fp, headers[cert_type])) {
+    syslog(LOG_ERR, "Invalid header found");
+    goto end;
+  }
+
+  /* Check footer */
+  if (!find_footer(fp, footers[cert_type])) {
+    syslog(LOG_ERR, "Invalid footer found");
     goto end;
   }
   valid = true;
