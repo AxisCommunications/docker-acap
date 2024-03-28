@@ -14,7 +14,7 @@
  * under the License.
  */
 
-#include <axsdk/ax_parameter.h>
+#include <axsdk/axparameter.h>
 #include <errno.h>
 #include <glib.h>
 #include <mntent.h>
@@ -598,7 +598,7 @@ dockerd_process_exited_callback(GPid pid,
 {
   struct app_state *app_state = app_state_void_ptr;
   GError *error = NULL;
-  if (!g_spawn_check_exit_status(status, &error)) {
+  if (!g_spawn_check_wait_status(status, &error)) {
     syslog(LOG_ERR, "Dockerd process exited with error: %d", status);
     g_clear_error(&error);
   }
