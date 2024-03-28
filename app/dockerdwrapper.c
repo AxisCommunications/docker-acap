@@ -699,10 +699,9 @@ main(void)
 
   while (application_exit_code == EX_KEEP_RUNNING) {
     if (dockerd_process_pid == -1 &&
-        !read_settings_and_start_dockerd(&app_state))
+        !read_settings_and_start_dockerd(&app_state)) {
       quit_program(EX_SOFTWARE);
-    else
-    {
+    } else {
       g_main_loop_run(loop);
     }
 
