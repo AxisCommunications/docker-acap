@@ -14,6 +14,11 @@ updates:
   # Depandabot doesn't support wildcards so each folder need to be listed
   # (See https://github.com/dependabot/dependabot-core/issues/2178)
   - package-ecosystem: "github-actions"
+    directory: ".github/actions/docker-build-action"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+  - package-ecosystem: "github-actions"
     directory: ".github/actions/metadata-action"
     schedule:
       interval: "weekly"
