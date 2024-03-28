@@ -277,7 +277,7 @@ is_parameter_yes(const char *name)
 // Return data root matching the current SDCardSupport selection.
 //
 // If SDCardSupport is "yes", data root will be located on the proved SD card
-// area. Passing NULL as SD card area signals that the SD card is not availble.
+// area. Passing NULL as SD card area signals that the SD card is not available.
 static char *
 prepare_data_root(const char *sd_card_area)
 {
@@ -700,10 +700,11 @@ main(void)
   while (application_exit_code == EX_KEEP_RUNNING) {
     if (dockerd_process_pid == -1 &&
         !read_settings_and_start_dockerd(&app_state))
-
       quit_program(EX_SOFTWARE);
-
-    g_main_loop_run(loop);
+    else
+    {
+      g_main_loop_run(loop);
+    }
 
     if (!stop_dockerd())
       syslog(LOG_WARNING, "Failed to shut down dockerd.");
