@@ -7,21 +7,21 @@ name: Sign and prerelease
 on:
   push:
     branches:
-      - 'main'
+      - "main"
     tags:
       # semver, e.g. 1.2.0 (does not match 0.1.2)
-      - '[1-9]+.[0-9]+.[0-9]+'
+      - "[1-9]+.[0-9]+.[0-9]+"
       # semver with prerelease info, e.g. 1.0.2-beta.1 or 1.2.3-rc.10
-      - '[1-9]+.[0-9]+.[0-9]+-[a-z]+.[0-9]+'
+      - "[1-9]+.[0-9]+.[0-9]+-[a-z]+.[0-9]+"
       # do not match prerelease starting w/ 0, e.g. 1.0.2-beta.0 or 1.2.3-rc.01
-      - '![1-9]+.[0-9]+.[0-9]+-[a-z]+.[0]*'
+      - "![1-9]+.[0-9]+.[0-9]+-[a-z]+.[0]*"
       # semver with date info, e.g. 1.0.2-20221125
-      - '[1-9]+.[0-9]+.[0-9]+-[0-9]+'
+      - "[1-9]+.[0-9]+.[0-9]+-[0-9]+"
       # do not match date starting w/ 0, e.g. 1.0.2-01232023
-      - '![1-9]+.[0-9]+.[0-9]+-[0]*'
+      - "![1-9]+.[0-9]+.[0-9]+-[0]*"
   pull_request:
     branches:
-      - 'main'
+      - "main"
 
 jobs:
   # Builds docker ACAP using the build.sh script, then signs the eap-file in
@@ -43,8 +43,8 @@ jobs:
         uses: ./.github/actions/metadata-action
         with:
           suffix: -${{ matrix.arch }}
-          repository: 'docker-acap'
-          get_version: 'true'
+          repository: "docker-acap"
+          get_version: "true"
       - name: Update manifest file
         if: ( github.ref_type == 'tag')
         uses: ./.github/actions/update-acap-manifest-action
@@ -58,6 +58,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: ACAPARCH=${{ matrix.arch }}
+          target: "build"
       - name: Set name of EAP-file
         id: get_eap_file_name
         run: |

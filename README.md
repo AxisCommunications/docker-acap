@@ -229,16 +229,12 @@ To build the Docker ACAP use docker buildx with the provided Dockerfile:
 
 ```sh
 # Build Docker ACAP image
-docker buildx build --file Dockerfile --tag docker-acap:<ARCH> --build-arg ACAPARCH=<ARCH> .
+docker buildx build --file Dockerfile --tag docker-acap:<ARCH> --build-arg ACAPARCH=<ARCH> --output <build-folder> .
 ```
 
-where `<ARCH>` is either `armv7hf` or `aarch64`.
-
-To extract the Docker ACAP eap-file use docker cp to copy it to a `build` folder:
-
-```sh
-docker cp "$(docker create "docker-acap:<ARCH>")":/opt/app/ ./build
-```
+where `<ARCH>` is either `armv7hf` or `aarch64`. `<build-folder>` is the path to an output folder
+on your machine, eg. `build`. This will be created for you if not already existing.
+Once the build has completed the Docker ACAP eap-file can be found in the `<build-folder>`.
 
 ## Installing a locally built Docker ACAP
 

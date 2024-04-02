@@ -95,3 +95,7 @@ RUN <<EOF
 EOF
 
 ENTRYPOINT [ "/opt/axis/acapsdk/sysroots/x86_64-pokysdk-linux/usr/bin/eap-install.sh" ]
+
+FROM scratch AS binaries
+
+COPY --from=build /opt/app/*.eap /
