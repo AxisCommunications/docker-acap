@@ -2,7 +2,7 @@
     "schemaVersion": "1.8.0",
     "acapPackageConf": {
         "setup": {
-            "friendlyName": "Docker Daemon",
+            "friendlyName": "Docker Daemon Rootless",
             "appId": "414120",
             "appName": "dockerdwrapper",
             "vendor": "Axis Communications",
