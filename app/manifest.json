@@ -1,5 +1,18 @@
 {
     "schemaVersion": "1.8.0",
+    "resources": {
+        "linux": {
+            "user": {
+                "groups": [
+                    "datacache",
+                    "optics",
+                    "sdk",
+                    "storage",
+                    "vdo"
+                ]
+            }
+        }
+    },
     "acapPackageConf": {
         "setup": {
             "friendlyName": "Docker Daemon Rootless",
