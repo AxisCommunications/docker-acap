@@ -20,10 +20,6 @@
             "appName": "dockerdwrapper",
             "vendor": "Axis Communications",
             "embeddedSdkVersion": "3.0",
-            "user": {
-                "group": "root",
-                "username": "root"
-            },
             "vendorUrl": "https://www.axis.com",
             "runMode": "once",
             "version": "2.1.0-fastcgi"
