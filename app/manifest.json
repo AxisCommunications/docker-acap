@@ -70,6 +70,10 @@
                     "type": "hidden:string"
                 }
             ],
+            "containers": {
+                "containerHost": true,
+                "createDockerSymlinks": true
+            },
             "httpConfig": [
                 {
                     "access": "admin",
