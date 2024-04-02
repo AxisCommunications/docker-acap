@@ -69,6 +69,13 @@
                     "default": "-1 No Status",
                     "type": "hidden:string"
                 }
+            ],
+            "httpConfig": [
+                {
+                    "access": "admin",
+                    "name": "cert_manager.cgi",
+                    "type": "fastCgi"
+                }
             ]
         }
     }
