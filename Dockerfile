@@ -74,6 +74,7 @@ WORKDIR /opt/app
 RUN <<EOF
     . /opt/axis/acapsdk/environment-setup*
     acap-build . \
+        --disable-manifest-validation \
         -a dockerd \
         -a docker-init \
         -a docker-proxy \
