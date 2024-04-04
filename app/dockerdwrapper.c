@@ -14,7 +14,7 @@
  * under the License.
  */
 
-#include <axsdk/ax_parameter.h>
+#include <axsdk/axparameter.h>
 #include <errno.h>
 #include <glib.h>
 #include <mntent.h>
