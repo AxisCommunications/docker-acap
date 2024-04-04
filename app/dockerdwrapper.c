@@ -16,15 +16,11 @@
 
 #include <axsdk/axparameter.h>
 #include <errno.h>
-#include <fcntl.h>
-#include <ftw.h>
 #include <glib.h>
-#include <glib/gstdio.h>
 #include <mntent.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <sysexits.h>
 #include <syslog.h>
@@ -198,11 +194,12 @@ migrate_from_old_sdcard_setup(const char *new_dir)
   }
   // Get name to first entry in directory, NULL if empty, . and .. are omitted
   const char *dir_entry = g_dir_read_name(dir);
+  bool directory_not_empty = dir_entry != NULL;
   g_dir_close(dir);
 
-  if (dir_entry != NULL) {
+  if (directory_not_empty) {
     syslog(LOG_ERR,
-           "Target directory %s is not empty. Can't move files.",
+           "Target directory %s is not empty. Will not move files.",
            new_dir);
     return false;
   }
