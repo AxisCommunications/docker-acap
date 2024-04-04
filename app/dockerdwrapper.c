@@ -169,6 +169,66 @@ end:
 }
 
 /**
+ * @brief Migrate the contents of the data directory from the old setup on the
+ * SD card to 'new_dir' The new directory must be created and empty. If the
+ * operation is successful, the old setup directory will be removed.
+ *
+ * @return True if operation was successful, false otherwise.
+ */
+static bool
+migrate_from_old_sdcard_setup(const char *new_dir)
+{
+  const char *old_top_dir = "/var/spool/storage/SD_DISK/dockerd";
+  struct stat directory_stat;
+  int stat_result = stat(old_top_dir, &directory_stat);
+  if (stat(old_top_dir, &directory_stat) != 0) {
+    // No files to move
+    return true;
+  }
+
+  // The new directory must be created and empty.
+  GDir *dir = g_dir_open(new_dir, 0, NULL);
+  if (dir == NULL) {
+    syslog(LOG_ERR, "Failed to open %s", new_dir);
+    return false;
+  }
+  // Get name to first entry in directory, NULL if empty, . and .. are omitted
+  const char *dir_entry = g_dir_read_name(dir);
+  bool directory_not_empty = dir_entry != NULL;
+  g_dir_close(dir);
+
+  if (directory_not_empty) {
+    syslog(LOG_ERR,
+           "Target directory %s is not empty. Will not move files.",
+           new_dir);
+    return false;
+  }
+
+  // Move data from the old directory
+  const char *move_command =
+      g_strdup_printf("mv %s/data/* %s/.", old_top_dir, new_dir);
+  syslog(LOG_INFO, "Run move cmd: \"%s\"", move_command);
+  int res = system(move_command);
+  if (res != 0) {
+    syslog(LOG_ERR,
+           "Failed to move %s to %s, error: %d",
+           old_top_dir,
+           new_dir,
+           res);
+    return false;
+  }
+
+  // Remove the directory
+  const char *remove_command = g_strdup_printf("rm -rf %s", old_top_dir);
+  res = system(remove_command);
+  if (res != 0) {
+    syslog(LOG_ERR, "Failed to remove %s, error: %d", old_top_dir, res);
+  }
+
+  return res == 0;
+}
+
+/**
  * @brief Retrieve the file system type of the device containing this path.
  *
  * @return The file system type as a string (ext4/ext3/vfat etc...) if
@@ -263,6 +323,11 @@ setup_sdcard(const char *data_root)
            "card directory at %s. Please change the directory permissions or "
            "remove the directory.",
            data_root);
+    return false;
+  }
+
+  if (!migrate_from_old_sdcard_setup(data_root)) {
+    syslog(LOG_ERR, "Failed to migrate data from old data-root");
     return false;
   }
 
