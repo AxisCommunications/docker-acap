@@ -46,6 +46,5 @@ docker buildx build --build-arg ACAPARCH="$arch" \
 	--file Dockerfile \
 	$progress_arg \
 	$cache_arg \
-	--tag "$imagetag" .
-
-docker cp "$(docker create "$imagetag")":/opt/app/ ./build-"$arch"
+	--tag "$imagetag" \
+	--output build-"$arch" .

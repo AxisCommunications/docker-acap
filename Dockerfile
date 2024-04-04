@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-ARG DOCKER_IMAGE_VERSION=24.0.2
+ARG DOCKER_IMAGE_VERSION=26.0.0
 
 ARG REPO=axisecp
 ARG ACAPARCH=armv7hf
@@ -32,7 +32,7 @@ RUN git clone --depth 1 -b $PROCPS_VERSION 'https://gitlab.com/procps-ng/procps'
 
 ARG BUILD_CACHE=build.cache
 RUN echo ac_cv_func_realloc_0_nonnull=yes >$BUILD_CACHE \
- && echo ac_cv_func_malloc_0_nonnull=yes >>$BUILD_CACHE
+    && echo ac_cv_func_malloc_0_nonnull=yes >>$BUILD_CACHE
 RUN <<EOF
     . /opt/axis/acapsdk/environment-setup*
     ./autogen.sh
@@ -82,3 +82,7 @@ RUN <<EOF
 EOF
 
 ENTRYPOINT [ "/opt/axis/acapsdk/sysroots/x86_64-pokysdk-linux/usr/bin/eap-install.sh" ]
+
+FROM scratch AS binaries
+
+COPY --from=build /opt/app/*.eap /
