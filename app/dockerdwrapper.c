@@ -26,6 +26,9 @@
 #include <syslog.h>
 #include <unistd.h>
 
+#define APP_DIRECTORY "/usr/local/packages/" APP_NAME
+#define APP_LOCALDATA APP_DIRECTORY "/localdata"
+
 struct settings {
   char *data_root;
   bool use_tls;
@@ -61,7 +64,7 @@ static const char *ax_parameters[] = {"IPCSocket",
                                       "TCPSocket",
                                       "UseTLS"};
 
-static const char *tls_cert_path = "/usr/local/packages/dockerdwrapper/";
+static const char *tls_cert_path = APP_DIRECTORY;
 
 static const char *tls_certs[] = {"ca.pem",
                                   "server-cert.pem",
@@ -136,7 +139,7 @@ static char *
 get_parameter_value(const char *parameter_name)
 {
   GError *error = NULL;
-  AXParameter *ax_parameter = ax_parameter_new("dockerdwrapper", &error);
+  AXParameter *ax_parameter = ax_parameter_new(APP_NAME, &error);
   char *parameter_value = NULL;
 
   if (ax_parameter == NULL) {
@@ -318,9 +321,9 @@ get_and_verify_tls_selection(bool *use_tls_ret)
   const bool use_tls = is_parameter_yes("UseTLS");
   {
     if (use_tls) {
-      char *ca_path = g_strdup_printf("%s%s", tls_cert_path, tls_certs[0]);
-      char *cert_path = g_strdup_printf("%s%s", tls_cert_path, tls_certs[1]);
-      char *key_path = g_strdup_printf("%s%s", tls_cert_path, tls_certs[2]);
+      char *ca_path = g_strdup_printf("%s/%s", tls_cert_path, tls_certs[0]);
+      char *cert_path = g_strdup_printf("%s/%s", tls_cert_path, tls_certs[1]);
+      char *key_path = g_strdup_printf("%s/%s", tls_cert_path, tls_certs[2]);
 
       bool ca_exists = access(ca_path, F_OK) == 0;
       bool cert_exists = access(cert_path, F_OK) == 0;
@@ -430,12 +433,11 @@ start_dockerd(const struct settings *settings, struct app_state *app_state)
   guint args_offset = 0;
   gchar **args_split = NULL;
 
-  args_offset += g_snprintf(
-      args + args_offset,
-      args_len - args_offset,
-      "%s %s",
-      "dockerd",
-      "--config-file /usr/local/packages/dockerdwrapper/localdata/daemon.json");
+  args_offset += g_snprintf(args + args_offset,
+                            args_len - args_offset,
+                            "%s %s",
+                            "dockerd",
+                            "--config-file " APP_LOCALDATA "/daemon.json");
 
   g_strlcpy(msg, "Starting dockerd", msg_len);
 
@@ -463,11 +465,9 @@ start_dockerd(const struct settings *settings, struct app_state *app_state)
                               " -H tcp://0.0.0.0:%d",
                               port);
     if (use_tls) {
-      const char *ca_path = "/usr/local/packages/dockerdwrapper/ca.pem";
-      const char *cert_path =
-          "/usr/local/packages/dockerdwrapper/server-cert.pem";
-      const char *key_path =
-          "/usr/local/packages/dockerdwrapper/server-key.pem";
+      const char *ca_path = APP_DIRECTORY "/ca.pem";
+      const char *cert_path = APP_DIRECTORY "/server-cert.pem";
+      const char *key_path = APP_DIRECTORY "/server-key.pem";
       args_offset += g_snprintf(args + args_offset,
                                 args_len - args_offset,
                                 " %s %s %s %s %s %s %s",
@@ -625,7 +625,7 @@ parameter_changed_callback(const gchar *name,
                            const gchar *value,
                            __attribute__((unused)) gpointer data)
 {
-  const gchar *parname = name += strlen("root.dockerdwrapper.");
+  const gchar *parname = name += strlen("root." APP_NAME ".");
 
   for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]);
        ++i) {
@@ -641,7 +641,7 @@ setup_axparameter(void)
 {
   bool success = false;
   GError *error = NULL;
-  AXParameter *ax_parameter = ax_parameter_new("dockerdwrapper", &error);
+  AXParameter *ax_parameter = ax_parameter_new(APP_NAME, &error);
   if (ax_parameter == NULL) {
     syslog(LOG_ERR, "Error when creating AXParameter: %s", error->message);
     goto end;
@@ -650,7 +650,7 @@ setup_axparameter(void)
   for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]);
        ++i) {
     char *parameter_path =
-        g_strdup_printf("%s.%s", "root.dockerdwrapper", ax_parameters[i]);
+        g_strdup_printf("root.%s.%s", APP_NAME, ax_parameters[i]);
     gboolean geresult = ax_parameter_register_callback(
         ax_parameter, parameter_path, parameter_changed_callback, NULL, &error);
     free(parameter_path);
@@ -715,7 +715,7 @@ main(void)
     for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]);
          ++i) {
       char *parameter_path =
-          g_strdup_printf("%s.%s", "root.dockerdwrapper", ax_parameters[i]);
+          g_strdup_printf("root.%s.%s", APP_NAME, ax_parameters[i]);
       ax_parameter_unregister_callback(ax_parameter, parameter_path);
       free(parameter_path);
     }
