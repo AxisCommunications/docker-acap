@@ -254,6 +254,16 @@ Go to your device web page above > Click on the tab **App** in the device GUI >
 Add **(+)** sign and browse to the newly built .eap-file > Click **Install** > Run the application by
 enabling the **Start** switch.
 
+## Debugging
+
+The Docker ACAP can be instructed to write log messages to the console rather than to syslog.
+This is achieved by stopping the application and then starting it from an SSH prompt using
+
+```sh
+cd /usr/local/packages/dockerdwrapper
+./dockerdwrapper --stdout
+```
+
 ## Contributing
 
 Take a look at the [CONTRIBUTING.md](CONTRIBUTING.md) file.
