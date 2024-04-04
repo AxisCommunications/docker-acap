@@ -29,6 +29,11 @@
 #define APP_DIRECTORY "/usr/local/packages/" APP_NAME
 #define APP_LOCALDATA APP_DIRECTORY "/localdata"
 
+#define PARAM_IPC_SOCKET "IPCSocket"
+#define PARAM_SD_CARD_SUPPORT "SDCardSupport"
+#define PARAM_TCP_SOCKET "TCPSocket"
+#define PARAM_USE_TLS "UseTLS"
+
 struct settings {
   char *data_root;
   bool use_tls;
@@ -59,10 +64,10 @@ static int application_exit_code = EX_KEEP_RUNNING;
 static pid_t dockerd_process_pid = -1;
 
 // All ax_parameters the acap has
-static const char *ax_parameters[] = {"IPCSocket",
-                                      "SDCardSupport",
-                                      "TCPSocket",
-                                      "UseTLS"};
+static const char *ax_parameters[] = {PARAM_IPC_SOCKET,
+                                      PARAM_SD_CARD_SUPPORT,
+                                      PARAM_TCP_SOCKET,
+                                      PARAM_USE_TLS};
 
 static const char *tls_cert_path = APP_DIRECTORY;
 
@@ -339,7 +344,7 @@ is_parameter_yes(const char *name)
 static char *
 prepare_data_root(const char *sd_card_area)
 {
-  if (is_parameter_yes("SDCardSupport")) {
+  if (is_parameter_yes(PARAM_SD_CARD_SUPPORT)) {
     if (!sd_card_area) {
       log_error(
           "SD card was requested, but no SD card is available at the moment.");
@@ -372,7 +377,7 @@ get_and_verify_tls_selection(bool *use_tls_ret)
   char *cert_path = NULL;
   char *key_path = NULL;
 
-  const bool use_tls = is_parameter_yes("UseTLS");
+  const bool use_tls = is_parameter_yes(PARAM_USE_TLS);
   {
     if (use_tls) {
       char *ca_path = g_strdup_printf("%s/%s", tls_cert_path, tls_certs[0]);
@@ -414,32 +419,6 @@ end:
   return return_value;
 }
 
-/**
- * @brief Gets and verifies the TCPSocket selection
- *
- * @param use_tcp_socket_ret selection to be updated.
- * @return True if successful, false otherwise.
- */
-static gboolean
-get_tcp_socket_selection(bool *use_tcp_socket_ret)
-{
-  *use_tcp_socket_ret = is_parameter_yes("TCPSocket");
-  return true;
-}
-
-/**
- * @brief Gets and verifies the IPCSocket selection
- *
- * @param use_ipc_socket_ret selection to be updated.
- * @return True if successful, false otherwise.
- */
-static gboolean
-get_ipc_socket_selection(bool *use_ipc_socket_ret)
-{
-  *use_ipc_socket_ret = is_parameter_yes("IPCSocket");
-  return true;
-}
-
 static bool
 read_settings(struct settings *settings, const struct app_state *app_state)
 {
@@ -447,14 +426,10 @@ read_settings(struct settings *settings, const struct app_state *app_state)
     log_error("Failed to verify tls selection");
     return false;
   }
-  if (!get_tcp_socket_selection(&settings->use_tcp_socket)) {
-    log_error("Failed to get tcp socket selection");
-    return false;
-  }
-  if (!get_ipc_socket_selection(&settings->use_ipc_socket)) {
-    log_error("Failed to get ipc socket selection");
-    return false;
-  }
+
+  settings->use_tcp_socket = is_parameter_yes(PARAM_TCP_SOCKET);
+  settings->use_ipc_socket = is_parameter_yes(PARAM_IPC_SOCKET);
+
   if (!(settings->data_root = prepare_data_root(app_state->sd_card_area))) {
     log_error("Failed to set up dockerd data root");
     return false;
