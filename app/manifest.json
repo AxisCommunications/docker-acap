@@ -13,7 +13,7 @@
             },
             "vendorUrl": "https://www.axis.com",
             "runMode": "once",
-            "version": "1.5.0-LTS"
+            "version": "2.0.0"
         },
         "installation": {
             "postInstallScript": "postinstallscript.sh"

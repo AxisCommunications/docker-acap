@@ -6,6 +6,8 @@ This is the ACAP packaging of the Docker Engine to be run on Axis devices with c
 
 ### Device
 
+Minimum Axis OS version 11.9.
+
 The Docker ACAP requires a container capable device. You may check the compatibility of your device
 by running:
 
