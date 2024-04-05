@@ -18,13 +18,12 @@
 #include <errno.h>
 #include <glib.h>
 #include <mntent.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sysexits.h>
-#include <syslog.h>
 #include <unistd.h>
+#include "log.h"
 #include "sd_disk_storage.h"
 
 #define APP_DIRECTORY "/usr/local/packages/" APP_NAME
@@ -144,16 +143,15 @@ get_parameter_value(const char *parameter_name)
   char *parameter_value = NULL;
 
   if (ax_parameter == NULL) {
-    syslog(LOG_ERR, "Error when creating axparameter: %s", error->message);
+    log_error("Error when creating axparameter: %s", error->message);
     goto end;
   }
 
   if (!ax_parameter_get(
           ax_parameter, parameter_name, &parameter_value, &error)) {
-    syslog(LOG_ERR,
-           "Failed to fetch parameter value of %s. Error: %s",
-           parameter_name,
-           error->message);
+    log_error("Failed to fetch parameter value of %s. Error: %s",
+              parameter_name,
+              error->message);
 
     free(parameter_value);
     parameter_value = NULL;
@@ -189,7 +187,7 @@ migrate_from_old_sdcard_setup(const char *new_dir)
   // The new directory must be created and empty.
   GDir *dir = g_dir_open(new_dir, 0, NULL);
   if (dir == NULL) {
-    syslog(LOG_ERR, "Failed to open %s", new_dir);
+    log_error("Failed to open %s", new_dir);
     return false;
   }
   // Get name to first entry in directory, NULL if empty, . and .. are omitted
@@ -198,23 +196,18 @@ migrate_from_old_sdcard_setup(const char *new_dir)
   g_dir_close(dir);
 
   if (directory_not_empty) {
-    syslog(LOG_ERR,
-           "Target directory %s is not empty. Will not move files.",
-           new_dir);
+    log_error("Target directory %s is not empty. Will not move files.",
+              new_dir);
     return false;
   }
 
   // Move data from the old directory
   const char *move_command =
       g_strdup_printf("mv %s/data/* %s/.", old_top_dir, new_dir);
-  syslog(LOG_INFO, "Run move cmd: \"%s\"", move_command);
+  log_info("Run move cmd: \"%s\"", move_command);
   int res = system(move_command);
   if (res != 0) {
-    syslog(LOG_ERR,
-           "Failed to move %s to %s, error: %d",
-           old_top_dir,
-           new_dir,
-           res);
+    log_error("Failed to move %s to %s, error: %d", old_top_dir, new_dir, res);
     return false;
   }
 
@@ -222,7 +215,7 @@ migrate_from_old_sdcard_setup(const char *new_dir)
   const char *remove_command = g_strdup_printf("rm -rf %s", old_top_dir);
   res = system(remove_command);
   if (res != 0) {
-    syslog(LOG_ERR, "Failed to remove %s, error: %d", old_top_dir, res);
+    log_error("Failed to remove %s, error: %d", old_top_dir, res);
   }
 
   return res == 0;
@@ -241,9 +234,8 @@ get_filesystem_of_path(const char *path)
   struct stat sd_card_stat;
   int stat_result = stat(path, &sd_card_stat);
   if (stat_result != 0) {
-    syslog(LOG_ERR,
-           "Cannot store data on the SD card, no storage exists at %s",
-           path);
+    log_error("Cannot store data on the SD card, no storage exists at %s",
+              path);
     return NULL;
   }
 
@@ -290,44 +282,41 @@ setup_sdcard(const char *data_root)
 
   int res = system(create_droot_command);
   if (res != 0) {
-    syslog(LOG_ERR,
-           "Failed to create data_root folder at: %s. Error code: %d",
-           data_root,
-           res);
+    log_error("Failed to create data_root folder at: %s. Error code: %d",
+              data_root,
+              res);
     return false;
   }
 
   // Confirm that the SD card is usable
   sd_file_system = get_filesystem_of_path(data_root);
   if (sd_file_system == NULL) {
-    syslog(LOG_ERR,
-           "Couldn't identify the file system of the SD card at %s",
-           data_root);
+    log_error("Couldn't identify the file system of the SD card at %s",
+              data_root);
     return false;
   }
 
   if (strcmp(sd_file_system, "vfat") == 0 ||
       strcmp(sd_file_system, "exfat") == 0) {
-    syslog(LOG_ERR,
-           "The SD card at %s uses file system %s which does not support "
-           "Unix file permissions. Please reformat to a file system that "
-           "support Unix file permissions, such as ext4 or xfs.",
-           data_root,
-           sd_file_system);
+    log_error("The SD card at %s uses file system %s which does not support "
+              "Unix file permissions. Please reformat to a file system that "
+              "support Unix file permissions, such as ext4 or xfs.",
+              data_root,
+              sd_file_system);
     return false;
   }
 
   if (access(data_root, F_OK) == 0 && access(data_root, W_OK) != 0) {
-    syslog(LOG_ERR,
-           "The application user does not have write permissions to the SD "
-           "card directory at %s. Please change the directory permissions or "
-           "remove the directory.",
-           data_root);
+    log_error(
+        "The application user does not have write permissions to the SD "
+        "card directory at %s. Please change the directory permissions or "
+        "remove the directory.",
+        data_root);
     return false;
   }
 
   if (!migrate_from_old_sdcard_setup(data_root)) {
-    syslog(LOG_ERR, "Failed to migrate data from old data-root");
+    log_error("Failed to migrate data from old data-root");
     return false;
   }
 
@@ -352,14 +341,13 @@ prepare_data_root(const char *sd_card_area)
 {
   if (is_parameter_yes("SDCardSupport")) {
     if (!sd_card_area) {
-      syslog(
-          LOG_ERR,
+      log_error(
           "SD card was requested, but no SD card is available at the moment.");
       return NULL;
     }
     char *data_root = g_strdup_printf("%s/data", sd_card_area);
     if (!setup_sdcard(data_root)) {
-      syslog(LOG_ERR, "Failed to setup SD card.");
+      log_error("Failed to setup SD card.");
       free(data_root);
       return NULL;
     }
@@ -396,23 +384,20 @@ get_and_verify_tls_selection(bool *use_tls_ret)
       bool key_exists = access(key_path, F_OK) == 0;
 
       if (!ca_exists || !cert_exists || !key_exists) {
-        syslog(LOG_ERR, "One or more TLS certificates missing.");
+        log_error("One or more TLS certificates missing.");
       }
 
       if (!ca_exists) {
-        syslog(LOG_ERR,
-               "Cannot start using TLS, no CA certificate found at %s",
-               ca_path);
+        log_error("Cannot start using TLS, no CA certificate found at %s",
+                  ca_path);
       }
       if (!cert_exists) {
-        syslog(LOG_ERR,
-               "Cannot start using TLS, no server certificate found at %s",
-               cert_path);
+        log_error("Cannot start using TLS, no server certificate found at %s",
+                  cert_path);
       }
       if (!key_exists) {
-        syslog(LOG_ERR,
-               "Cannot start using TLS, no server key found at %s",
-               key_path);
+        log_error("Cannot start using TLS, no server key found at %s",
+                  key_path);
       }
 
       if (!ca_exists || !cert_exists || !key_exists) {
@@ -459,19 +444,19 @@ static bool
 read_settings(struct settings *settings, const struct app_state *app_state)
 {
   if (!get_and_verify_tls_selection(&settings->use_tls)) {
-    syslog(LOG_ERR, "Failed to verify tls selection");
+    log_error("Failed to verify tls selection");
     return false;
   }
   if (!get_tcp_socket_selection(&settings->use_tcp_socket)) {
-    syslog(LOG_ERR, "Failed to get tcp socket selection");
+    log_error("Failed to get tcp socket selection");
     return false;
   }
   if (!get_ipc_socket_selection(&settings->use_ipc_socket)) {
-    syslog(LOG_ERR, "Failed to get ipc socket selection");
+    log_error("Failed to get ipc socket selection");
     return false;
   }
   if (!(settings->data_root = prepare_data_root(app_state->sd_card_area))) {
-    syslog(LOG_ERR, "Failed to set up dockerd data root");
+    log_error("Failed to set up dockerd data root");
     return false;
   }
   return true;
@@ -508,9 +493,9 @@ start_dockerd(const struct settings *settings, struct app_state *app_state)
   g_strlcpy(msg, "Starting dockerd", msg_len);
 
   if (!use_ipc_socket && !use_tcp_socket) {
-    syslog(LOG_ERR,
-           "At least one of IPC socket or TCP socket must be set to \"yes\". "
-           "dockerd will not be started.");
+    log_error(
+        "At least one of IPC socket or TCP socket must be set to \"yes\". "
+        "dockerd will not be started.");
     goto end;
   }
 
@@ -560,8 +545,7 @@ start_dockerd(const struct settings *settings, struct app_state *app_state)
   args_offset += g_snprintf(
       args + args_offset, args_len - args_offset, " --data-root %s", data_root);
 
-  // Log startup information to syslog.
-  syslog(LOG_INFO, "%s", msg);
+  log_info("%s", msg);
 
   args_split = g_strsplit(args, " ", 0);
   result = g_spawn_async(NULL,
@@ -573,10 +557,9 @@ start_dockerd(const struct settings *settings, struct app_state *app_state)
                          &dockerd_process_pid,
                          &error);
   if (!result) {
-    syslog(LOG_ERR,
-           "Starting dockerd failed: execv returned: %d, error: %s",
-           result,
-           error->message);
+    log_error("Starting dockerd failed: execv returned: %d, error: %s",
+              result,
+              error->message);
     goto end;
   }
 
@@ -585,8 +568,8 @@ start_dockerd(const struct settings *settings, struct app_state *app_state)
       dockerd_process_pid, dockerd_process_exited_callback, app_state);
 
   if (!is_process_alive(dockerd_process_pid)) {
-    syslog(LOG_ERR,
-           "Starting dockerd failed: Process died unexpectedly during startup");
+    log_error(
+        "Starting dockerd failed: Process died unexpectedly during startup");
     quit_program(EX_SOFTWARE);
     goto end;
   }
@@ -624,11 +607,10 @@ stop_dockerd(void)
     goto end;
   }
 
-  syslog(LOG_INFO, "Sending SIGTERM to dockerd.");
+  log_info("Sending SIGTERM to dockerd.");
   bool sigterm_successfully_sent = kill(dockerd_process_pid, SIGTERM) == 0;
   if (!sigterm_successfully_sent) {
-    syslog(
-        LOG_ERR, "Failed to send SIGTERM to child. Error: %s", strerror(errno));
+    log_error("Failed to send SIGTERM to child. Error: %s", strerror(errno));
     errno = 0;
   }
 
@@ -645,10 +627,9 @@ stop_dockerd(void)
 
   // SIGTERM failed, let's try SIGKILL
   killed = kill(dockerd_process_pid, SIGKILL) == 0;
-  if (!killed) {
-    syslog(
-        LOG_ERR, "Failed to send SIGKILL to child. Error: %s", strerror(errno));
-  }
+  if (!killed)
+    log_error("Failed to send SIGKILL to child. Error: %s", strerror(errno));
+
 end:
   return killed;
 }
@@ -664,7 +645,7 @@ dockerd_process_exited_callback(GPid pid,
   struct app_state *app_state = app_state_void_ptr;
   GError *error = NULL;
   if (!g_spawn_check_wait_status(status, &error)) {
-    syslog(LOG_ERR, "Dockerd process exited with error: %d", status);
+    log_error("Dockerd process exited with error: %d", status);
     g_clear_error(&error);
   }
 
@@ -695,7 +676,7 @@ parameter_changed_callback(const gchar *name,
   for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]);
        ++i) {
     if (strcmp(parname, ax_parameters[i]) == 0) {
-      syslog(LOG_INFO, "%s changed to: %s", ax_parameters[i], value);
+      log_info("%s changed to: %s", ax_parameters[i], value);
       g_main_loop_quit(loop); // Trigger a restart of dockerd from main()
     }
   }
@@ -708,7 +689,7 @@ setup_axparameter(void)
   GError *error = NULL;
   AXParameter *ax_parameter = ax_parameter_new(APP_NAME, &error);
   if (ax_parameter == NULL) {
-    syslog(LOG_ERR, "Error when creating AXParameter: %s", error->message);
+    log_error("Error when creating AXParameter: %s", error->message);
     goto end;
   }
 
@@ -721,10 +702,9 @@ setup_axparameter(void)
     free(parameter_path);
 
     if (geresult == FALSE) {
-      syslog(LOG_ERR,
-             "Could not register %s callback. Error: %s",
-             ax_parameters[i],
-             error->message);
+      log_error("Could not register %s callback. Error: %s",
+                ax_parameters[i],
+                error->message);
       goto end;
     }
   }
@@ -749,14 +729,27 @@ sd_card_callback(const char *sd_card_area, void *app_state_void_ptr)
   g_main_loop_quit(loop); // Trigger a restart of dockerd from main()
 }
 
+// Stop the application and start it from an SSH prompt with
+// $ ./dockerdwrapper --stdout
+// in order to get log messages written to console rather than to syslog.
+static void
+parse_command_line(int argc, char **argv, struct log_settings *log_settings)
+{
+  log_settings->destination = (argc == 2 && strcmp(argv[1], "--stdout") == 0) ?
+                                  log_dest_stdout :
+                                  log_dest_syslog;
+}
+
 int
-main(void)
+main(int argc, char **argv)
 {
   struct app_state app_state = {0};
+  struct log_settings log_settings = {0};
   AXParameter *ax_parameter = NULL;
 
-  openlog(NULL, LOG_PID, LOG_USER);
-  syslog(LOG_INFO, "Started logging.");
+  parse_command_line(argc, argv, &log_settings);
+
+  log_init(&log_settings);
 
   loop = g_main_loop_new(NULL, FALSE);
 
@@ -769,7 +762,7 @@ main(void)
   // Setup ax_parameter
   ax_parameter = setup_axparameter();
   if (ax_parameter == NULL) {
-    syslog(LOG_ERR, "Error in setup_axparameter");
+    log_error("Error in setup_axparameter");
     quit_program(EX_SOFTWARE);
   }
 
@@ -780,7 +773,7 @@ main(void)
     g_main_loop_run(loop);
 
     if (!stop_dockerd())
-      syslog(LOG_WARNING, "Failed to shut down dockerd.");
+      log_warning("Failed to shut down dockerd.");
   }
 
   g_main_loop_unref(loop);
