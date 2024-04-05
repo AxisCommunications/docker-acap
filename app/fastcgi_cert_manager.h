@@ -11,4 +11,4 @@ typedef void (*fcgi_request_callback)(fcgi_handle handle,
                                       char *file_path);
 
 int fcgi_start(fcgi_request_callback cb, bool verbose);
-void fcgi_stop(void);
+int fcgi_stop(void);

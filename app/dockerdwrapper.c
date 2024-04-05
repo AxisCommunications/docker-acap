@@ -296,6 +296,7 @@ handle_signals(__attribute__((unused)) int signal_num)
     case SIGINT:
     case SIGTERM:
     case SIGQUIT:
+      exit_code = signal_num; /* Later set to EX_OK if no errors on clean up */
       g_main_loop_quit(loop);
   }
 }
@@ -848,8 +849,6 @@ start_dockerd(bool use_sdcard,
   syslog_v(LOG_INFO,
            "start_dockerd: TODO: Alive but not up and stable? sleep(%d)",
            post_watch_add_secs);
-
-  g_status = STARTED;
   return_value = true;
 
 end:
@@ -1023,8 +1022,6 @@ end:
       stop_and_quit_main_loop(/* No need to quit main loop */ false);
       return start();
     }
-  } else {
-    g_status = exit_code;
   }
 
   syslog_v(
@@ -1106,7 +1103,7 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
 
   /* Stop if exit was unexpected, otherwise continue */
   dockerd_process_pid = -1;
-  if (exit_code != 0) {
+  if (exit_code < 0) {
     g_main_loop_quit(loop);
   }
 }
@@ -1264,14 +1261,18 @@ main_loop:
 end:
   /* Cleanup */
   g_status = STOPPING;
-  if (!is_process_alive(dockerd_process_pid)) {
-    if ((exit_code = stop_dockerd()) == 0) {
+  int status;
+  if (is_process_alive(dockerd_process_pid)) {
+    if ((status = stop_dockerd()) == 0) {
       syslog(LOG_INFO, "Shutting down. dockerd shut down successfully.");
     } else {
+      exit_code = -ABS(status);
       syslog(LOG_WARNING, "Shutting down. Failed to shut down dockerd.");
     }
   }
-  fcgi_stop();
+  if ((status = fcgi_stop()) != 0) {
+    exit_code = -ABS(status);
+  }
   if (ax_parameter != NULL) {
     syslog_v(LOG_INFO, "Shutting down. unregistering ax_parameter callbacks.");
     for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]);
@@ -1285,6 +1286,10 @@ end:
   }
 
   g_clear_error(&error);
+  if (exit_code > 0) {
+    /* Requested shutdown and no errors cleaning up, use EX_OK */
+    exit_code = 0;
+  }
   if (exit_code != 0) {
     syslog(LOG_ERR, "Please restart the acap manually.");
   }

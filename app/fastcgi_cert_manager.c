@@ -397,17 +397,21 @@ fcgi_start(fcgi_request_callback cb, bool verbose)
   return EXIT_SUCCESS;
 }
 
-void
+int
 fcgi_stop(void)
 {
+  int exit_code = 0;
   FCGX_ShutdownPending();
 
   if (g_socket != -1) {
-    if (shutdown(g_socket, SHUT_RD) != 0) {
+    int status;
+    if ((status = shutdown(g_socket, SHUT_RD)) != 0) {
+      exit_code = status;
       syslog(
           LOG_WARNING, "Could not shutdown socket, err: %s", strerror(errno));
     }
-    if (g_unlink(g_socket_path) != 0) {
+    if ((status = g_unlink(g_socket_path)) != 0) {
+      exit_code = status;
       syslog(LOG_WARNING, "Could not unlink socket, err: %s", strerror(errno));
     }
   }
@@ -417,4 +421,6 @@ fcgi_stop(void)
   g_socket_path = NULL;
   g_socket = -1;
   g_thread = NULL;
+
+  return exit_code;
 }
