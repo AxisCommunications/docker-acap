@@ -431,7 +431,7 @@ read_settings(struct settings *settings, const struct app_state *app_state)
     settings->use_tls = false;
   else {
     if (!get_and_verify_tls_selection(&settings->use_tls)) {
-      syslog(LOG_ERR, "Failed to verify tls selection");
+      log_error("Failed to verify tls selection");
       return false;
     }
   }
