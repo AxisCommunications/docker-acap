@@ -23,22 +23,22 @@
         {
           "name": "SDCardSupport",
           "default": "no",
-          "type": "enum:no|No, yes|Yes"
+          "type": "bool:no,yes"
         },
         {
           "name": "UseTLS",
           "default": "yes",
-          "type": "enum:no|No, yes|Yes"
+          "type": "bool:no,yes"
         },
         {
           "name": "TCPSocket",
           "default": "yes",
-          "type": "enum:no|No, yes|Yes"
+          "type": "bool:no,yes"
         },
         {
           "name": "IPCSocket",
           "default": "no",
-          "type": "enum:no|No, yes|Yes"
+          "type": "bool:no,yes"
         }
       ]
     }
