@@ -729,6 +729,9 @@ sd_card_callback(const char *sd_card_area, void *app_state_void_ptr)
   g_main_loop_quit(loop); // Trigger a restart of dockerd from main()
 }
 
+// Stop the application and start it from an SSH prompt with
+// $ ./dockerdwrapper --stdout
+// in order to get log messages written to console rather than to syslog.
 static void
 parse_command_line(int argc, char **argv, struct log_settings *log_settings)
 {
