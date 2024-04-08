@@ -79,11 +79,30 @@ static const char *tls_certs[] = {"ca.pem",
                                   "server-cert.pem",
                                   "server-key.pem"};
 
+#define main_loop_run()                                                        \
+  do {                                                                         \
+    log_debug("g_main_loop_run called by %s", __func__);                       \
+    g_main_loop_run(loop);                                                     \
+    log_debug("g_main_loop_run returned by %s", __func__);                     \
+  } while (0)
+
+#define main_loop_quit()                                                       \
+  do {                                                                         \
+    log_debug("g_main_loop_quit called by %s", __func__);                      \
+    g_main_loop_quit(loop);                                                    \
+  } while (0)
+
+#define main_loop_unref()                                                      \
+  do {                                                                         \
+    log_debug("g_main_loop_unref called by %s", __func__);                     \
+    g_main_loop_unref(loop);                                                   \
+  } while (0)
+
 static void
 quit_program(int exit_code)
 {
   application_exit_code = exit_code;
-  g_main_loop_quit(loop);
+  main_loop_quit();
 }
 
 /**
@@ -552,6 +571,7 @@ start_dockerd(const struct settings *settings, struct app_state *app_state)
   args_offset += g_snprintf(
       args + args_offset, args_len - args_offset, " --data-root %s", data_root);
 
+  log_debug("Sending daemon start command: %s", args);
   log_info("%s", msg);
 
   args_split = g_strsplit(args, " ", 0);
@@ -663,14 +683,14 @@ dockerd_process_exited_callback(GPid pid,
   // manner. Remove it manually.
   remove("/var/run/docker.pid");
 
-  g_main_loop_quit(loop); // Trigger a restart of dockerd from main()
+  main_loop_quit(); // Trigger a restart of dockerd from main()
 }
 
 // Meant to be used as a one-shot call from g_timeout_add_seconds()
 static gboolean
 quit_main_loop(void *)
 {
-  g_main_loop_quit(loop);
+  main_loop_quit();
   return FALSE;
 }
 
@@ -686,6 +706,7 @@ parameter_changed_callback(const gchar *name,
                            const gchar *value,
                            __attribute__((unused)) gpointer data)
 {
+  log_debug("Parameter %s changed to %s", name, value);
   const gchar *parname = name += strlen("root." APP_NAME ".");
 
   for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]);
@@ -748,7 +769,7 @@ sd_card_callback(const char *sd_card_area, void *app_state_void_ptr)
     stop_dockerd(); // Block here until dockerd has stopped using the SD card.
   app_state->sd_card_area = sd_card_area ? strdup(sd_card_area) : NULL;
   if (using_sd_card)
-    g_main_loop_quit(loop); // Trigger a restart of dockerd from main()
+    main_loop_quit(); // Trigger a restart of dockerd from main()
 }
 
 // Stop the application and start it from an SSH prompt with
@@ -793,7 +814,7 @@ main(int argc, char **argv)
     if (dockerd_process_pid == -1)
       read_settings_and_start_dockerd(&app_state);
 
-    g_main_loop_run(loop);
+    main_loop_run();
 
     log_settings.debug = is_app_log_level_debug();
 
@@ -801,7 +822,7 @@ main(int argc, char **argv)
       log_warning("Failed to shut down dockerd.");
   }
 
-  g_main_loop_unref(loop);
+  main_loop_unref();
 
   if (ax_parameter != NULL) {
     for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]);
