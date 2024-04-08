@@ -35,6 +35,13 @@
 #define PARAM_SD_CARD_SUPPORT "SDCardSupport"
 #define PARAM_TCP_SOCKET "TCPSocket"
 #define PARAM_USE_TLS "UseTLS"
+#define PARAM_STATUS "Status"
+
+// TODO Add more status states
+typedef enum {
+  STATUS_NOT_STARTED = 0,
+  STATUS_CODE_COUNT,
+} status_code_t;
 
 struct settings {
   char *data_root;
@@ -156,6 +163,35 @@ is_process_alive(int pid)
     return false;
   }
   return true;
+}
+
+static bool
+set_parameter_value(const char *parameter_name, const char *value)
+{
+  GError *error = NULL;
+  GList *list = NULL;
+  GList *list_tmp = NULL;
+  bool res = true;
+  AXParameter *ax_parameter = ax_parameter_new(APP_NAME, &error);
+
+  if (ax_parameter == NULL) {
+    log_error("Error when creating axparameter: %s", error->message);
+    res = false;
+  } else {
+    log_debug("about to set %s to %s", parameter_name, value);
+    if (!ax_parameter_set(ax_parameter, parameter_name, value, true, &error)) {
+      log_error("Failed to write parameter value of %s to %s. Error: %s",
+                parameter_name,
+                value,
+                error->message);
+      res = false;
+    }
+  }
+  if (ax_parameter != NULL) {
+    ax_parameter_free(ax_parameter);
+  }
+  g_clear_error(&error);
+  return res;
 }
 
 /**
@@ -364,6 +400,13 @@ static bool
 is_parameter_yes(const char *name)
 {
   return is_parameter_equal_to(name, "yes");
+}
+
+static void
+set_status_parameter(__attribute__((unused)) status_code_t status)
+{
+  // TODO - replace status text with predefined values
+  set_parameter_value(PARAM_STATUS, "0 Status TBA");
 }
 
 static bool
@@ -799,6 +842,9 @@ main(int argc, char **argv)
 
   // Setup signal handling.
   init_signals();
+
+  // TODO - currently just a placeholder to pass compilation
+  set_status_parameter(0);
 
   struct sd_disk_storage *sd_disk_storage =
       sd_disk_storage_init(sd_card_callback, &app_state);
