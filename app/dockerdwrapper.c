@@ -422,12 +422,20 @@ end:
 static bool
 read_settings(struct settings *settings, const struct app_state *app_state)
 {
-  if (!get_and_verify_tls_selection(&settings->use_tls)) {
-    log_error("Failed to verify tls selection");
-    return false;
+  settings->use_tcp_socket = is_parameter_yes(PARAM_TCP_SOCKET);
+
+  if (!settings->use_tcp_socket)
+    // Even if the user has selected UseTLS we do not need to check the certs
+    // when TCP won't be used. If the setting is changed we will loop through
+    // this function again.
+    settings->use_tls = false;
+  else {
+    if (!get_and_verify_tls_selection(&settings->use_tls)) {
+      log_error("Failed to verify tls selection");
+      return false;
+    }
   }
 
-  settings->use_tcp_socket = is_parameter_yes(PARAM_TCP_SOCKET);
   settings->use_ipc_socket = is_parameter_yes(PARAM_IPC_SOCKET);
 
   if (!(settings->data_root = prepare_data_root(app_state->sd_card_area))) {
