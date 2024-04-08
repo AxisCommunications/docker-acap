@@ -666,6 +666,14 @@ dockerd_process_exited_callback(GPid pid,
   g_main_loop_quit(loop); // Trigger a restart of dockerd from main()
 }
 
+// Meant to be used as a one-shot call from g_timeout_add_seconds()
+static gboolean
+quit_main_loop(void *)
+{
+  g_main_loop_quit(loop);
+  return FALSE;
+}
+
 /**
  * @brief Callback function called when any of the parameters
  * changes. Will restart the dockerd process with the new setting.
@@ -684,7 +692,12 @@ parameter_changed_callback(const gchar *name,
        ++i) {
     if (strcmp(parname, ax_parameters[i]) == 0) {
       log_info("%s changed to: %s", ax_parameters[i], value);
-      g_main_loop_quit(loop); // Trigger a restart of dockerd from main()
+      // Trigger a restart of dockerd from main(), but delay it 1 second.
+      // When there are multiple AXParameter callbacks in a queue, such as
+      // during the first parameter change after installation, any parameter
+      // usage, even outside a callback, will cause a 20 second deadlock per
+      // queued callback.
+      g_timeout_add_seconds(1, quit_main_loop, NULL);
     }
   }
 }
