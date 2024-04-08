@@ -223,6 +223,40 @@ The application can provide a TCP socket if the TCP Socket setting is set to `ye
 if the IPC Socket setting is set to `yes`. Please be aware that at least one of these sockets must be
 selected for the application to start.
 
+## Status codes
+
+The application use a parameter called `Status` to inform about what state it is currently in.
+The value can be read with a call to the VAPIX param.cgi API, e.g. by using curl:
+
+```sh
+curl --anyauth -u <user:user password> \
+  'http://<device ip>/axis-cgi/param.cgi?action=list&group=root.DockerdWrapper.Status'
+```
+
+Following are the possible values of `Status`:
+
+```text
+-1 NOT STARTED                The application is not started.
+ 0 RUNNING                    The application is started and dockerd is running.
+ 1 TLS CERT MISSING           Use TLS is selected but there but certificates are missing on the device.
+                              The application is running but dockerd is stopped.
+                              Upload certificates and restart the application.
+ 2 NO SOCKET                  Neither TCP Socket or IPC Socket are selected.
+                              The application has stopped.
+                              Select one or both sockets and start the application.
+ 3 NO SD CARD                 Use SD Card is selected but no SD Card is mounted in the device.
+                              The application is running but dockerd is stopped.
+                              Insert and mount a SD Card.
+ 4 SD CARD WRONG FS           Use SD Card is selected but the mounted SD Card has the wrong file system.
+                              The application is running but dockerd is stopped.
+                              Format the SD Card with the correct file system.
+ 5 SD CARD WRONG PERMISSION   Use SD Card is selected but the application user does not have the correct file
+                              permissions to use it.
+                              The application is running but dockerd is stopped.
+                              Make sure no directories with the wrong user permissions are left on the
+                              SD Card.
+```
+
 ## Building the Docker ACAP
 
 To build the Docker ACAP use docker buildx with the provided Dockerfile:

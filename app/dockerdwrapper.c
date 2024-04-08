@@ -35,6 +35,27 @@
 #define PARAM_SD_CARD_SUPPORT "SDCardSupport"
 #define PARAM_TCP_SOCKET "TCPSocket"
 #define PARAM_USE_TLS "UseTLS"
+#define PARAM_STATUS "Status"
+
+typedef enum {
+  STATUS_NOT_STARTED = 0,
+  STATUS_RUNNING,
+  STATUS_TLS_CERT_MISSING,
+  STATUS_NO_SOCKET,
+  STATUS_NO_SD_CARD,
+  STATUS_SD_CARD_WRONG_FS,
+  STATUS_SD_CARD_WRONG_PERMISSION,
+  STATUS_CODE_COUNT,
+} status_code_t;
+
+static const char *const status_code_strs[STATUS_CODE_COUNT] = {
+    "-1 NOT STARTED",
+    "0 RUNNING",
+    "1 TLS CERT MISSING",
+    "2 NO SOCKET",
+    "3 NO SD CARD",
+    "4 SD CARD WRONG FS",
+    "5 SD CARD WRONG PERMISSION"};
 
 struct settings {
   char *data_root;
@@ -156,6 +177,41 @@ is_process_alive(int pid)
     return false;
   }
   return true;
+}
+
+static bool
+set_parameter_value(const char *parameter_name, const char *value)
+{
+  GError *error = NULL;
+  GList *list = NULL;
+  GList *list_tmp = NULL;
+  bool res = true;
+  AXParameter *ax_parameter = ax_parameter_new(APP_NAME, &error);
+
+  if (ax_parameter == NULL) {
+    log_error("Error when creating axparameter: %s", error->message);
+    res = false;
+  } else {
+    log_debug("About to set %s to %s", parameter_name, value);
+    if (!ax_parameter_set(ax_parameter, parameter_name, value, true, &error)) {
+      log_error("Failed to write parameter value of %s to %s. Error: %s",
+                parameter_name,
+                value,
+                error->message);
+      res = false;
+    }
+  }
+  if (ax_parameter != NULL) {
+    ax_parameter_free(ax_parameter);
+  }
+  g_clear_error(&error);
+  return res;
+}
+
+static void
+set_status_parameter(status_code_t status)
+{
+  set_parameter_value(PARAM_STATUS, status_code_strs[status]);
 }
 
 /**
@@ -331,6 +387,7 @@ setup_sdcard(const char *data_root)
               "support Unix file permissions, such as ext4 or xfs.",
               data_root,
               sd_file_system);
+    set_status_parameter(STATUS_SD_CARD_WRONG_FS);
     return false;
   }
 
@@ -340,6 +397,7 @@ setup_sdcard(const char *data_root)
         "card directory at %s. Please change the directory permissions or "
         "remove the directory.",
         data_root);
+    set_status_parameter(STATUS_SD_CARD_WRONG_PERMISSION);
     return false;
   }
 
@@ -441,6 +499,7 @@ get_and_verify_tls_selection(bool *use_tls_ret)
       }
 
       if (!ca_exists || !cert_exists || !key_exists) {
+        set_status_parameter(STATUS_TLS_CERT_MISSING);
         goto end;
       }
     }
@@ -522,6 +581,7 @@ start_dockerd(const struct settings *settings, struct app_state *app_state)
     log_error(
         "At least one of IPC socket or TCP socket must be set to \"yes\". "
         "dockerd will not be started.");
+    set_status_parameter(STATUS_NO_SOCKET);
     goto end;
   }
 
@@ -590,6 +650,7 @@ start_dockerd(const struct settings *settings, struct app_state *app_state)
     log_error("Starting dockerd failed: execv returned: %d, error: %s",
               result,
               error->message);
+    set_status_parameter(STATUS_NOT_STARTED);
     goto end;
   }
 
@@ -601,8 +662,10 @@ start_dockerd(const struct settings *settings, struct app_state *app_state)
     log_error(
         "Starting dockerd failed: Process died unexpectedly during startup");
     quit_program(EX_SOFTWARE);
+    set_status_parameter(STATUS_NOT_STARTED);
     goto end;
   }
+  set_status_parameter(STATUS_RUNNING);
   return_value = true;
 
 end:
@@ -768,8 +831,10 @@ sd_card_callback(const char *sd_card_area, void *app_state_void_ptr)
 {
   struct app_state *app_state = app_state_void_ptr;
   const bool using_sd_card = is_parameter_yes(PARAM_SD_CARD_SUPPORT);
-  if (using_sd_card && !sd_card_area)
+  if (using_sd_card && !sd_card_area) {
     stop_dockerd(); // Block here until dockerd has stopped using the SD card.
+    set_status_parameter(STATUS_NO_SD_CARD);
+  }
   app_state->sd_card_area = sd_card_area ? strdup(sd_card_area) : NULL;
   if (using_sd_card)
     main_loop_quit(); // Trigger a restart of dockerd from main()
@@ -823,6 +888,7 @@ main(int argc, char **argv)
 
     if (!stop_dockerd())
       log_warning("Failed to shut down dockerd.");
+    set_status_parameter(STATUS_NOT_STARTED);
   }
 
   main_loop_unref();

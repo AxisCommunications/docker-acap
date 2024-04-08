@@ -49,6 +49,11 @@
                     "name": "DockerdLogLevel",
                     "default": "info",
                     "type": "enum:debug,info,warn,error,fatal"
+                },
+                {
+                    "name": "Status",
+                    "default": "-1 No Status",
+                    "type": "hidden:string"
                 }
             ]
         }
