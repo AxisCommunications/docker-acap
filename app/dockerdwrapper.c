@@ -900,29 +900,30 @@ kill_and_verify(int *process_id, uint sig, uint secs)
 /**
  * @brief Stop the currently running dockerd process.
  *
- * @return exit_code. 0 if successful, -1 otherwise
+ * @return status. 0 if successful, -1 otherwise
  */
 static int
 stop_dockerd(void)
 {
+  int status = 0;
+
   if (dockerd_process_pid == -1) {
     /* Nothing to stop. */
-    exit_code = 0;
     goto end;
   }
 
   /* Send SIGTERM to the process, wait up to 10 secs */
-  if ((exit_code = kill_and_verify(&dockerd_process_pid, SIGTERM, 10)) == 0) {
+  if ((status = kill_and_verify(&dockerd_process_pid, SIGTERM, 10)) == 0) {
     goto end;
   }
   syslog(LOG_WARNING, "Failed to send and verify SIGTERM to child");
 
   /* SIGTERM failed, try SIGKILL instead, wait up to 10 secs  */
-  if ((exit_code = kill_and_verify(&dockerd_process_pid, SIGKILL, 10)) == 0) {
+  if ((status = kill_and_verify(&dockerd_process_pid, SIGKILL, 10)) == 0) {
     goto end;
   }
   syslog_v(LOG_INFO, "Ignoring apparent failed SIGKILL to child");
-  exit_code = 0;
+  status = 0;
 
 end:
   if (g_status > STARTED) {
@@ -930,7 +931,7 @@ end:
     g_main_loop_quit(loop);
   }
 
-  return exit_code;
+  return status;
 }
 
 /**
@@ -1072,13 +1073,11 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
 
   if (status == 0) {
     /* Graceful exit. All good.. */
-    exit_code = 0;
   } else if ((status == SIGKILL) || (status == SIGTERM)) {
     /* Likely here as a result of stop_dockerd().. */
     syslog_v(LOG_INFO,
              "stop_dockerd instigated %s exit",
              (status == SIGKILL) ? "SIGKILL" : "SIGTERM");
-    exit_code = 0;
   } else if (!g_spawn_check_wait_status(status, &error)) {
     /* Something went wrong..*/
     syslog(LOG_ERR,
