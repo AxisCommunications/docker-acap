@@ -29,6 +29,8 @@
 #define APP_DIRECTORY "/usr/local/packages/" APP_NAME
 #define APP_LOCALDATA APP_DIRECTORY "/localdata"
 
+#define PARAM_APPLICATION_LOG_LEVEL "ApplicationLogLevel"
+#define PARAM_DOCKERD_LOG_LEVEL "DockerdLogLevel"
 #define PARAM_IPC_SOCKET "IPCSocket"
 #define PARAM_SD_CARD_SUPPORT "SDCardSupport"
 #define PARAM_TCP_SOCKET "TCPSocket"
@@ -64,7 +66,9 @@ static int application_exit_code = EX_KEEP_RUNNING;
 static pid_t dockerd_process_pid = -1;
 
 // All ax_parameters the acap has
-static const char *ax_parameters[] = {PARAM_IPC_SOCKET,
+static const char *ax_parameters[] = {PARAM_APPLICATION_LOG_LEVEL,
+                                      PARAM_DOCKERD_LOG_LEVEL,
+                                      PARAM_IPC_SOCKET,
                                       PARAM_SD_CARD_SUPPORT,
                                       PARAM_TCP_SOCKET,
                                       PARAM_USE_TLS};
@@ -328,13 +332,25 @@ setup_sdcard(const char *data_root)
   return true;
 }
 
+static bool
+is_parameter_equal_to(const char *name, const char *value_to_equal)
+{
+  g_autofree char *value = get_parameter_value(name);
+  return value && strcmp(value, value_to_equal) == 0;
+}
+
 // A parameter of type "bool:no,yes" is guaranteed to contain one of those
 // strings, but user code is still needed to interpret it as a Boolean type.
 static bool
 is_parameter_yes(const char *name)
 {
-  g_autofree char *value = get_parameter_value(name);
-  return value && strcmp(value, "yes") == 0;
+  return is_parameter_equal_to(name, "yes");
+}
+
+static bool
+is_app_log_level_debug(void)
+{
+  return is_parameter_equal_to(PARAM_APPLICATION_LOG_LEVEL, "debug");
 }
 
 // Return data root matching the current SDCardSupport selection.
@@ -474,6 +490,14 @@ start_dockerd(const struct settings *settings, struct app_state *app_state)
                             "--config-file " APP_LOCALDATA "/daemon.json");
 
   g_strlcpy(msg, "Starting dockerd", msg_len);
+
+  {
+    g_autofree char *log_level = get_parameter_value(PARAM_DOCKERD_LOG_LEVEL);
+    args_offset += g_snprintf(args + args_offset,
+                              args_len - args_offset,
+                              " --log-level=%s",
+                              log_level);
+  }
 
   if (!use_ipc_socket && !use_tcp_socket) {
     log_error(
@@ -730,6 +754,7 @@ main(int argc, char **argv)
   struct log_settings log_settings = {0};
   AXParameter *ax_parameter = NULL;
 
+  log_settings.debug = is_app_log_level_debug();
   parse_command_line(argc, argv, &log_settings);
 
   log_init(&log_settings);
@@ -754,6 +779,8 @@ main(int argc, char **argv)
       read_settings_and_start_dockerd(&app_state);
 
     g_main_loop_run(loop);
+
+    log_settings.debug = is_app_log_level_debug();
 
     if (!stop_dockerd())
       log_warning("Failed to shut down dockerd.");
