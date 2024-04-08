@@ -743,10 +743,12 @@ static void
 sd_card_callback(const char *sd_card_area, void *app_state_void_ptr)
 {
   struct app_state *app_state = app_state_void_ptr;
-  if (!sd_card_area)
+  const bool using_sd_card = is_parameter_yes(PARAM_SD_CARD_SUPPORT);
+  if (using_sd_card && !sd_card_area)
     stop_dockerd(); // Block here until dockerd has stopped using the SD card.
   app_state->sd_card_area = sd_card_area ? strdup(sd_card_area) : NULL;
-  g_main_loop_quit(loop); // Trigger a restart of dockerd from main()
+  if (using_sd_card)
+    g_main_loop_quit(loop); // Trigger a restart of dockerd from main()
 }
 
 // Stop the application and start it from an SSH prompt with
