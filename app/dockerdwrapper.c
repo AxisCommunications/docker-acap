@@ -565,12 +565,15 @@ start_dockerd(const struct settings *settings, struct app_state *app_state)
     g_strlcat(msg, " without TCP socket", msg_len);
   }
 
-  g_autofree char *data_root_msg =
-      g_strdup_printf(" using %s as storage.", data_root);
-  g_strlcat(msg, data_root_msg, msg_len);
-  args_offset += g_snprintf(
-      args + args_offset, args_len - args_offset, " --data-root %s", data_root);
-
+  {
+    g_autofree char *data_root_msg =
+        g_strdup_printf(" using %s as storage.", data_root);
+    g_strlcat(msg, data_root_msg, msg_len);
+    args_offset += g_snprintf(args + args_offset,
+                              args_len - args_offset,
+                              " --data-root %s",
+                              data_root);
+  }
   log_debug("Sending daemon start command: %s", args);
   log_info("%s", msg);
 
