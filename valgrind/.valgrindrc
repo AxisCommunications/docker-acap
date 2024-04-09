@@ -1,0 +1,6 @@
+--error-exitcode=5
+--memcheck:leak-check=full
+--track-origins=yes
+--suppressions=axparameter.supp
+--suppressions=axstorage.supp
+--gen-suppressions=all

@@ -1,0 +1,33 @@
+{
+   ax_storage_list_cond
+   Memcheck:Cond
+   obj:/usr/lib/libc.so.6
+   obj:/usr/lib/libc.so.6
+   obj:/usr/lib/libc.so.6
+   fun:vasprintf
+   fun:g_vasprintf
+   fun:g_string_append_vprintf
+   fun:g_string_append_printf
+   fun:g_dbus_connection_signal_subscribe
+   obj:/usr/lib/libgio-2.0.so.0.7400.6
+   obj:/usr/lib/libgio-2.0.so.0.7400.6
+   fun:g_initable_new_valist
+   fun:g_initable_new
+}
+{
+   ax_storage_list_mem_leak
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   obj:/usr/lib/ld-linux-aarch64.so.1
+   fun:_dl_allocate_tls
+   fun:pthread_create
+   obj:/usr/lib/libglib-2.0.so.0.7400.6
+   fun:g_thread_new
+   obj:/usr/lib/libgio-2.0.so.0.7400.6
+   obj:/usr/lib/libgio-2.0.so.0.7400.6
+   obj:/usr/lib/libgio-2.0.so.0.7400.6
+   obj:/usr/lib/libgio-2.0.so.0.7400.6
+   obj:/usr/lib/libglib-2.0.so.0.7400.6
+   obj:/usr/lib/libglib-2.0.so.0.7400.6
+}
