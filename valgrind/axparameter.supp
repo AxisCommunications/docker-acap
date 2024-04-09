@@ -1,0 +1,35 @@
+{
+   ax_parameter_new_or_free
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   obj:/usr/lib/ld-linux-aarch64.so.1
+   fun:_dl_allocate_tls
+   fun:pthread_create
+   obj:/usr/lib/libglib-2.0.so.0.7400.6
+   fun:g_thread_new
+   obj:/usr/lib/libglib-2.0.so.0.7400.6
+   obj:/usr/lib/libgio-2.0.so.0.7400.6
+   fun:g_task_get_type
+   obj:/usr/lib/libgio-2.0.so.0.7400.6
+   fun:g_bus_get
+   fun:g_bus_own_name
+}
+{
+   ax_parameter_new_or_free
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   obj:/usr/lib/ld-linux-aarch64.so.1
+   fun:_dl_allocate_tls
+   fun:pthread_create
+   obj:/usr/lib/libglib-2.0.so.0.7400.6
+   obj:/usr/lib/libglib-2.0.so.0.7400.6
+   fun:g_thread_pool_push
+   fun:g_task_run_in_thread
+   obj:/usr/lib/libgio-2.0.so.0.7400.6
+   fun:g_bus_get
+   fun:g_bus_own_name
+   fun:dbus_interface_setup_dbus
+   fun:dbus_interface_new
+}
