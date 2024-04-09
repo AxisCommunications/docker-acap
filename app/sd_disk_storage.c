@@ -12,7 +12,7 @@ struct sd_disk_storage {
 
 static bool event_status_or_log(gchar* storage_id, AXStorageStatusEventId event) {
     GError* error = NULL;
-    bool value    = ax_storage_get_status(storage_id, event, &error);
+    bool value = ax_storage_get_status(storage_id, event, &error);
     if (error) {
         log_warning("Could not read ax_storage status: %s", error->message);
         g_clear_error(&error);
@@ -103,8 +103,8 @@ static void subscribe_cb(gchar* storage_id, gpointer storage_void_ptr, GError* e
 }
 
 static bool subscribe(struct sd_disk_storage* storage, const char* storage_id) {
-    GError* error  = NULL;
-    bool found     = false;
+    GError* error = NULL;
+    bool found = false;
     GList* devices = ax_storage_list(&error);
     for (GList* node = g_list_first(devices); node; node = g_list_next(node)) {
         if (strcmp(node->data, storage_id) == 0) {
@@ -129,8 +129,8 @@ static bool subscribe(struct sd_disk_storage* storage, const char* storage_id) {
 
 struct sd_disk_storage* sd_disk_storage_init(SdDiskCallback sd_disk_callback, void* user_data) {
     struct sd_disk_storage* storage = g_malloc0(sizeof(struct sd_disk_storage));
-    storage->callback               = sd_disk_callback;
-    storage->user_data              = user_data;
+    storage->callback = sd_disk_callback;
+    storage->user_data = user_data;
     if (!subscribe(storage, "SD_DISK")) {
         sd_disk_storage_free(storage);
         return NULL;
