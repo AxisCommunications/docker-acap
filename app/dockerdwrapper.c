@@ -168,10 +168,10 @@ static bool is_process_alive(int pid) {
 }
 
 static bool set_parameter_value(const char* parameter_name, const char* value) {
-    GError* error             = NULL;
-    GList* list               = NULL;
-    GList* list_tmp           = NULL;
-    bool res                  = true;
+    GError* error = NULL;
+    GList* list = NULL;
+    GList* list_tmp = NULL;
+    bool res = true;
     AXParameter* ax_parameter = ax_parameter_new(APP_NAME, &error);
 
     if (ax_parameter == NULL) {
@@ -204,9 +204,9 @@ static void set_status_parameter(status_code_t status) {
  * @return The value of the parameter as string if successful, NULL otherwise
  */
 static char* get_parameter_value(const char* parameter_name) {
-    GError* error             = NULL;
+    GError* error = NULL;
     AXParameter* ax_parameter = ax_parameter_new(APP_NAME, &error);
-    char* parameter_value     = NULL;
+    char* parameter_value = NULL;
 
     if (ax_parameter == NULL) {
         log_error("Error when creating axparameter: %s", error->message);
@@ -254,7 +254,7 @@ static bool migrate_from_old_sdcard_setup(const char* new_dir) {
         return false;
     }
     // Get name to first entry in directory, NULL if empty, . and .. are omitted
-    const char* dir_entry    = g_dir_read_name(dir);
+    const char* dir_entry = g_dir_read_name(dir);
     bool directory_not_empty = dir_entry != NULL;
     g_dir_close(dir);
 
@@ -274,7 +274,7 @@ static bool migrate_from_old_sdcard_setup(const char* new_dir) {
 
     // Remove the directory
     const char* remove_command = g_strdup_printf("rm -rf %s", old_top_dir);
-    res                        = system(remove_command);
+    res = system(remove_command);
     if (res != 0) {
         log_error("Failed to remove %s, error: %d", old_top_dir, res);
     }
@@ -332,7 +332,7 @@ static char* get_filesystem_of_path(const char* path) {
  * @return True if successful, false if setup failed.
  */
 static bool setup_sdcard(const char* data_root) {
-    g_autofree char* sd_file_system       = NULL;
+    g_autofree char* sd_file_system = NULL;
     g_autofree char* create_droot_command = g_strdup_printf("mkdir -p %s", data_root);
 
     int res = system(create_droot_command);
@@ -422,20 +422,20 @@ static char* prepare_data_root(const char* sd_card_area) {
  */
 static gboolean get_and_verify_tls_selection(bool* use_tls_ret) {
     gboolean return_value = false;
-    char* ca_path         = NULL;
-    char* cert_path       = NULL;
-    char* key_path        = NULL;
+    char* ca_path = NULL;
+    char* cert_path = NULL;
+    char* key_path = NULL;
 
     const bool use_tls = is_parameter_yes(PARAM_USE_TLS);
     {
         if (use_tls) {
-            char* ca_path   = g_strdup_printf("%s/%s", tls_cert_path, tls_certs[0]);
+            char* ca_path = g_strdup_printf("%s/%s", tls_cert_path, tls_certs[0]);
             char* cert_path = g_strdup_printf("%s/%s", tls_cert_path, tls_certs[1]);
-            char* key_path  = g_strdup_printf("%s/%s", tls_cert_path, tls_certs[2]);
+            char* key_path = g_strdup_printf("%s/%s", tls_cert_path, tls_certs[2]);
 
-            bool ca_exists   = access(ca_path, F_OK) == 0;
+            bool ca_exists = access(ca_path, F_OK) == 0;
             bool cert_exists = access(cert_path, F_OK) == 0;
-            bool key_exists  = access(key_path, F_OK) == 0;
+            bool key_exists = access(key_path, F_OK) == 0;
 
             if (!ca_exists || !cert_exists || !key_exists) {
                 log_error("One or more TLS certificates missing.");
@@ -493,21 +493,21 @@ static bool read_settings(struct settings* settings, const struct app_state* app
 // Return true if dockerd was successfully started.
 // Log an error and return false if it failed to start properly.
 static bool start_dockerd(const struct settings* settings, struct app_state* app_state) {
-    const char* data_root     = settings->data_root;
-    const bool use_tls        = settings->use_tls;
+    const char* data_root = settings->data_root;
+    const bool use_tls = settings->use_tls;
     const bool use_tcp_socket = settings->use_tcp_socket;
     const bool use_ipc_socket = settings->use_ipc_socket;
 
     GError* error = NULL;
 
     bool return_value = false;
-    bool result       = false;
+    bool result = false;
 
     gsize args_len = 1024;
-    gsize msg_len  = 128;
+    gsize msg_len = 128;
     gchar args[args_len];
     gchar msg[msg_len];
-    guint args_offset  = 0;
+    guint args_offset = 0;
     gchar** args_split = NULL;
 
     args_offset += g_snprintf(args + args_offset,
@@ -547,9 +547,9 @@ static bool start_dockerd(const struct settings* settings, struct app_state* app
         args_offset +=
             g_snprintf(args + args_offset, args_len - args_offset, " -H tcp://0.0.0.0:%d", port);
         if (use_tls) {
-            const char* ca_path   = APP_DIRECTORY "/ca.pem";
+            const char* ca_path = APP_DIRECTORY "/ca.pem";
             const char* cert_path = APP_DIRECTORY "/server-cert.pem";
-            const char* key_path  = APP_DIRECTORY "/server-key.pem";
+            const char* key_path = APP_DIRECTORY "/server-key.pem";
             args_offset += g_snprintf(args + args_offset,
                                       args_len - args_offset,
                                       " %s %s %s %s %s %s %s",
@@ -579,7 +579,7 @@ static bool start_dockerd(const struct settings* settings, struct app_state* app
     log_info("%s", msg);
 
     args_split = g_strsplit(args, " ", 0);
-    result     = g_spawn_async(NULL,
+    result = g_spawn_async(NULL,
                            args_split,
                            NULL,
                            G_SPAWN_DO_NOT_REAP_CHILD | G_SPAWN_SEARCH_PATH,
@@ -665,7 +665,7 @@ end:
  */
 static void dockerd_process_exited_callback(GPid pid, gint status, gpointer app_state_void_ptr) {
     struct app_state* app_state = app_state_void_ptr;
-    GError* error               = NULL;
+    GError* error = NULL;
     if (!g_spawn_check_wait_status(status, &error)) {
         log_error("Dockerd process exited with error: %d", status);
         g_clear_error(&error);
@@ -714,8 +714,8 @@ static void parameter_changed_callback(const gchar* name,
 }
 
 static AXParameter* setup_axparameter(void) {
-    bool success              = false;
-    GError* error             = NULL;
+    bool success = false;
+    GError* error = NULL;
     AXParameter* ax_parameter = ax_parameter_new(APP_NAME, &error);
     if (ax_parameter == NULL) {
         log_error("Error when creating AXParameter: %s", error->message);
@@ -724,7 +724,7 @@ static AXParameter* setup_axparameter(void) {
 
     for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]); ++i) {
         char* parameter_path = g_strdup_printf("root.%s.%s", APP_NAME, ax_parameters[i]);
-        gboolean geresult    = ax_parameter_register_callback(ax_parameter,
+        gboolean geresult = ax_parameter_register_callback(ax_parameter,
                                                            parameter_path,
                                                            parameter_changed_callback,
                                                            NULL,
@@ -751,7 +751,7 @@ end:
 
 static void sd_card_callback(const char* sd_card_area, void* app_state_void_ptr) {
     struct app_state* app_state = app_state_void_ptr;
-    const bool using_sd_card    = is_parameter_yes(PARAM_SD_CARD_SUPPORT);
+    const bool using_sd_card = is_parameter_yes(PARAM_SD_CARD_SUPPORT);
     if (using_sd_card && !sd_card_area) {
         stop_dockerd();  // Block here until dockerd has stopped using the SD card.
         set_status_parameter(STATUS_NO_SD_CARD);
@@ -770,9 +770,9 @@ static void parse_command_line(int argc, char** argv, struct log_settings* log_s
 }
 
 int main(int argc, char** argv) {
-    struct app_state app_state       = {0};
+    struct app_state app_state = {0};
     struct log_settings log_settings = {0};
-    AXParameter* ax_parameter        = NULL;
+    AXParameter* ax_parameter = NULL;
 
     log_settings.debug = is_app_log_level_debug();
     parse_command_line(argc, argv, &log_settings);

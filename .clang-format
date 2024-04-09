@@ -3,7 +3,7 @@
 BasedOnStyle:  LLVM
 # Cpp covers both C and C++.
 Language:        Cpp
-AlignConsecutiveAssignments: Consecutive
+AlignConsecutiveAssignments: None
 AlignConsecutiveBitFields: Consecutive
 AlignConsecutiveMacros: Consecutive
 AlignEscapedNewlines: Left
