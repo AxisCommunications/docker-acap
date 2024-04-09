@@ -117,7 +117,7 @@ achieve this, for example by using `scp` to copy the files from a remote machine
 This can be done by running the following command on the remote machine:
 
 ```sh
-scp ca.pem server-cert.pem server-key.pem root@<device ip>:/usr/local/packages/dockerdwrapper/
+scp ca.pem server-cert.pem server-key.pem root@<device ip>:/usr/local/packages/dockerdwrapper/localdata/
 ```
 
 #### The Certificate Authority (CA) certificate

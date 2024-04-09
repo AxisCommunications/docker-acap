@@ -96,7 +96,7 @@ static const char* ax_parameters[] = {PARAM_APPLICATION_LOG_LEVEL,
                                       PARAM_TCP_SOCKET,
                                       PARAM_USE_TLS};
 
-static const char* tls_cert_path = APP_DIRECTORY;
+static const char* tls_cert_path = APP_LOCALDATA;
 
 static const char* tls_certs[] = {"ca.pem", "server-cert.pem", "server-key.pem"};
 
