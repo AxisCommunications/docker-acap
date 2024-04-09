@@ -592,6 +592,7 @@ static bool start_dockerd(const struct settings* settings, struct app_state* app
         set_status_parameter(STATUS_NOT_STARTED);
         goto end;
     }
+    log_debug("Child process dockerd (%d) was started.", dockerd_process_pid);
 
     // Watch the child process.
     g_child_watch_add(dockerd_process_pid, dockerd_process_exited_callback, app_state);
@@ -633,7 +634,7 @@ static bool stop_dockerd(void) {
         goto end;
     }
 
-    log_info("Sending SIGTERM to dockerd.");
+    log_debug("Sending SIGTERM to dockerd (%d).", dockerd_process_pid);
     bool sigterm_successfully_sent = kill(dockerd_process_pid, SIGTERM) == 0;
     if (!sigterm_successfully_sent) {
         log_error("Failed to send SIGTERM to child. Error: %s", strerror(errno));
@@ -651,25 +652,39 @@ static bool stop_dockerd(void) {
         goto end;
     }
 
-    // SIGTERM failed, let's try SIGKILL
+    log_debug("Sending SIGKILL to dockerd (%d).", dockerd_process_pid);
     killed = kill(dockerd_process_pid, SIGKILL) == 0;
     if (!killed)
         log_error("Failed to send SIGKILL to child. Error: %s", strerror(errno));
 
+    log_info("Stopped dockerd.");
 end:
     return killed;
+}
+
+static void log_child_process_exit_cause(const char* name, GPid pid, int status) {
+    GError* error = NULL;
+    char msg[128];
+    const char* end = msg + sizeof(msg);
+    char* ptr = msg + g_snprintf(msg, end - msg, "Child process %s (%d)", name, pid);
+
+    if (g_spawn_check_wait_status(status, &error) || error->domain == G_SPAWN_EXIT_ERROR)
+        g_snprintf(ptr, end - ptr, " exited with exit code %d", error ? error->code : 0);
+    else if (error->domain == G_SPAWN_ERROR && error->code == G_SPAWN_ERROR_FAILED)
+        g_snprintf(ptr, end - ptr, " was killed by signal %d", status);
+    else
+        g_snprintf(ptr, end - ptr, " terminated in an unexpected way: %s", error->message);
+    g_clear_error(&error);
+    log_debug("%s", msg);
 }
 
 /**
  * @brief Callback called when the dockerd process exits.
  */
 static void dockerd_process_exited_callback(GPid pid, gint status, gpointer app_state_void_ptr) {
+    log_child_process_exit_cause("dockerd", pid, status);
+
     struct app_state* app_state = app_state_void_ptr;
-    GError* error = NULL;
-    if (!g_spawn_check_wait_status(status, &error)) {
-        log_error("Dockerd process exited with error: %d", status);
-        g_clear_error(&error);
-    }
 
     dockerd_process_pid = -1;
     g_spawn_close_pid(pid);
