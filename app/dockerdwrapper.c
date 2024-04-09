@@ -76,6 +76,7 @@ struct app_state {
     volatile int allow_dockerd_to_start_atomic;
     char* sd_card_area;
     AXParameter* param_handle;
+    struct settings settings;
 };
 
 static bool dockerd_allowed_to_start(const struct app_state* app_state) {
@@ -437,8 +438,10 @@ static gboolean get_and_verify_tls_selection(AXParameter* param_handle, bool* us
     return true;
 }
 
-static bool read_settings(struct settings* settings, const struct app_state* app_state) {
+static bool read_settings(struct app_state* app_state) {
     AXParameter* param_handle = app_state->param_handle;
+    struct settings* settings = &app_state->settings;
+
     settings->use_tcp_socket = is_parameter_yes(param_handle, PARAM_TCP_SOCKET);
 
     if (!settings->use_tcp_socket)
@@ -464,8 +467,9 @@ static bool read_settings(struct settings* settings, const struct app_state* app
 
 // Return true if dockerd was successfully started.
 // Log an error and return false if it failed to start properly.
-static bool start_dockerd(const struct settings* settings, struct app_state* app_state) {
+static bool start_dockerd(struct app_state* app_state) {
     AXParameter* param_handle = app_state->param_handle;
+    const struct settings* settings = &app_state->settings;
     const char* data_root = settings->data_root;
     const bool use_tls = settings->use_tls;
     const bool use_tcp_socket = settings->use_tcp_socket;
@@ -577,12 +581,8 @@ end:
 }
 
 static void read_settings_and_start_dockerd(struct app_state* app_state) {
-    struct settings settings = {0};
-
-    if (read_settings(&settings, app_state))
-        start_dockerd(&settings, app_state);
-
-    free(settings.data_root);
+    if (read_settings(app_state))
+        start_dockerd(app_state);
 }
 
 static bool send_signal(const char* name, GPid pid, int sig) {
@@ -845,6 +845,7 @@ int main(int argc, char** argv) {
     }
 
     sd_disk_storage_free(sd_disk_storage);
+    free(app_state.settings.data_root);
     free(app_state.sd_card_area);
 
     return application_exit_code;
