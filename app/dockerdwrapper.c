@@ -65,6 +65,7 @@ struct settings {
 
 struct app_state {
     char* sd_card_area;
+    AXParameter* param_handle;
 };
 
 /**
@@ -167,35 +168,23 @@ static bool is_process_alive(int pid) {
     return true;
 }
 
-static bool set_parameter_value(const char* parameter_name, const char* value) {
+static bool
+set_parameter_value(AXParameter* param_handle, const char* parameter_name, const char* value) {
+    log_debug("About to set %s to %s", parameter_name, value);
     GError* error = NULL;
-    GList* list = NULL;
-    GList* list_tmp = NULL;
-    bool res = true;
-    AXParameter* ax_parameter = ax_parameter_new(APP_NAME, &error);
-
-    if (ax_parameter == NULL) {
-        log_error("Error when creating axparameter: %s", error->message);
-        res = false;
-    } else {
-        log_debug("About to set %s to %s", parameter_name, value);
-        if (!ax_parameter_set(ax_parameter, parameter_name, value, true, &error)) {
-            log_error("Failed to write parameter value of %s to %s. Error: %s",
-                      parameter_name,
-                      value,
-                      error->message);
-            res = false;
-        }
-    }
-    if (ax_parameter != NULL) {
-        ax_parameter_free(ax_parameter);
+    bool res = ax_parameter_set(param_handle, parameter_name, value, true, &error);
+    if (!res) {
+        log_error("Failed to write parameter value of %s to %s. Error: %s",
+                  parameter_name,
+                  value,
+                  error->message);
     }
     g_clear_error(&error);
     return res;
 }
 
-static void set_status_parameter(status_code_t status) {
-    set_parameter_value(PARAM_STATUS, status_code_strs[status]);
+static void set_status_parameter(AXParameter* param_handle, status_code_t status) {
+    set_parameter_value(param_handle, PARAM_STATUS, status_code_strs[status]);
 }
 
 /**
@@ -203,17 +192,11 @@ static void set_status_parameter(status_code_t status) {
  *
  * @return The value of the parameter as string if successful, NULL otherwise
  */
-static char* get_parameter_value(const char* parameter_name) {
+static char* get_parameter_value(AXParameter* param_handle, const char* parameter_name) {
     GError* error = NULL;
-    AXParameter* ax_parameter = ax_parameter_new(APP_NAME, &error);
     char* parameter_value = NULL;
 
-    if (ax_parameter == NULL) {
-        log_error("Error when creating axparameter: %s", error->message);
-        goto end;
-    }
-
-    if (!ax_parameter_get(ax_parameter, parameter_name, &parameter_value, &error)) {
+    if (!ax_parameter_get(param_handle, parameter_name, &parameter_value, &error)) {
         log_error("Failed to fetch parameter value of %s. Error: %s",
                   parameter_name,
                   error->message);
@@ -222,12 +205,7 @@ static char* get_parameter_value(const char* parameter_name) {
         parameter_value = NULL;
     }
 
-end:
-    if (ax_parameter != NULL) {
-        ax_parameter_free(ax_parameter);
-    }
     g_clear_error(&error);
-
     return parameter_value;
 }
 
@@ -331,7 +309,7 @@ static char* get_filesystem_of_path(const char* path) {
  *
  * @return True if successful, false if setup failed.
  */
-static bool setup_sdcard(const char* data_root) {
+static bool setup_sdcard(AXParameter* param_handle, const char* data_root) {
     g_autofree char* sd_file_system = NULL;
     g_autofree char* create_droot_command = g_strdup_printf("mkdir -p %s", data_root);
 
@@ -355,7 +333,7 @@ static bool setup_sdcard(const char* data_root) {
             "support Unix file permissions, such as ext4 or xfs.",
             data_root,
             sd_file_system);
-        set_status_parameter(STATUS_SD_CARD_WRONG_FS);
+        set_status_parameter(param_handle, STATUS_SD_CARD_WRONG_FS);
         return false;
     }
 
@@ -365,7 +343,7 @@ static bool setup_sdcard(const char* data_root) {
             "card directory at %s. Please change the directory permissions or "
             "remove the directory.",
             data_root);
-        set_status_parameter(STATUS_SD_CARD_WRONG_PERMISSION);
+        set_status_parameter(param_handle, STATUS_SD_CARD_WRONG_PERMISSION);
         return false;
     }
 
@@ -377,33 +355,34 @@ static bool setup_sdcard(const char* data_root) {
     return true;
 }
 
-static bool is_parameter_equal_to(const char* name, const char* value_to_equal) {
-    g_autofree char* value = get_parameter_value(name);
+static bool
+is_parameter_equal_to(AXParameter* param_handle, const char* name, const char* value_to_equal) {
+    g_autofree char* value = get_parameter_value(param_handle, name);
     return value && strcmp(value, value_to_equal) == 0;
 }
 
 // A parameter of type "bool:no,yes" is guaranteed to contain one of those
 // strings, but user code is still needed to interpret it as a Boolean type.
-static bool is_parameter_yes(const char* name) {
-    return is_parameter_equal_to(name, "yes");
+static bool is_parameter_yes(AXParameter* param_handle, const char* name) {
+    return is_parameter_equal_to(param_handle, name, "yes");
 }
 
-static bool is_app_log_level_debug(void) {
-    return is_parameter_equal_to(PARAM_APPLICATION_LOG_LEVEL, "debug");
+static bool is_app_log_level_debug(AXParameter* param_handle) {
+    return is_parameter_equal_to(param_handle, PARAM_APPLICATION_LOG_LEVEL, "debug");
 }
 
 // Return data root matching the current SDCardSupport selection.
 //
 // If SDCardSupport is "yes", data root will be located on the proved SD card
 // area. Passing NULL as SD card area signals that the SD card is not available.
-static char* prepare_data_root(const char* sd_card_area) {
-    if (is_parameter_yes(PARAM_SD_CARD_SUPPORT)) {
+static char* prepare_data_root(AXParameter* param_handle, const char* sd_card_area) {
+    if (is_parameter_yes(param_handle, PARAM_SD_CARD_SUPPORT)) {
         if (!sd_card_area) {
             log_error("SD card was requested, but no SD card is available at the moment.");
             return NULL;
         }
         char* data_root = g_strdup_printf("%s/data", sd_card_area);
-        if (!setup_sdcard(data_root)) {
+        if (!setup_sdcard(param_handle, data_root)) {
             log_error("Failed to setup SD card.");
             free(data_root);
             return NULL;
@@ -420,13 +399,13 @@ static char* prepare_data_root(const char* sd_card_area) {
  * @param use_tls_ret selection to be updated.
  * @return True if successful, false otherwise.
  */
-static gboolean get_and_verify_tls_selection(bool* use_tls_ret) {
+static gboolean get_and_verify_tls_selection(AXParameter* param_handle, bool* use_tls_ret) {
     gboolean return_value = false;
     char* ca_path = NULL;
     char* cert_path = NULL;
     char* key_path = NULL;
 
-    const bool use_tls = is_parameter_yes(PARAM_USE_TLS);
+    const bool use_tls = is_parameter_yes(param_handle, PARAM_USE_TLS);
     {
         if (use_tls) {
             char* ca_path = g_strdup_printf("%s/%s", tls_cert_path, tls_certs[0]);
@@ -452,7 +431,7 @@ static gboolean get_and_verify_tls_selection(bool* use_tls_ret) {
             }
 
             if (!ca_exists || !cert_exists || !key_exists) {
-                set_status_parameter(STATUS_TLS_CERT_MISSING);
+                set_status_parameter(param_handle, STATUS_TLS_CERT_MISSING);
                 goto end;
             }
         }
@@ -467,7 +446,8 @@ end:
 }
 
 static bool read_settings(struct settings* settings, const struct app_state* app_state) {
-    settings->use_tcp_socket = is_parameter_yes(PARAM_TCP_SOCKET);
+    AXParameter* param_handle = app_state->param_handle;
+    settings->use_tcp_socket = is_parameter_yes(param_handle, PARAM_TCP_SOCKET);
 
     if (!settings->use_tcp_socket)
         // Even if the user has selected UseTLS we do not need to check the certs
@@ -475,15 +455,15 @@ static bool read_settings(struct settings* settings, const struct app_state* app
         // this function again.
         settings->use_tls = false;
     else {
-        if (!get_and_verify_tls_selection(&settings->use_tls)) {
+        if (!get_and_verify_tls_selection(param_handle, &settings->use_tls)) {
             log_error("Failed to verify tls selection");
             return false;
         }
     }
 
-    settings->use_ipc_socket = is_parameter_yes(PARAM_IPC_SOCKET);
+    settings->use_ipc_socket = is_parameter_yes(param_handle, PARAM_IPC_SOCKET);
 
-    if (!(settings->data_root = prepare_data_root(app_state->sd_card_area))) {
+    if (!(settings->data_root = prepare_data_root(param_handle, app_state->sd_card_area))) {
         log_error("Failed to set up dockerd data root");
         return false;
     }
@@ -493,6 +473,7 @@ static bool read_settings(struct settings* settings, const struct app_state* app
 // Return true if dockerd was successfully started.
 // Log an error and return false if it failed to start properly.
 static bool start_dockerd(const struct settings* settings, struct app_state* app_state) {
+    AXParameter* param_handle = app_state->param_handle;
     const char* data_root = settings->data_root;
     const bool use_tls = settings->use_tls;
     const bool use_tcp_socket = settings->use_tcp_socket;
@@ -519,7 +500,7 @@ static bool start_dockerd(const struct settings* settings, struct app_state* app
     g_strlcpy(msg, "Starting dockerd", msg_len);
 
     {
-        g_autofree char* log_level = get_parameter_value(PARAM_DOCKERD_LOG_LEVEL);
+        g_autofree char* log_level = get_parameter_value(param_handle, PARAM_DOCKERD_LOG_LEVEL);
         args_offset +=
             g_snprintf(args + args_offset, args_len - args_offset, " --log-level=%s", log_level);
     }
@@ -528,7 +509,7 @@ static bool start_dockerd(const struct settings* settings, struct app_state* app
         log_error(
             "At least one of IPC socket or TCP socket must be set to \"yes\". "
             "dockerd will not be started.");
-        set_status_parameter(STATUS_NO_SOCKET);
+        set_status_parameter(param_handle, STATUS_NO_SOCKET);
         goto end;
     }
 
@@ -589,7 +570,7 @@ static bool start_dockerd(const struct settings* settings, struct app_state* app
                            &error);
     if (!result) {
         log_error("Starting dockerd failed: execv returned: %d, error: %s", result, error->message);
-        set_status_parameter(STATUS_NOT_STARTED);
+        set_status_parameter(param_handle, STATUS_NOT_STARTED);
         goto end;
     }
     log_debug("Child process dockerd (%d) was started.", dockerd_process_pid);
@@ -600,10 +581,10 @@ static bool start_dockerd(const struct settings* settings, struct app_state* app
     if (!is_process_alive(dockerd_process_pid)) {
         log_error("Starting dockerd failed: Process died unexpectedly during startup");
         quit_program(EX_SOFTWARE);
-        set_status_parameter(STATUS_NOT_STARTED);
+        set_status_parameter(param_handle, STATUS_NOT_STARTED);
         goto end;
     }
-    set_status_parameter(STATUS_RUNNING);
+    set_status_parameter(param_handle, STATUS_RUNNING);
     return_value = true;
 
 end:
@@ -766,10 +747,10 @@ end:
 
 static void sd_card_callback(const char* sd_card_area, void* app_state_void_ptr) {
     struct app_state* app_state = app_state_void_ptr;
-    const bool using_sd_card = is_parameter_yes(PARAM_SD_CARD_SUPPORT);
+    const bool using_sd_card = is_parameter_yes(app_state->param_handle, PARAM_SD_CARD_SUPPORT);
     if (using_sd_card && !sd_card_area) {
         stop_dockerd();  // Block here until dockerd has stopped using the SD card.
-        set_status_parameter(STATUS_NO_SD_CARD);
+        set_status_parameter(app_state->param_handle, STATUS_NO_SD_CARD);
     }
     app_state->sd_card_area = sd_card_area ? strdup(sd_card_area) : NULL;
     if (using_sd_card)
@@ -787,26 +768,23 @@ static void parse_command_line(int argc, char** argv, struct log_settings* log_s
 int main(int argc, char** argv) {
     struct app_state app_state = {0};
     struct log_settings log_settings = {0};
-    AXParameter* ax_parameter = NULL;
-
-    log_settings.debug = is_app_log_level_debug();
-    parse_command_line(argc, argv, &log_settings);
-
-    log_init(&log_settings);
 
     loop = g_main_loop_new(NULL, FALSE);
 
-    // Setup signal handling.
+    parse_command_line(argc, argv, &log_settings);
+    log_init(&log_settings);
+
+    app_state.param_handle = setup_axparameter();
+    if (!app_state.param_handle) {
+        log_error("Error in setup_axparameter");
+        return EX_SOFTWARE;
+    }
+
+    log_settings.debug = is_app_log_level_debug(app_state.param_handle);
+
     init_signals();
 
     struct sd_disk_storage* sd_disk_storage = sd_disk_storage_init(sd_card_callback, &app_state);
-
-    // Setup ax_parameter
-    ax_parameter = setup_axparameter();
-    if (ax_parameter == NULL) {
-        log_error("Error in setup_axparameter");
-        quit_program(EX_SOFTWARE);
-    }
 
     while (application_exit_code == EX_KEEP_RUNNING) {
         if (dockerd_process_pid == -1)
@@ -814,22 +792,22 @@ int main(int argc, char** argv) {
 
         main_loop_run();
 
-        log_settings.debug = is_app_log_level_debug();
+        log_settings.debug = is_app_log_level_debug(app_state.param_handle);
 
         if (!stop_dockerd())
             log_warning("Failed to shut down dockerd.");
-        set_status_parameter(STATUS_NOT_STARTED);
+        set_status_parameter(app_state.param_handle, STATUS_NOT_STARTED);
     }
 
     main_loop_unref();
 
-    if (ax_parameter != NULL) {
+    if (app_state.param_handle != NULL) {
         for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]); ++i) {
             char* parameter_path = g_strdup_printf("root.%s.%s", APP_NAME, ax_parameters[i]);
-            ax_parameter_unregister_callback(ax_parameter, parameter_path);
+            ax_parameter_unregister_callback(app_state.param_handle, parameter_path);
             free(parameter_path);
         }
-        ax_parameter_free(ax_parameter);
+        ax_parameter_free(app_state.param_handle);
     }
 
     sd_disk_storage_free(sd_disk_storage);
