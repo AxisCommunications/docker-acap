@@ -1,9 +1,13 @@
 PROG1	= dockerdwrapper
 OBJS1	= $(PROG1).o log.o sd_disk_storage.o
 
-PKGS = gio-2.0 glib-2.0 axparameter axstorage
+PKGS = gio-2.0 glib-2.0 axparameter axstorage fcgi
 CFLAGS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) pkg-config --cflags $(PKGS))
 LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) pkg-config --libs $(PKGS))
+
+LDFLAGS = -L./lib -Wl,--no-as-needed,-rpath,'$$ORIGIN/lib'
+CFLAGS += -I/opt/build/uriparser/build/include
+LDLIBS += -luriparser
 
 CFLAGS += -W -Wformat=2 -Wpointer-arith -Wbad-function-cast -Wstrict-prototypes \
 		-Wmissing-prototypes -Winline -Wdisabled-optimization -Wfloat-equal -Wall -Werror \
