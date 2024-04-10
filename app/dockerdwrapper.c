@@ -296,6 +296,7 @@ handle_signals(__attribute__((unused)) int signal_num)
     case SIGINT:
     case SIGTERM:
     case SIGQUIT:
+      exit_code = signal_num; /* Later set to EX_OK if no errors on clean up */
       g_main_loop_quit(loop);
   }
 }
@@ -848,8 +849,6 @@ start_dockerd(bool use_sdcard,
   syslog_v(LOG_INFO,
            "start_dockerd: TODO: Alive but not up and stable? sleep(%d)",
            post_watch_add_secs);
-
-  g_status = STARTED;
   return_value = true;
 
 end:
@@ -901,29 +900,30 @@ kill_and_verify(int *process_id, uint sig, uint secs)
 /**
  * @brief Stop the currently running dockerd process.
  *
- * @return exit_code. 0 if successful, -1 otherwise
+ * @return status. 0 if successful, -1 otherwise
  */
 static int
 stop_dockerd(void)
 {
+  int status = 0;
+
   if (dockerd_process_pid == -1) {
     /* Nothing to stop. */
-    exit_code = 0;
     goto end;
   }
 
   /* Send SIGTERM to the process, wait up to 10 secs */
-  if ((exit_code = kill_and_verify(&dockerd_process_pid, SIGTERM, 10)) == 0) {
+  if ((status = kill_and_verify(&dockerd_process_pid, SIGTERM, 10)) == 0) {
     goto end;
   }
   syslog(LOG_WARNING, "Failed to send and verify SIGTERM to child");
 
   /* SIGTERM failed, try SIGKILL instead, wait up to 10 secs  */
-  if ((exit_code = kill_and_verify(&dockerd_process_pid, SIGKILL, 10)) == 0) {
+  if ((status = kill_and_verify(&dockerd_process_pid, SIGKILL, 10)) == 0) {
     goto end;
   }
   syslog_v(LOG_INFO, "Ignoring apparent failed SIGKILL to child");
-  exit_code = 0;
+  status = 0;
 
 end:
   if (g_status > STARTED) {
@@ -931,7 +931,7 @@ end:
     g_main_loop_quit(loop);
   }
 
-  return exit_code;
+  return status;
 }
 
 /**
@@ -1023,8 +1023,6 @@ end:
       stop_and_quit_main_loop(/* No need to quit main loop */ false);
       return start();
     }
-  } else {
-    g_status = exit_code;
   }
 
   syslog_v(
@@ -1075,13 +1073,11 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
 
   if (status == 0) {
     /* Graceful exit. All good.. */
-    exit_code = 0;
   } else if ((status == SIGKILL) || (status == SIGTERM)) {
     /* Likely here as a result of stop_dockerd().. */
     syslog_v(LOG_INFO,
              "stop_dockerd instigated %s exit",
              (status == SIGKILL) ? "SIGKILL" : "SIGTERM");
-    exit_code = 0;
   } else if (!g_spawn_check_wait_status(status, &error)) {
     /* Something went wrong..*/
     syslog(LOG_ERR,
@@ -1106,7 +1102,7 @@ dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
 
   /* Stop if exit was unexpected, otherwise continue */
   dockerd_process_pid = -1;
-  if (exit_code != 0) {
+  if (exit_code < 0) {
     g_main_loop_quit(loop);
   }
 }
@@ -1264,14 +1260,18 @@ main_loop:
 end:
   /* Cleanup */
   g_status = STOPPING;
-  if (!is_process_alive(dockerd_process_pid)) {
-    if ((exit_code = stop_dockerd()) == 0) {
+  int status;
+  if (is_process_alive(dockerd_process_pid)) {
+    if ((status = stop_dockerd()) == 0) {
       syslog(LOG_INFO, "Shutting down. dockerd shut down successfully.");
     } else {
+      exit_code = -ABS(status);
       syslog(LOG_WARNING, "Shutting down. Failed to shut down dockerd.");
     }
   }
-  fcgi_stop();
+  if ((status = fcgi_stop()) != 0) {
+    exit_code = -ABS(status);
+  }
   if (ax_parameter != NULL) {
     syslog_v(LOG_INFO, "Shutting down. unregistering ax_parameter callbacks.");
     for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]);
@@ -1285,6 +1285,10 @@ end:
   }
 
   g_clear_error(&error);
+  if (exit_code > 0) {
+    /* Requested shutdown and no errors cleaning up, use EX_OK */
+    exit_code = 0;
+  }
   if (exit_code != 0) {
     syslog(LOG_ERR, "Please restart the acap manually.");
   }
