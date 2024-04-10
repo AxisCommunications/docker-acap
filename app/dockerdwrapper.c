@@ -14,6 +14,7 @@
  * under the License.
  */
 
+#define _GNU_SOURCE  // For sigabbrev_np()
 #include "log.h"
 #include "sd_disk_storage.h"
 #include <axsdk/axparameter.h>
@@ -21,6 +22,7 @@
 #include <glib.h>
 #include <mntent.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sysexits.h>
@@ -602,45 +604,53 @@ static void read_settings_and_start_dockerd(struct app_state* app_state) {
     free(settings.data_root);
 }
 
-/**
- * @brief Stop the currently running dockerd process.
- *
- * @return True if successful, false otherwise
- */
-static bool stop_dockerd(void) {
-    bool killed = false;
+static bool send_signal(const char* name, GPid pid, int sig) {
+    log_debug("Sending SIG%s to %s (%d)", sigabbrev_np(sig), name, pid);
+    if (kill(pid, sig) != 0) {
+        log_error("Failed to send %s to %s (%d)", sigdescr_np(sig), name, pid);
+        return FALSE;
+    }
+    return TRUE;
+}
+
+// Check if dockerd is still running. Launch this function using g_timeout_add_seconds() and pass a
+// pointer to a counter starting at 1. When dockerd has terminated, the counter will be set to zero.
+// Otherwise, it will be increased, and SIGTERM will be sent on the 20th call.
+static gboolean monitor_dockerd_termination(void* time_since_sigterm_void_ptr) {
+    // dockerd usually sends SIGTERM to containers after 10 s, so we must wait a bit longer.
+    const int time_to_wait_before_sigkill = 20;
+    int* time_since_sigterm = (int*)time_since_sigterm_void_ptr;
     if (dockerd_process_pid == -1) {
-        // Nothing to stop.
-        killed = true;
-        goto end;
+        log_debug("dockerd exited after %d s", *time_since_sigterm);
+        *time_since_sigterm = 0;  // Tell caller that timer has ended.
+        g_main_loop_quit(loop);   // Release caller from its main loop.
+        return FALSE;             // Tell GLib that timer shall end.
+    } else {
+        log_debug("dockerd (%d) still running %d s after SIGTERM",
+                  dockerd_process_pid,
+                  *time_since_sigterm);
+        (*time_since_sigterm)++;
+        if (*time_since_sigterm > time_to_wait_before_sigkill)
+            // Send SIGKILL but still wait for the process exit callback to clear the pid variable.
+            send_signal("dockerd", dockerd_process_pid, SIGKILL);
+        return TRUE;  // Tell GLib to call timer again.
     }
+}
 
-    log_debug("Sending SIGTERM to dockerd (%d).", dockerd_process_pid);
-    bool sigterm_successfully_sent = kill(dockerd_process_pid, SIGTERM) == 0;
-    if (!sigterm_successfully_sent) {
-        log_error("Failed to send SIGTERM to child. Error: %s", strerror(errno));
-        errno = 0;
+// Send SIGTERM to dockerd, wait for it to terminate.
+// Send SIGKILL if that fails, but still wait for it to terminate.
+static void stop_dockerd(void) {
+    if (!is_process_alive(dockerd_process_pid))
+        return;
+
+    send_signal("dockerd", dockerd_process_pid, SIGTERM);
+
+    int time_since_sigterm = 1;
+    g_timeout_add_seconds(1, monitor_dockerd_termination, &time_since_sigterm);
+    while (time_since_sigterm != 0) {  // Loop until the timer callback has stopped running
+        g_main_loop_run(loop);
     }
-
-    // Wait before sending a SIGKILL.
-    // The sleep will be interrupted when the dockerd_process_callback arrives,
-    // so we will essentially sleep until dockerd has shut down or 10 seconds
-    // passed.
-    sleep(10);
-
-    if (dockerd_process_pid == -1) {
-        killed = true;
-        goto end;
-    }
-
-    log_debug("Sending SIGKILL to dockerd (%d).", dockerd_process_pid);
-    killed = kill(dockerd_process_pid, SIGKILL) == 0;
-    if (!killed)
-        log_error("Failed to send SIGKILL to child. Error: %s", strerror(errno));
-
     log_info("Stopped dockerd.");
-end:
-    return killed;
 }
 
 static void log_child_process_exit_cause(const char* name, GPid pid, int status) {
@@ -794,8 +804,7 @@ int main(int argc, char** argv) {
 
         log_settings.debug = is_app_log_level_debug(app_state.param_handle);
 
-        if (!stop_dockerd())
-            log_warning("Failed to shut down dockerd.");
+        stop_dockerd();
         set_status_parameter(app_state.param_handle, STATUS_NOT_STARTED);
     }
 
