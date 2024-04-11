@@ -69,7 +69,6 @@ jobs:
               echo "append_sha='true'" >> $GITHUB_OUTPUT
           fi
       - name: Update manifest file
-        #if: ( github.ref_type == 'tag') TODO - change to push to main
         uses: ./.github/actions/update-acap-manifest-action
         with:
           manifest_file: ./app/manifest.json
@@ -109,7 +108,7 @@ jobs:
           else
             echo "::error::Non valid architecture '${{ matrix.arch }}' encountered"
           fi
-      - name: move eap to cache location
+      - name: Move EAP-file to cache location
         run: |
           echo "The eap-file is: ${{ env.EAP_FILE_W_SHA }}"
           echo "Workspace dir is ${{ github.workspace }}"
@@ -150,7 +149,7 @@ jobs:
         with:
           path: ${{ github.workspace }}/build-${{ matrix.arch }}
           key: key-${{ env.SHORT_SHA }}-${{ matrix.arch }}
-      - name: check file
+      - name: Get cached EAP-file
         run: |
           mkdir -p build
           mv ${{ github.workspace }}/build-${{ matrix.arch }}/${{ env.EAP_FILE }} build/.

@@ -24,7 +24,13 @@ updates:
       interval: "weekly"
       day: "monday"
   - package-ecosystem: "github-actions"
-    directory: ".github/actions/update-acap-manifest-action" 
+    directory: ".github/actions/update-acap-manifest-action"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+  # Check status of Dockerfile
+  - package-ecosystem: "docker"
+    directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
