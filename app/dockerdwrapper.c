@@ -21,10 +21,12 @@
 #include "log.h"
 #include "sd_disk_storage.h"
 #include "tls.h"
+#include <arpa/inet.h>
 #include <axsdk/axparameter.h>
 #include <errno.h>
 #include <glib.h>
 #include <mntent.h>
+#include <netdb.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -410,7 +412,7 @@ static char* prepare_data_root(AXParameter* param_handle, const char* sd_card_ar
         }
         return data_root;
     } else {
-        return strdup("/var/lib/docker");  // Same location as if --data-root is omitted
+        return g_strdup_printf("%s/data", APP_LOCALDATA);  // Use app-localdata if no SD Card
     }
 }
 
@@ -476,25 +478,64 @@ static const char* build_daemon_args(const struct settings* settings, AXParamete
     gchar msg[msg_len];
     guint args_offset = 0;
 
+    g_autofree char* log_level = get_parameter_value(param_handle, PARAM_DOCKERD_LOG_LEVEL);
+
+    // get host ip
+    char host_buffer[256];
+    char* IPbuffer;
+    struct hostent* host_entry;
+    gethostname(host_buffer, sizeof(host_buffer));
+    host_entry = gethostbyname(host_buffer);
+    IPbuffer = inet_ntoa(*((struct in_addr*)host_entry->h_addr_list[0]));
+
+    // construct the rootlesskit command
     args_offset += g_snprintf(args + args_offset,
                               args_len - args_offset,
-                              "%s %s",
-                              "dockerd",
-                              "--config-file " APP_LOCALDATA "/daemon.json");
+                              "%s %s %s %s %s %s %s %s %s",
+                              "rootlesskit",
+                              "--subid-source=static",
+                              "--net=slirp4netns",
+                              "--disable-host-loopback",
+                              "--copy-up=/etc",
+                              "--copy-up=/run",
+                              "--propagation=rslave",
+                              "--port-driver slirp4netns",
+                              /* don't use same range as company proxy */
+                              "--cidr=10.0.3.0/24");
+
+    if (strcmp(log_level, "debug") == 0) {
+        args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s", "--debug");
+    }
+
+    const uint port = use_tls ? 2376 : 2375;
+    args_offset += g_snprintf(args + args_offset,
+                              args_len - args_offset,
+                              " -p %s:%d:%d/tcp",
+                              IPbuffer,
+                              port,
+                              port);
+
+    // add dockerd command
+    args_offset += g_snprintf(args + args_offset,
+                              args_len - args_offset,
+                              " dockerd %s",
+                              "--config-file " APP_LOCALDATA "/" DAEMON_JSON);
 
     g_strlcpy(msg, "Starting dockerd", msg_len);
 
-    {
-        g_autofree char* log_level = get_parameter_value(param_handle, PARAM_DOCKERD_LOG_LEVEL);
-        args_offset +=
-            g_snprintf(args + args_offset, args_len - args_offset, " --log-level=%s", log_level);
-    }
+    args_offset +=
+        g_snprintf(args + args_offset, args_len - args_offset, " --log-level=%s", log_level);
 
     if (use_ipc_socket) {
         g_strlcat(msg, " with IPC socket and", msg_len);
+        uid_t uid = getuid();
+        uid_t gid = getgid();
+        // The socket should reside in the user directory and have same group as user
         args_offset += g_snprintf(args + args_offset,
                                   args_len - args_offset,
-                                  " -H unix:///var/run/docker.sock");
+                                  " --group %d -H unix:///var/run/user/%d/docker.sock",
+                                  gid,
+                                  uid);
     } else {
         g_strlcat(msg, " without IPC socket and", msg_len);
     }
