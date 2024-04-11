@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1.2
 
 ARG DOCKER_IMAGE_VERSION=26.0.0
 
@@ -57,6 +57,9 @@ ENV ARCH ${ACAPARCH}
 COPY app /opt/app
 COPY --from=ps /export/ps /opt/app
 
+RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
+    --mount=target=/var/cache/apt,type=cache,sharing=locked \
+    DEBIAN_FRONTEND=noninteractive \
 # Download and extract dockerd and its dependencies
 RUN <<EOF
     if [ "$ACAPARCH" = "armv7hf" ]; then
