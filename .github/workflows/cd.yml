@@ -23,6 +23,9 @@ on:
     branches:
       - "main"
 
+env:
+  PROJECT: "docker-acap"
+
 jobs:
   # Builds docker ACAP using the build.sh script, then signs the eap-file in
   # ACAP Portal and stores it as a build artifact.
@@ -36,38 +39,120 @@ jobs:
     outputs:
       EAP_FILE_ARMV7HF: ${{ steps.save_full_file_name.outputs.EAP_FILE_ARMV7HF }}
       EAP_FILE_AARCH64: ${{ steps.save_full_file_name.outputs.EAP_FILE_AARCH64 }}
+      SHORT_SHA: ${{ steps.save_full_file_name.outputs.SHORT_SHA }}
     steps:
       - uses: actions/checkout@v4
+      - name: get_short_sha
+        run: |
+          sha=${{ github.sha }}
+          strip_sha=${sha:0:7}
+          echo "SHORT_SHA=${strip_sha}" >> $GITHUB_ENV
+      - uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/build-${{ matrix.arch }}
+          key: key-${{ env.SHORT_SHA }}-${{ matrix.arch }}
       - name: Create base image metadata
         id: meta
         uses: ./.github/actions/metadata-action
         with:
           suffix: -${{ matrix.arch }}
-          repository: "docker-acap"
+          repository: ${{ env.PROJECT }}
           get_version: "true"
+      - name: Get changes for manifest
+        id: manifest-settings
+        run: |
+          if [ ${{github.ref_type}} == tag ]; then
+              echo "version_value=${{ steps.meta.outputs.version }}" >> $GITHUB_OUTPUT
+              echo "append_sha='false'" >> $GITHUB_OUTPUT
+          else
+              echo "version_value=-${{ env.SHORT_SHA }}" >> $GITHUB_OUTPUT
+              echo "append_sha='true'" >> $GITHUB_OUTPUT
+          fi
       - name: Update manifest file
-        if: ( github.ref_type == 'tag')
         uses: ./.github/actions/update-acap-manifest-action
         with:
           manifest_file: ./app/manifest.json
-          value: ${{ steps.meta.outputs.version }}
-      - name: Build ${{ env.example }} application
+          append: ${{ steps.manifest-settings.outputs.append_sha}}
+          value: ${{ steps.manifest-settings.outputs.version_value }}
+      - name: Build ${{ env.PROJECT}} application
         uses: ./.github/actions/docker-build-action
         with:
           dockerfile: Dockerfile
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: ACAPARCH=${{ matrix.arch }}
-          target: "build"
-      - name: Set name of EAP-file
+          outputs: "type=local,dest=build"
+      - name: Get name of EAP-file
         id: get_eap_file_name
         run: |
-          docker cp $(docker create "${{ steps.meta.outputs.full_name }}"):/opt/app build
           export EAP_FILE=$(find build -type f -name "*.eap" -printf "%f\n")
           delimiter="$(openssl rand -hex 8)"
           echo "EAP_FILE<<${delimiter}" >> ${GITHUB_ENV}
           echo "${EAP_FILE}" >> ${GITHUB_ENV}
           echo "${delimiter}" >> ${GITHUB_ENV}
+      - name: Add sha to EAP-file name
+        run: |
+          eap_file_w_sha=$(echo $"${{ env.EAP_FILE }}" | sed 's/\.eap/_${{ env.SHORT_SHA }}.eap/')
+          echo "EAP_FILE_W_SHA=${eap_file_w_sha}" >> $GITHUB_ENV
+          cp build/${{ env.EAP_FILE }} build/$eap_file_w_sha
+      - name: Save full file name
+        id: save_full_file_name
+        run: |
+          echo "SHORT_SHA=${{ env.SHORT_SHA }}" >> $GITHUB_OUTPUT
+          if [ ${{ matrix.arch }} = armv7hf ]
+          then
+            echo "EAP_FILE_ARMV7HF=${{ env.EAP_FILE_W_SHA }}" >> $GITHUB_OUTPUT
+          elif [ ${{ matrix.arch }} = aarch64 ]
+          then
+            echo "EAP_FILE_AARCH64=${{ env.EAP_FILE_W_SHA }}" >> $GITHUB_OUTPUT
+          else
+            echo "::error::Non valid architecture '${{ matrix.arch }}' encountered"
+          fi
+      - name: Move EAP-file to cache location
+        run: |
+          echo "The eap-file is: ${{ env.EAP_FILE_W_SHA }}"
+          echo "Workspace dir is ${{ github.workspace }}"
+          mkdir -p ${{ github.workspace }}/build-${{ matrix.arch }}
+          #rm -f ${{ github.workspace }}/build-${{ matrix.arch }}/${{ env.EAP_FILE_W_SHA }}
+          mv build/${{ env.EAP_FILE_W_SHA }} ${{ github.workspace }}/build-${{ matrix.arch }}/.
+
+  # Sign the eap-file from the build
+  sign-eap:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    needs: build
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ["armv7hf", "aarch64"]
+      max-parallel: 1
+    env:
+      EAP_FILE_AARCH64: ${{ needs.build.outputs.EAP_FILE_AARCH64 }}
+      EAP_FILE_ARMV7HF: ${{ needs.build.outputs.EAP_FILE_ARMV7HF }}
+      SHORT_SHA: ${{ needs.build.outputs.SHORT_SHA }}
+    steps:
+      - name: Get EAP file name
+        id: full_eap_name
+        run: |
+          if [ ${{ matrix.arch }} = armv7hf ]
+          then
+              echo "EAP_FILE=${{ needs.build.outputs.EAP_FILE_ARMV7HF }}" >> $GITHUB_ENV
+          elif [ ${{ matrix.arch }} = aarch64 ]
+          then
+              echo "EAP_FILE=${{ needs.build.outputs.EAP_FILE_AARCH64 }}" >> $GITHUB_ENV
+          else
+              echo "::error::Non valid architecture '${{ matrix.arch }}' encountered"
+          fi
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/build-${{ matrix.arch }}
+          key: key-${{ env.SHORT_SHA }}-${{ matrix.arch }}
+      - name: Get cached EAP-file
+        run: |
+          mkdir -p build
+          mv ${{ github.workspace }}/build-${{ matrix.arch }}/${{ env.EAP_FILE }} build/.
       - name: Refactor naming of EAP-file for signed output
         run: |
           signed_output=$(echo "${{ env.EAP_FILE }}" | sed 's/\.eap/_signed.eap/')
@@ -75,9 +160,11 @@ jobs:
       - name: Sign eap-file
         run: |
           cd build
-          RESPONSE=$(curl -XPOST -H 'accept: */*' -H 'Content-Type: multipart/form-data' -H 'Authorization: Bearer ${{secrets.ACAP_PORTAL_SIGNING_BEARER_TOKEN}}' \
-          '${{ vars.ACAP_PORTAL_URL }}/${{secrets.ACAP_PORTAL_SIGNING_ID}}/sign/binary' -F uploadedFile=@"${{ env.EAP_FILE }}" --output ${{ env.SIGNED_EAP_FILE }} \
-          -w "%{http_code}\n" -o /dev/null)
+          RESPONSE=$(curl -XPOST -H 'accept: */*' -H 'Content-Type: multipart/form-data' \
+            -H 'Authorization: Bearer ${{secrets.ACAP_PORTAL_SIGNING_BEARER_TOKEN}}' \
+            '${{ vars.ACAP_PORTAL_URL }}/${{secrets.ACAP_PORTAL_SIGNING_ID}}/sign/binary' \
+            -F uploadedFile=@"${{ env.EAP_FILE }}" --output ${{ env.SIGNED_EAP_FILE }} \
+            -w "%{http_code}\n" -o /dev/null)
           echo "HTTP_RESPONSE=$RESPONSE" >> $GITHUB_ENV
       - name: Check that acap has been signed
         run: |
@@ -116,7 +203,7 @@ jobs:
     permissions:
       contents: write
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build, sign-eap]
     outputs:
       RELEASE_ID: ${{ steps.prerelease.outputs.RELEASE_ID }}
     steps:
