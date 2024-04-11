@@ -15,8 +15,10 @@
  */
 
 #define _GNU_SOURCE  // For sigabbrev_np()
+#include "app_paths.h"
 #include "log.h"
 #include "sd_disk_storage.h"
+#include "tls.h"
 #include <axsdk/axparameter.h>
 #include <errno.h>
 #include <glib.h>
@@ -27,9 +29,6 @@
 #include <sys/wait.h>
 #include <sysexits.h>
 #include <unistd.h>
-
-#define APP_DIRECTORY "/usr/local/packages/" APP_NAME
-#define APP_LOCALDATA APP_DIRECTORY "/localdata"
 
 #define PARAM_APPLICATION_LOG_LEVEL "ApplicationLogLevel"
 #define PARAM_DOCKERD_LOG_LEVEL     "DockerdLogLevel"
@@ -108,10 +107,6 @@ static const char* ax_parameters[] = {PARAM_APPLICATION_LOG_LEVEL,
                                       PARAM_SD_CARD_SUPPORT,
                                       PARAM_TCP_SOCKET,
                                       PARAM_USE_TLS};
-
-#define TLS_CERT_PATH APP_LOCALDATA
-
-static const char* tls_certs[] = {"ca.pem", "server-cert.pem", "server-key.pem"};
 
 #define main_loop_run()                                        \
     do {                                                       \
@@ -418,49 +413,18 @@ static char* prepare_data_root(AXParameter* param_handle, const char* sd_card_ar
  * @return True if successful, false otherwise.
  */
 static gboolean get_and_verify_tls_selection(AXParameter* param_handle, bool* use_tls_ret) {
-    gboolean return_value = false;
-    char* ca_path = NULL;
-    char* cert_path = NULL;
-    char* key_path = NULL;
-
     const bool use_tls = is_parameter_yes(param_handle, PARAM_USE_TLS);
-    {
-        if (use_tls) {
-            char* ca_path = g_strdup_printf("%s/%s", TLS_CERT_PATH, tls_certs[0]);
-            char* cert_path = g_strdup_printf("%s/%s", TLS_CERT_PATH, tls_certs[1]);
-            char* key_path = g_strdup_printf("%s/%s", TLS_CERT_PATH, tls_certs[2]);
 
-            bool ca_exists = access(ca_path, F_OK) == 0;
-            bool cert_exists = access(cert_path, F_OK) == 0;
-            bool key_exists = access(key_path, F_OK) == 0;
-
-            if (!ca_exists || !cert_exists || !key_exists) {
-                log_error("One or more TLS certificates missing.");
-            }
-
-            if (!ca_exists) {
-                log_error("Cannot start using TLS, no CA certificate found at %s", ca_path);
-            }
-            if (!cert_exists) {
-                log_error("Cannot start using TLS, no server certificate found at %s", cert_path);
-            }
-            if (!key_exists) {
-                log_error("Cannot start using TLS, no server key found at %s", key_path);
-            }
-
-            if (!ca_exists || !cert_exists || !key_exists) {
-                set_status_parameter(param_handle, STATUS_TLS_CERT_MISSING);
-                goto end;
-            }
+    if (use_tls) {
+        if (tls_missing_certs()) {
+            tls_log_missing_cert_warnings();
+            set_status_parameter(param_handle, STATUS_TLS_CERT_MISSING);
+            return false;
         }
-        *use_tls_ret = use_tls;
-        return_value = true;
     }
-end:
-    free(ca_path);
-    free(cert_path);
-    free(key_path);
-    return return_value;
+
+    *use_tls_ret = use_tls;
+    return true;
 }
 
 static bool read_settings(struct settings* settings, const struct app_state* app_state) {
@@ -548,13 +512,8 @@ static bool start_dockerd(const struct settings* settings, struct app_state* app
         if (use_tls) {
             args_offset += g_snprintf(args + args_offset,
                                       args_len - args_offset,
-                                      " --tlsverify"
-                                      " --tlscacert %s/ca.pem"
-                                      " --tlscert %s/server-cert.pem"
-                                      " --tlskey %s/server-key.pem",
-                                      TLS_CERT_PATH,
-                                      TLS_CERT_PATH,
-                                      TLS_CERT_PATH);
+                                      " %s",
+                                      tls_args_for_dockerd());
             g_strlcat(msg, " in TLS mode", msg_len);
         } else {
             args_offset += g_snprintf(args + args_offset, args_len - args_offset, " --tls=false");
