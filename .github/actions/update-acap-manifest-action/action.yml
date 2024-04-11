@@ -18,12 +18,25 @@ inputs:
       Defaults to .acapPackageConf.setup.version.
     default: '.acapPackageConf.setup.version'
     required: false
+  append:
+    description: Set to true to append to the current value of 'key'
+    default: 'false'
+    required: false
 
 runs:
   using: composite
   steps:
-    - shell: bash
+    - name: update value
+      shell: bash 
       run: |
-        jq '${{ inputs.key }} = "${{ inputs.value }}"' \
-          "${{ inputs.manifest_file }}" > manifest_file.tmp
+        if [ ${{ inputs.append  }} == 'true' ]; then
+          old_value=$(cat ${{ inputs.manifest_file }} | jq -r '${{ inputs.key }}')
+          NEW_VALUE=$old_value${{ inputs.value }} \
+            jq '${{ inputs.key }} = env.NEW_VALUE' \
+            "${{ inputs.manifest_file }}" > manifest_file.tmp
+        else
+          jq '${{ inputs.key }} = "${{ inputs.value }}"' \
+            "${{ inputs.manifest_file }}" > manifest_file.tmp
+        fi
         mv manifest_file.tmp "${{ inputs.manifest_file }}"
+        echo $(cat ${{ inputs.manifest_file }} | jq -r '${{ inputs.key }}')

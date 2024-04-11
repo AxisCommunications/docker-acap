@@ -48,6 +48,10 @@ inputs:
       (shorthand for --attest=type=provenance). Default false.
     required: false
     default: 'false'
+  outputs:
+    description: List of output destinations (format type=local,dest=path)
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -69,3 +73,4 @@ runs:
         labels: ${{ inputs.labels }}
         target: ${{ inputs.target }}
         provenance: ${{ inputs.provenance }}
+        outputs: ${{ inputs.outputs }}

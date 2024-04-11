@@ -9,7 +9,7 @@ on:
     branches:
       - "main"
     paths-ignore:
-      - ".github/workflows/send-dispatch.yml"
+      - ".github/*"
 
 jobs:
   send-dispatch:
