@@ -95,7 +95,7 @@ static const char* ax_parameters[] = {PARAM_APPLICATION_LOG_LEVEL,
                                       PARAM_TCP_SOCKET,
                                       PARAM_USE_TLS};
 
-static const char* tls_cert_path = APP_DIRECTORY;
+#define TLS_CERT_PATH APP_LOCALDATA
 
 static const char* tls_certs[] = {"ca.pem", "server-cert.pem", "server-key.pem"};
 
@@ -410,9 +410,9 @@ static gboolean get_and_verify_tls_selection(AXParameter* param_handle, bool* us
     const bool use_tls = is_parameter_yes(param_handle, PARAM_USE_TLS);
     {
         if (use_tls) {
-            char* ca_path = g_strdup_printf("%s/%s", tls_cert_path, tls_certs[0]);
-            char* cert_path = g_strdup_printf("%s/%s", tls_cert_path, tls_certs[1]);
-            char* key_path = g_strdup_printf("%s/%s", tls_cert_path, tls_certs[2]);
+            char* ca_path = g_strdup_printf("%s/%s", TLS_CERT_PATH, tls_certs[0]);
+            char* cert_path = g_strdup_printf("%s/%s", TLS_CERT_PATH, tls_certs[1]);
+            char* key_path = g_strdup_printf("%s/%s", TLS_CERT_PATH, tls_certs[2]);
 
             bool ca_exists = access(ca_path, F_OK) == 0;
             bool cert_exists = access(cert_path, F_OK) == 0;
@@ -530,19 +530,15 @@ static bool start_dockerd(const struct settings* settings, struct app_state* app
         args_offset +=
             g_snprintf(args + args_offset, args_len - args_offset, " -H tcp://0.0.0.0:%d", port);
         if (use_tls) {
-            const char* ca_path = APP_DIRECTORY "/ca.pem";
-            const char* cert_path = APP_DIRECTORY "/server-cert.pem";
-            const char* key_path = APP_DIRECTORY "/server-key.pem";
             args_offset += g_snprintf(args + args_offset,
                                       args_len - args_offset,
-                                      " %s %s %s %s %s %s %s",
-                                      "--tlsverify",
-                                      "--tlscacert",
-                                      ca_path,
-                                      "--tlscert",
-                                      cert_path,
-                                      "--tlskey",
-                                      key_path);
+                                      " --tlsverify"
+                                      " --tlscacert %s/ca.pem"
+                                      " --tlscert %s/server-cert.pem"
+                                      " --tlskey %s/server-key.pem",
+                                      TLS_CERT_PATH,
+                                      TLS_CERT_PATH,
+                                      TLS_CERT_PATH);
             g_strlcat(msg, " in TLS mode", msg_len);
         } else {
             args_offset += g_snprintf(args + args_offset, args_len - args_offset, " --tls=false");
