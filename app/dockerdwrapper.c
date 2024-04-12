@@ -848,6 +848,8 @@ int main(int argc, char** argv) {
     }
     main_loop_unref();
 
+    set_status_parameter(app_state.param_handle, STATUS_NOT_STARTED);
+
     if (app_state.param_handle != NULL) {
         for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]); ++i) {
             char* parameter_path = g_strdup_printf("root.%s.%s", APP_NAME, ax_parameters[i]);
@@ -860,6 +862,5 @@ int main(int argc, char** argv) {
     sd_disk_storage_free(sd_disk_storage);
     free(app_state.sd_card_area);
 
-    set_status_parameter(app_state.param_handle, STATUS_NOT_STARTED);
     return application_exit_code;
 }
