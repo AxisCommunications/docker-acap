@@ -240,28 +240,31 @@ Following are the possible values of `Status`:
 ```text
 -1 NOT STARTED                The application is not started.
  0 RUNNING                    The application is started and dockerd is running.
- 1 TLS CERT MISSING           Use TLS is selected but there but certificates are missing on the device.
+ 1 DOCKERD STOPPED            Dockerd was stopped successfully and will soon be restarted.
+ 2 DOCKERD RUNTIME ERROR      Dockerd has reported an error during runtime that needs to be resolved by the operator.
+                              Change at least one parameter or restart the application in order to start dockerd again.
+ 3 TLS CERT MISSING           Use TLS is selected but there but certificates are missing on the device.
                               The application is running but dockerd is stopped.
                               Upload certificates and restart the application or de-select Use TLS.
- 2 NO SOCKET                  Neither TCP Socket or IPC Socket are selected.
+ 4 NO SOCKET                  Neither TCP Socket or IPC Socket are selected.
                               The application is running but dockerd is stopped.
                               Select one or both sockets.
- 3 NO SD CARD                 Use SD Card is selected but no SD Card is mounted in the device.
+ 5 NO SD CARD                 Use SD Card is selected but no SD Card is mounted in the device.
                               The application is running but dockerd is stopped.
-                              Insert and mount a SD Card.
- 4 SD CARD WRONG FS           Use SD Card is selected but the mounted SD Card has the wrong file system.
+                              Insert and mount an SD Card.
+ 6 SD CARD WRONG FS           Use SD Card is selected but the mounted SD Card has the wrong file system.
                               The application is running but dockerd is stopped.
                               Format the SD Card with the correct file system.
- 5 SD CARD WRONG PERMISSION   Use SD Card is selected but the application user does not have the correct file
+ 7 SD CARD WRONG PERMISSION   Use SD Card is selected but the application user does not have the correct file
                               permissions to use it.
                               The application is running but dockerd is stopped.
                               Make sure no directories with the wrong user permissions are left on the
-                              SD Card. Then restart the application.
- 6 SD CARD MIGRATION FAILED   Use SD Card is selected but migrating data from the old data root location to the
+                              SD Card, then restart the application.
+ 8 SD CARD MIGRATION FAILED   Use SD Card is selected but migrating data from the old data root location to the
                               new one has failed.
                               The application is running but dockerd is stopped.
-                              Manually back up and remove either the old data root folder, or the new
-                              data root folder, from the SD card. Then restart the application.
+                              Manually back up and remove either the old or the new data root folder from the SD card,
+                              then restart the application.
 ```
 
 ## Building the Docker ACAP

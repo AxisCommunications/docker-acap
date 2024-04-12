@@ -40,8 +40,10 @@
 #define PARAM_STATUS                "Status"
 
 typedef enum {
-    STATUS_NOT_STARTED = 0,
+    STATUS_NOT_STARTED = 0,  // Index in the array, not the actual status code
     STATUS_RUNNING,
+    STATUS_DOCKERD_STOPPED,
+    STATUS_DOCKERD_RUNTIME_ERROR,
     STATUS_TLS_CERT_MISSING,
     STATUS_NO_SOCKET,
     STATUS_NO_SD_CARD,
@@ -53,12 +55,14 @@ typedef enum {
 
 static const char* const status_code_strs[STATUS_CODE_COUNT] = {"-1 NOT STARTED",
                                                                 "0 RUNNING",
-                                                                "1 TLS CERT MISSING",
-                                                                "2 NO SOCKET",
-                                                                "3 NO SD CARD",
-                                                                "4 SD CARD WRONG FS",
-                                                                "5 SD CARD WRONG PERMISSION",
-                                                                "6 SD CARD MIGRATION FAILED"};
+                                                                "1 DOCKERD STOPPED",
+                                                                "2 DOCKERD RUNTIME ERROR",
+                                                                "3 TLS CERT MISSING",
+                                                                "4 NO SOCKET",
+                                                                "5 NO SD CARD",
+                                                                "6 SD CARD WRONG FS",
+                                                                "7 SD CARD WRONG PERMISSION",
+                                                                "8 SD CARD MIGRATION FAILED"};
 
 struct settings {
     char* data_root;
@@ -68,8 +72,16 @@ struct settings {
 };
 
 struct app_state {
+    bool allow_dockerd_to_start;
     char* sd_card_area;
     AXParameter* param_handle;
+};
+
+// If process exited by a signal, code will be -1.
+// If process exited with an exit code, signal will be 0.
+struct exit_cause {
+    int code;
+    int signal;
 };
 
 /**
@@ -653,20 +665,41 @@ static void stop_dockerd(void) {
     log_info("Stopped dockerd.");
 }
 
+static struct exit_cause child_process_exit_cause(int status, GError* error) {
+    struct exit_cause result;
+    result.code = -1;
+    result.signal = 0;
+
+    if (g_spawn_check_wait_status(status, &error) || error->domain == G_SPAWN_EXIT_ERROR)
+        result.code = error ? error->code : 0;
+    else if (error->domain == G_SPAWN_ERROR && error->code == G_SPAWN_ERROR_FAILED)
+        result.signal = status;
+
+    return result;
+}
+
 static void log_child_process_exit_cause(const char* name, GPid pid, int status) {
     GError* error = NULL;
+    struct exit_cause exit_cause = child_process_exit_cause(status, error);
+
     char msg[128];
     const char* end = msg + sizeof(msg);
     char* ptr = msg + g_snprintf(msg, end - msg, "Child process %s (%d)", name, pid);
-
-    if (g_spawn_check_wait_status(status, &error) || error->domain == G_SPAWN_EXIT_ERROR)
-        g_snprintf(ptr, end - ptr, " exited with exit code %d", error ? error->code : 0);
-    else if (error->domain == G_SPAWN_ERROR && error->code == G_SPAWN_ERROR_FAILED)
-        g_snprintf(ptr, end - ptr, " was killed by signal %d", status);
+    if (exit_cause.code >= 0)
+        g_snprintf(ptr, end - ptr, " exited with exit code %d", exit_cause.code);
+    else if (exit_cause.signal > 0)
+        g_snprintf(ptr, end - ptr, " was killed by signal %d", exit_cause.signal);
     else
         g_snprintf(ptr, end - ptr, " terminated in an unexpected way: %s", error->message);
     g_clear_error(&error);
     log_debug("%s", msg);
+}
+
+static bool child_process_exited_with_error(int status) {
+    GError* error = NULL;
+    struct exit_cause exit_cause = child_process_exit_cause(status, error);
+    g_clear_error(&error);
+    return exit_cause.code > 0;
 }
 
 /**
@@ -676,6 +709,11 @@ static void dockerd_process_exited_callback(GPid pid, gint status, gpointer app_
     log_child_process_exit_cause("dockerd", pid, status);
 
     struct app_state* app_state = app_state_void_ptr;
+
+    bool runtime_error = child_process_exited_with_error(status);
+    app_state->allow_dockerd_to_start = !runtime_error;
+    status_code_t s = runtime_error ? STATUS_DOCKERD_RUNTIME_ERROR : STATUS_DOCKERD_STOPPED;
+    set_status_parameter(app_state->param_handle, s);
 
     dockerd_process_pid = -1;
     g_spawn_close_pid(pid);
@@ -700,26 +738,26 @@ static gboolean quit_main_loop(void*) {
  * @param name Name of the updated parameter.
  * @param value Value of the updated parameter.
  */
-static void parameter_changed_callback(const gchar* name,
-                                       const gchar* value,
-                                       __attribute__((unused)) gpointer data) {
-    log_debug("Parameter %s changed to %s", name, value);
+static void
+parameter_changed_callback(const gchar* name, const gchar* value, gpointer app_state_void_ptr) {
     const gchar* parname = name += strlen("root." APP_NAME ".");
 
-    for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]); ++i) {
-        if (strcmp(parname, ax_parameters[i]) == 0) {
-            log_info("%s changed to: %s", ax_parameters[i], value);
-            // Trigger a restart of dockerd from main(), but delay it 1 second.
-            // When there are multiple AXParameter callbacks in a queue, such as
-            // during the first parameter change after installation, any parameter
-            // usage, even outside a callback, will cause a 20 second deadlock per
-            // queued callback.
-            g_timeout_add_seconds(1, quit_main_loop, NULL);
-        }
-    }
+    log_info("%s changed to %s", parname, value);
+
+    struct app_state* app_state = app_state_void_ptr;
+
+    // If dockerd has failed before, this parameter change may have resolved the problem.
+    app_state->allow_dockerd_to_start = true;
+
+    // Trigger a restart of dockerd from main(), but delay it 1 second.
+    // When there are multiple AXParameter callbacks in a queue, such as
+    // during the first parameter change after installation, any parameter
+    // usage, even outside a callback, will cause a 20 second deadlock per
+    // queued callback.
+    g_timeout_add_seconds(1, quit_main_loop, NULL);
 }
 
-static AXParameter* setup_axparameter(void) {
+static AXParameter* setup_axparameter(struct app_state* app_state) {
     bool success = false;
     GError* error = NULL;
     AXParameter* ax_parameter = ax_parameter_new(APP_NAME, &error);
@@ -733,7 +771,7 @@ static AXParameter* setup_axparameter(void) {
         gboolean geresult = ax_parameter_register_callback(ax_parameter,
                                                            parameter_path,
                                                            parameter_changed_callback,
-                                                           NULL,
+                                                           app_state,
                                                            &error);
         free(parameter_path);
 
@@ -784,7 +822,9 @@ int main(int argc, char** argv) {
     parse_command_line(argc, argv, &log_settings);
     log_init(&log_settings);
 
-    app_state.param_handle = setup_axparameter();
+    app_state.allow_dockerd_to_start = true;
+
+    app_state.param_handle = setup_axparameter(&app_state);
     if (!app_state.param_handle) {
         log_error("Error in setup_axparameter");
         return EX_SOFTWARE;
@@ -797,7 +837,7 @@ int main(int argc, char** argv) {
     struct sd_disk_storage* sd_disk_storage = sd_disk_storage_init(sd_card_callback, &app_state);
 
     while (application_exit_code == EX_KEEP_RUNNING) {
-        if (dockerd_process_pid == -1)
+        if (dockerd_process_pid == -1 && app_state.allow_dockerd_to_start)
             read_settings_and_start_dockerd(&app_state);
 
         main_loop_run();
@@ -805,9 +845,7 @@ int main(int argc, char** argv) {
         log_settings.debug = is_app_log_level_debug(app_state.param_handle);
 
         stop_dockerd();
-        set_status_parameter(app_state.param_handle, STATUS_NOT_STARTED);
     }
-
     main_loop_unref();
 
     if (app_state.param_handle != NULL) {
@@ -821,5 +859,7 @@ int main(int argc, char** argv) {
 
     sd_disk_storage_free(sd_disk_storage);
     free(app_state.sd_card_area);
+
+    set_status_parameter(app_state.param_handle, STATUS_NOT_STARTED);
     return application_exit_code;
 }
