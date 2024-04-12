@@ -134,22 +134,22 @@ jobs:
         arch: ["armv7hf", "aarch64"]
       max-parallel: 1
     env:
-      EAP_FILE_AARCH64: ${{ needs.build.outputs.EAP_FILE_AARCH64 }}
       EAP_FILE_ARMV7HF: ${{ needs.build.outputs.EAP_FILE_ARMV7HF }}
+      EAP_FILE_AARCH64: ${{ needs.build.outputs.EAP_FILE_AARCH64 }}
       SHORT_SHA: ${{ needs.build.outputs.SHORT_SHA }}
     outputs:
-      EAP_FILE_ARMV7HF: ${{ steps.save_full_file_name.outputs.EAP_FILE_ARMV7HF }}
-      EAP_FILE_AARCH64: ${{ steps.save_full_file_name.outputs.EAP_FILE_AARCH64 }}
+      EAP_FILE_SIGNED_ARMV7HF: ${{ steps.save_full_file_name.outputs.EAP_FILE_SIGNED_ARMV7HF }}
+      EAP_FILE_SIGNED_AARCH64: ${{ steps.save_full_file_name.outputs.EAP_FILE_SIGNED_AARCH64 }}
     steps:
       - name: Get EAP file name
         id: full_eap_name
         run: |
           if [ ${{ matrix.arch }} = armv7hf ]
           then
-              echo "EAP_FILE=${{ needs.build.outputs.EAP_FILE_ARMV7HF }}" >> $GITHUB_ENV
+              echo "EAP_FILE=${{ env.EAP_FILE_ARMV7HF }}" >> $GITHUB_ENV
           elif [ ${{ matrix.arch }} = aarch64 ]
           then
-              echo "EAP_FILE=${{ needs.build.outputs.EAP_FILE_AARCH64 }}" >> $GITHUB_ENV
+              echo "EAP_FILE=${{ env.EAP_FILE_AARCH64 }}" >> $GITHUB_ENV
           else
               echo "::error::Non valid architecture '${{ matrix.arch }}' encountered"
           fi
@@ -196,10 +196,10 @@ jobs:
         run: |
           if [ ${{ matrix.arch }} = armv7hf ]
           then
-            echo "EAP_FILE_ARMV7HF=${{ env.SIGNED_EAP_FILE }}" >> $GITHUB_OUTPUT
+            echo "EAP_FILE_SIGNED_ARMV7HF=${{ env.SIGNED_EAP_FILE }}" >> $GITHUB_OUTPUT
           elif [ ${{ matrix.arch }} = aarch64 ]
           then
-            echo "EAP_FILE_AARCH64=${{ env.SIGNED_EAP_FILE }}" >> $GITHUB_OUTPUT
+            echo "EAP_FILE_SIGNED_AARCH64=${{ env.SIGNED_EAP_FILE }}" >> $GITHUB_OUTPUT
           else
             echo "::error::Non valid architecture '${{ matrix.arch }}' encountered"
           fi
@@ -253,18 +253,18 @@ jobs:
         arch: [armv7hf, aarch64]
     env:
       RELEASE_ID: ${{ needs.create_prerelease.outputs.RELEASE_ID }}
-      EAP_FILE_AARCH64: ${{ needs.sign-eap.outputs.EAP_FILE_AARCH64 }}
-      EAP_FILE_ARMV7HF: ${{ needs.sign-eap.outputs.EAP_FILE_ARMV7HF }}
+      EAP_FILE_SIGNED_ARMV7HF: ${{ needs.sign-eap.outputs.EAP_FILE_SIGNED_ARMV7HF }}
+      EAP_FILE_SIGNED_AARCH64: ${{ needs.sign-eap.outputs.EAP_FILE_SIGNED_AARCH64 }}
     steps:
       - name: Get EAP file name
         id: full_eap_name
         run: |
           if [ ${{ matrix.arch }} = armv7hf ]
           then
-            echo "EAP_FILE=${{ needs.build.outputs.EAP_FILE_ARMV7HF }}" >> $GITHUB_ENV
+            echo "EAP_FILE=${{ env.EAP_FILE_SIGNED_ARMV7HF }}" >> $GITHUB_ENV
           elif [ ${{ matrix.arch }} = aarch64 ]
           then
-            echo "EAP_FILE=${{ needs.build.outputs.EAP_FILE_AARCH64 }}" >> $GITHUB_ENV
+            echo "EAP_FILE=${{ env.EAP_FILE_SIGNED_AARCH64 }}" >> $GITHUB_ENV
           else
             echo "::error::Non valid architecture '${{ matrix.arch }}' encountered"
           fi
