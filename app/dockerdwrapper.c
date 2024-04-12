@@ -47,6 +47,7 @@ typedef enum {
     STATUS_NO_SD_CARD,
     STATUS_SD_CARD_WRONG_FS,
     STATUS_SD_CARD_WRONG_PERMISSION,
+    STATUS_SD_CARD_MIGRATION_FAILED,
     STATUS_CODE_COUNT,
 } status_code_t;
 
@@ -56,7 +57,8 @@ static const char* const status_code_strs[STATUS_CODE_COUNT] = {"-1 NOT STARTED"
                                                                 "2 NO SOCKET",
                                                                 "3 NO SD CARD",
                                                                 "4 SD CARD WRONG FS",
-                                                                "5 SD CARD WRONG PERMISSION"};
+                                                                "5 SD CARD WRONG PERMISSION",
+                                                                "6 SD CARD MIGRATION FAILED"};
 
 struct settings {
     char* data_root;
@@ -351,6 +353,7 @@ static bool setup_sdcard(AXParameter* param_handle, const char* data_root) {
 
     if (!migrate_from_old_sdcard_setup(data_root)) {
         log_error("Failed to migrate data from old data-root");
+        set_status_parameter(param_handle, STATUS_SD_CARD_MIGRATION_FAILED);
         return false;
     }
 
@@ -381,6 +384,7 @@ static char* prepare_data_root(AXParameter* param_handle, const char* sd_card_ar
     if (is_parameter_yes(param_handle, PARAM_SD_CARD_SUPPORT)) {
         if (!sd_card_area) {
             log_error("SD card was requested, but no SD card is available at the moment.");
+            set_status_parameter(param_handle, STATUS_NO_SD_CARD);
             return NULL;
         }
         char* data_root = g_strdup_printf("%s/data", sd_card_area);
