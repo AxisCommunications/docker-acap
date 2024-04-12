@@ -242,10 +242,10 @@ Following are the possible values of `Status`:
  0 RUNNING                    The application is started and dockerd is running.
  1 TLS CERT MISSING           Use TLS is selected but there but certificates are missing on the device.
                               The application is running but dockerd is stopped.
-                              Upload certificates and restart the application.
+                              Upload certificates and restart the application or de-select Use TLS.
  2 NO SOCKET                  Neither TCP Socket or IPC Socket are selected.
-                              The application has stopped.
-                              Select one or both sockets and start the application.
+                              The application is running but dockerd is stopped.
+                              Select one or both sockets.
  3 NO SD CARD                 Use SD Card is selected but no SD Card is mounted in the device.
                               The application is running but dockerd is stopped.
                               Insert and mount a SD Card.
@@ -256,7 +256,12 @@ Following are the possible values of `Status`:
                               permissions to use it.
                               The application is running but dockerd is stopped.
                               Make sure no directories with the wrong user permissions are left on the
-                              SD Card.
+                              SD Card. Then restart the application.
+ 6 SD CARD MIGRATION FAILED   Use SD Card is selected but migrating data from the old data root location to the
+                              new one has failed.
+                              The application is running but dockerd is stopped.
+                              Manually back up and remove either the old data root folder, or the new
+                              data root folder, from the SD card. Then restart the application.
 ```
 
 ## Building the Docker ACAP
