@@ -2,6 +2,8 @@
 
 ARG DOCKER_IMAGE_VERSION=26.0.0
 ARG PROCPS_VERSION=v3.3.17
+ARG NSENTER_VERSION=v2.40
+ARG SLIRP4NETNS_VERSION=1.2.3
 
 ARG REPO=axisecp
 ARG ARCH=armv7hf
@@ -22,7 +24,9 @@ RUN <<EOF
         autopoint \
         gettext \
         git \
-        libtool
+        libtool \
+        bison \
+        flex
     ln -s /usr/bin/libtoolize /usr/bin/libtool
 EOF
 
@@ -55,14 +59,58 @@ EOF
 WORKDIR $EXPORT_DIR
 RUN cp $BUILD_DIR/ps/pscommand ps
 
-FROM sdk_image AS docker-binaries
+FROM build_image AS nsenter
+
+ARG NSENTER_VERSION
+ARG BUILD_DIR=/build
+ARG EXPORT_DIR=/export
+
+WORKDIR $BUILD_DIR
+RUN git clone -b $NSENTER_VERSION 'https://github.com/util-linux/util-linux.git'
+
+ARG BUILD_CACHE=build.cache
+RUN <<EOF
+    echo ac_cv_func_realloc_0_nonnull=yes >$BUILD_CACHE
+    echo ac_cv_func_malloc_0_nonnull=yes >>$BUILD_CACHE
+EOF
+
+RUN <<EOF
+    cd util-linux
+    . /opt/axis/acapsdk/environment-setup*
+    ./autogen.sh
+    ./configure --host="${TARGET_PREFIX%*-}" \
+                --disable-shared \
+                --without-ncurses  \
+                --cache-file="$BUILD_CACHE"
+    make nsenter
+    $STRIP nsenter
+EOF
+
+WORKDIR $EXPORT_DIR
+RUN cp $BUILD_DIR/util-linux/nsenter nsenter
+
+FROM build_image AS docker-binaries
 
 WORKDIR /download
 
 ARG ARCH
 ARG DOCKER_IMAGE_VERSION
+ARG SLIRP4NETNS_VERSION
+ARG ROOTLESS_EXTRAS_VERSION=${DOCKER_IMAGE_VERSION}
 
-# Download and extract dockerd and its dependencies
+# Download and extract slirp4netns
+RUN <<EOF
+    if [ "$ARCH" = "armv7hf" ]; then
+        export SLIRP4NETNS_ARCH="armv7l";
+    elif [ "$ARCH" = "aarch64" ]; then
+        export SLIRP4NETNS_ARCH="aarch64";
+    fi;
+    curl -Lo slirp4netns \
+    "https://github.com/rootless-containers/slirp4netns/releases/download/v${SLIRP4NETNS_VERSION}/slirp4netns-${SLIRP4NETNS_ARCH}";
+    chmod +x slirp4netns
+EOF
+
+# Download and extract docker scripts and docker-rootless-extras scripts
 RUN <<EOF
     if [ "$ARCH" = "armv7hf" ]; then
         export DOCKER_ARCH="armhf";
@@ -73,6 +121,8 @@ RUN <<EOF
     tar -xz -f docker_binaries.tgz --strip-components=1 docker/dockerd ;
     tar -xz -f docker_binaries.tgz --strip-components=1 docker/docker-init ;
     tar -xz -f docker_binaries.tgz --strip-components=1 docker/docker-proxy ;
+    curl -Lo docker-rootless-extras.tgz "https://download.docker.com/linux/static/stable/${DOCKER_ARCH}/docker-rootless-extras-${ROOTLESS_EXTRAS_VERSION}.tgz" ;
+    tar -xz -f docker-rootless-extras.tgz --strip-components=1 ;
 EOF
 
 FROM sdk_image AS build
@@ -81,10 +131,14 @@ WORKDIR /opt/app
 
 COPY app .
 COPY --from=ps /export/ps .
+COPY --from=nsenter /export/nsenter .
 COPY --from=docker-binaries \
     /download/dockerd \
     /download/docker-init \
-    /download/docker-proxy ./
+    /download/docker-proxy \
+    /download/rootlesskit \
+    /download/rootlesskit-docker-proxy \
+    /download/slirp4netns ./
 
 RUN <<EOF
     . /opt/axis/acapsdk/environment-setup*
@@ -92,7 +146,11 @@ RUN <<EOF
         -a dockerd \
         -a docker-init \
         -a docker-proxy \
-        -a ps
+        -a ps \
+        -a slirp4netns \
+        -a rootlesskit \
+        -a rootlesskit-docker-proxy \
+        -a nsenter
 EOF
 
 ENTRYPOINT [ "/opt/axis/acapsdk/sysroots/x86_64-pokysdk-linux/usr/bin/eap-install.sh" ]
