@@ -1,4 +1,5 @@
 build*/
+tls/
 tmp/
 dockerd
 docker-proxy
