@@ -479,7 +479,7 @@ static bool start_dockerd(const struct settings* settings, struct app_state* app
                               args_len - args_offset,
                               "%s %s",
                               "dockerd",
-                              "--config-file " APP_LOCALDATA "/daemon.json");
+                              "--config-file " APP_LOCALDATA "/" DAEMON_JSON);
 
     g_strlcpy(msg, "Starting dockerd", msg_len);
 
