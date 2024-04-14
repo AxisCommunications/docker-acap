@@ -14,8 +14,19 @@ static const char* g_socket_path = NULL;
 static int g_socket = -1;
 static GThread* g_thread = NULL;
 
-static void* handle_fcgi(void* request_callback) {
-    GThreadPool* workers = g_thread_pool_new((GFunc)request_callback, NULL, -1, FALSE, NULL);
+struct request_context {
+    fcgi_request_callback callback;
+    void* parameter;
+};
+
+static void* handle_fcgi(void* request_context_void_ptr) {
+    g_autofree struct request_context* request_context =
+        (struct request_context*)request_context_void_ptr;
+    GThreadPool* workers = g_thread_pool_new((GFunc)request_context->callback,
+                                             request_context->parameter,
+                                             -1,
+                                             FALSE,
+                                             NULL);
     while (workers) {
         FCGX_Request* request = g_malloc0(sizeof(FCGX_Request));
         FCGX_InitRequest(request, g_socket, FCGI_FAIL_ACCEPT_ON_INTR);
@@ -31,7 +42,7 @@ static void* handle_fcgi(void* request_callback) {
     return NULL;
 }
 
-int fcgi_start(fcgi_request_callback request_callback) {
+int fcgi_start(fcgi_request_callback request_callback, void* request_callback_parameter) {
     log_debug("Starting FCGI server");
 
     g_socket_path = getenv(FCGI_SOCKET_NAME);
@@ -52,7 +63,10 @@ int fcgi_start(fcgi_request_callback request_callback) {
     chmod(g_socket_path, S_IRWXU | S_IRWXG | S_IRWXO);
 
     /* Create a thread for request handling */
-    if ((g_thread = g_thread_new("fcgi_server", &handle_fcgi, request_callback)) == NULL) {
+    struct request_context* request_context = malloc(sizeof(struct request_context));
+    request_context->callback = request_callback;
+    request_context->parameter = request_callback_parameter;
+    if ((g_thread = g_thread_new("fcgi_server", &handle_fcgi, request_context)) == NULL) {
         log_error("Failed to launch FCGI server thread");
         return EX_SOFTWARE;
     }
