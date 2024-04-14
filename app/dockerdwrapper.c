@@ -830,7 +830,7 @@ int main(int argc, char** argv) {
         return EX_SOFTWARE;
     }
 
-    log_settings.debug = is_app_log_level_debug(app_state.param_handle);
+    log_debug_set(is_app_log_level_debug(app_state.param_handle));
 
     init_signals();
 
@@ -842,7 +842,7 @@ int main(int argc, char** argv) {
 
         main_loop_run();
 
-        log_settings.debug = is_app_log_level_debug(app_state.param_handle);
+        log_debug_set(is_app_log_level_debug(app_state.param_handle));
 
         stop_dockerd();
     }
