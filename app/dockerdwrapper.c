@@ -75,6 +75,8 @@ struct settings {
 struct app_state {
     volatile int allow_dockerd_to_start_atomic;
     char* sd_card_area;
+    pid_t dockerd_pid;       // 0 means dockerd has exited or not been started yet
+    int time_since_sigterm;  // State of monitor_dockerd_termination
     AXParameter* param_handle;
     struct settings settings;
 };
@@ -94,12 +96,8 @@ struct exit_cause {
     int signal;
 };
 
-/**
- * @brief Callback called when the dockerd process exits.
- */
-static void dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
-                                            gint status,
-                                            __attribute__((unused)) gpointer user_data);
+static void
+clear_dockerd_pid_and_remove_lockfile(GPid pid, gint status, gpointer app_state_void_ptr);
 
 // Loop run on the main process
 static GMainLoop* loop = NULL;
@@ -107,9 +105,6 @@ static GMainLoop* loop = NULL;
 // Exit code of this program. Set using 'quit_program()'.
 #define EX_KEEP_RUNNING -1
 static int application_exit_code = EX_KEEP_RUNNING;
-
-// Pid of the running dockerd process
-static pid_t dockerd_process_pid = -1;
 
 // All ax_parameters the acap has
 static const char* ax_parameters[] = {PARAM_APPLICATION_LOG_LEVEL,
@@ -172,22 +167,11 @@ static void init_signals(void) {
     sigaction(SIGQUIT, &sa, NULL);
 }
 
-/**
- * @brief Checks if the given process is alive.
- *
- * @return True if alive. False if dead or exited.
- */
-static bool is_process_alive(int pid) {
-    int status;
-    pid_t return_pid = waitpid(pid, &status, WNOHANG);
-    if (return_pid == -1) {
-        // Report errors as dead.
-        return false;
-    } else if (return_pid == dockerd_process_pid) {
-        // Child is already exited, so not alive.
-        return false;
-    }
-    return true;
+static bool is_child_process_alive(int child_pid) {
+    int wstatus;
+    // waitpid() returns -1 on error and >0 if child has exited.
+    // Treat both cases as child not running.
+    return waitpid(child_pid, &wstatus, WNOHANG) == 0;
 }
 
 static bool
@@ -553,19 +537,18 @@ static bool start_dockerd(struct app_state* app_state) {
                            G_SPAWN_DO_NOT_REAP_CHILD | G_SPAWN_SEARCH_PATH,
                            NULL,
                            NULL,
-                           &dockerd_process_pid,
+                           &app_state->dockerd_pid,
                            &error);
     if (!result) {
         log_error("Starting dockerd failed: execv returned: %d, error: %s", result, error->message);
         set_status_parameter(param_handle, STATUS_NOT_STARTED);
         goto end;
     }
-    log_debug("Child process dockerd (%d) was started.", dockerd_process_pid);
+    log_debug("Child process dockerd (%d) was started.", app_state->dockerd_pid);
 
-    // Watch the child process.
-    g_child_watch_add(dockerd_process_pid, dockerd_process_exited_callback, app_state);
+    g_child_watch_add(app_state->dockerd_pid, clear_dockerd_pid_and_remove_lockfile, app_state);
 
-    if (!is_process_alive(dockerd_process_pid)) {
+    if (!is_child_process_alive(app_state->dockerd_pid)) {
         log_error("Starting dockerd failed: Process died unexpectedly during startup");
         quit_program(EX_SOFTWARE);
         set_status_parameter(param_handle, STATUS_NOT_STARTED);
@@ -597,38 +580,40 @@ static bool send_signal(const char* name, GPid pid, int sig) {
 // Check if dockerd is still running. Launch this function using g_timeout_add_seconds() and pass a
 // pointer to a counter starting at 1. When dockerd has terminated, the counter will be set to zero.
 // Otherwise, it will be increased, and SIGTERM will be sent on the 20th call.
-static gboolean monitor_dockerd_termination(void* time_since_sigterm_void_ptr) {
+static gboolean monitor_dockerd_termination(void* app_state_void_ptr) {
     // dockerd usually sends SIGTERM to containers after 10 s, so we must wait a bit longer.
     const int time_to_wait_before_sigkill = 20;
-    int* time_since_sigterm = (int*)time_since_sigterm_void_ptr;
-    if (dockerd_process_pid == -1) {
-        log_debug("dockerd exited after %d s", *time_since_sigterm);
-        *time_since_sigterm = 0;  // Tell caller that timer has ended.
-        g_main_loop_quit(loop);   // Release caller from its main loop.
-        return FALSE;             // Tell GLib that timer shall end.
+    struct app_state* app_state = app_state_void_ptr;
+
+    if (app_state->dockerd_pid == -1) {
+        log_debug("dockerd exited after %d s", app_state->time_since_sigterm);
+        app_state->time_since_sigterm = 0;  // Tell caller that timer has ended.
+        g_main_loop_quit(loop);             // Release caller from its main loop.
+        return FALSE;                       // Tell GLib that timer shall end.
     } else {
         log_debug("dockerd (%d) still running %d s after SIGTERM",
-                  dockerd_process_pid,
-                  *time_since_sigterm);
-        (*time_since_sigterm)++;
-        if (*time_since_sigterm > time_to_wait_before_sigkill)
+                  app_state->dockerd_pid,
+                  app_state->time_since_sigterm);
+        app_state->time_since_sigterm++;
+        if (app_state->time_since_sigterm > time_to_wait_before_sigkill)
             // Send SIGKILL but still wait for the process exit callback to clear the pid variable.
-            send_signal("dockerd", dockerd_process_pid, SIGKILL);
+            send_signal("dockerd", app_state->dockerd_pid, SIGKILL);
         return TRUE;  // Tell GLib to call timer again.
     }
 }
 
 // Send SIGTERM to dockerd, wait for it to terminate.
 // Send SIGKILL if that fails, but still wait for it to terminate.
-static void stop_dockerd(void) {
-    if (!is_process_alive(dockerd_process_pid))
+static void stop_dockerd(struct app_state* app_state) {
+    if (!is_child_process_alive(app_state->dockerd_pid))
         return;
 
-    send_signal("dockerd", dockerd_process_pid, SIGTERM);
+    send_signal("dockerd", app_state->dockerd_pid, SIGTERM);
 
-    int time_since_sigterm = 1;
-    g_timeout_add_seconds(1, monitor_dockerd_termination, &time_since_sigterm);
-    while (time_since_sigterm != 0) {  // Loop until the timer callback has stopped running
+    app_state->time_since_sigterm = 1;
+    g_timeout_add_seconds(1, monitor_dockerd_termination, app_state);
+    while (app_state->time_since_sigterm !=
+           0) {  // Loop until the timer callback has stopped running
         g_main_loop_run(loop);
     }
     log_info("Stopped dockerd.");
@@ -649,15 +634,14 @@ static struct exit_cause child_process_exit_cause(int status, GError* error) {
 
 static void log_child_process_exit_cause(const char* name, GPid pid, int status) {
     GError* error = NULL;
-    struct exit_cause exit_cause = child_process_exit_cause(status, error);
-
     char msg[128];
     const char* end = msg + sizeof(msg);
     char* ptr = msg + g_snprintf(msg, end - msg, "Child process %s (%d)", name, pid);
-    if (exit_cause.code >= 0)
-        g_snprintf(ptr, end - ptr, " exited with exit code %d", exit_cause.code);
-    else if (exit_cause.signal > 0)
-        g_snprintf(ptr, end - ptr, " was killed by signal %d", exit_cause.signal);
+
+    if (g_spawn_check_wait_status(status, &error) || error->domain == G_SPAWN_EXIT_ERROR)
+        g_snprintf(ptr, end - ptr, " exited with exit code %d", error ? error->code : 0);
+    else if (error->domain == G_SPAWN_ERROR && error->code == G_SPAWN_ERROR_FAILED)
+        g_snprintf(ptr, end - ptr, " was killed by signal %d", status);
     else
         g_snprintf(ptr, end - ptr, " terminated in an unexpected way: %s", error->message);
     g_clear_error(&error);
@@ -671,12 +655,9 @@ static bool child_process_exited_with_error(int status) {
     return exit_cause.code > 0;
 }
 
-/**
- * @brief Callback called when the dockerd process exits.
- */
-static void dockerd_process_exited_callback(GPid pid, gint status, gpointer app_state_void_ptr) {
+static void
+clear_dockerd_pid_and_remove_lockfile(GPid pid, gint status, gpointer app_state_void_ptr) {
     log_child_process_exit_cause("dockerd", pid, status);
-
     struct app_state* app_state = app_state_void_ptr;
 
     bool runtime_error = child_process_exited_with_error(status);
@@ -684,8 +665,8 @@ static void dockerd_process_exited_callback(GPid pid, gint status, gpointer app_
     status_code_t s = runtime_error ? STATUS_DOCKERD_RUNTIME_ERROR : STATUS_DOCKERD_STOPPED;
     set_status_parameter(app_state->param_handle, s);
 
-    dockerd_process_pid = -1;
     g_spawn_close_pid(pid);
+    app_state->dockerd_pid = 0;
 
     // The lockfile might have been left behind if dockerd shut down in a bad
     // manner. Remove it manually.
@@ -766,7 +747,7 @@ static void sd_card_callback(const char* sd_card_area, void* app_state_void_ptr)
     struct app_state* app_state = app_state_void_ptr;
     const bool using_sd_card = is_parameter_yes(app_state->param_handle, PARAM_SD_CARD_SUPPORT);
     if (using_sd_card && !sd_card_area) {
-        stop_dockerd();  // Block here until dockerd has stopped using the SD card.
+        stop_dockerd(app_state);  // Block here until dockerd has stopped using the SD card.
         set_status_parameter(app_state->param_handle, STATUS_NO_SD_CARD);
     }
     app_state->sd_card_area = sd_card_area ? strdup(sd_card_area) : NULL;
@@ -820,14 +801,14 @@ int main(int argc, char** argv) {
     struct sd_disk_storage* sd_disk_storage = sd_disk_storage_init(sd_card_callback, &app_state);
 
     while (application_exit_code == EX_KEEP_RUNNING) {
-        if (dockerd_process_pid == -1 && dockerd_allowed_to_start(&app_state))
+        if (!app_state.dockerd_pid && dockerd_allowed_to_start(&app_state))
             read_settings_and_start_dockerd(&app_state);
 
         main_loop_run();
 
         log_debug_set(is_app_log_level_debug(app_state.param_handle));
 
-        stop_dockerd();
+        stop_dockerd(&app_state);
     }
     main_loop_unref();
 
