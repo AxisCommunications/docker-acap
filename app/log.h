@@ -1,11 +1,11 @@
 #pragma once
+#include <glib.h>
 #include <stdbool.h>
 
 enum log_destination { log_dest_stdout, log_dest_syslog };
 
 struct log_settings {
     enum log_destination destination;
-    bool debug;
 };
 
 // Set up g_log to log to either stdout or syslog.
@@ -14,6 +14,8 @@ struct log_settings {
 // pointer to the log_settings struct will be passed to g_log_set_handler(), so
 // the struct must live until the process exits.
 void log_init(struct log_settings* settings);
+
+void log_debug_set(bool enabled);
 
 // Replacement for G_LOG_LEVEL_ERROR, which is fatal.
 #define G_LOG_LEVEL_NON_FATAL_ERROR (1 << G_LOG_LEVEL_USER_SHIFT)
