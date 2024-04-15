@@ -73,10 +73,18 @@ struct settings {
 };
 
 struct app_state {
-    bool allow_dockerd_to_start;
+    volatile int allow_dockerd_to_start_atomic;
     char* sd_card_area;
     AXParameter* param_handle;
 };
+
+static bool dockerd_allowed_to_start(const struct app_state* app_state) {
+    return g_atomic_int_get(&app_state->allow_dockerd_to_start_atomic);
+}
+
+static void allow_dockerd_to_start(struct app_state* app_state, bool new_value) {
+    g_atomic_int_set(&app_state->allow_dockerd_to_start_atomic, new_value);
+}
 
 // If process exited by a signal, code will be -1.
 // If process exited with an exit code, signal will be 0.
@@ -672,7 +680,7 @@ static void dockerd_process_exited_callback(GPid pid, gint status, gpointer app_
     struct app_state* app_state = app_state_void_ptr;
 
     bool runtime_error = child_process_exited_with_error(status);
-    app_state->allow_dockerd_to_start = !runtime_error;
+    allow_dockerd_to_start(app_state, !runtime_error);
     status_code_t s = runtime_error ? STATUS_DOCKERD_RUNTIME_ERROR : STATUS_DOCKERD_STOPPED;
     set_status_parameter(app_state->param_handle, s);
 
@@ -708,7 +716,7 @@ parameter_changed_callback(const gchar* name, const gchar* value, gpointer app_s
     struct app_state* app_state = app_state_void_ptr;
 
     // If dockerd has failed before, this parameter change may have resolved the problem.
-    app_state->allow_dockerd_to_start = true;
+    allow_dockerd_to_start(app_state, true);
 
     // Trigger a restart of dockerd from main(), but delay it 1 second.
     // When there are multiple AXParameter callbacks in a queue, such as
@@ -783,7 +791,7 @@ int main(int argc, char** argv) {
     parse_command_line(argc, argv, &log_settings);
     log_init(&log_settings);
 
-    app_state.allow_dockerd_to_start = true;
+    allow_dockerd_to_start(&app_state, true);
 
     app_state.param_handle = setup_axparameter(&app_state);
     if (!app_state.param_handle) {
@@ -802,7 +810,7 @@ int main(int argc, char** argv) {
     struct sd_disk_storage* sd_disk_storage = sd_disk_storage_init(sd_card_callback, &app_state);
 
     while (application_exit_code == EX_KEEP_RUNNING) {
-        if (dockerd_process_pid == -1 && app_state.allow_dockerd_to_start)
+        if (dockerd_process_pid == -1 && dockerd_allowed_to_start(&app_state))
             read_settings_and_start_dockerd(&app_state);
 
         main_loop_run();
