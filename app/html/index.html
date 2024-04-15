@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+  <title>Docker Daemon Usage</title>
+  <body>
+    <h1>Docker Daemon Usage</h1>
+    <h2>Upload TLS certificates and keys</h2>
+    <code>
+      curl --anyauth -u $DEVICE_USER:$DEVICE_PASSWORD -F file=@ca.pem -X POST http://$DEVICE_IP/local/dockerdwrapper/ca.pem<br>
+      curl --anyauth -u $DEVICE_USER:$DEVICE_PASSWORD -F file=@server-cert.pem -X POST http://$DEVICE_IP/local/dockerdwrapper/server-cert.pem<br>
+      curl --anyauth -u $DEVICE_USER:$DEVICE_PASSWORD -F file=@server-key.pem -X POST http://$DEVICE_IP/local/dockerdwrapper/server-key.pem<br>
+    </code>
+    <h2>Remove TLS certificates and keys</h2>
+    <code>
+      curl --anyauth -u $DEVICE_USER:$DEVICE_PASSWORD -X DELETE http://$DEVICE_IP/local/dockerdwrapper/ca.pem<br>
+      curl --anyauth -u $DEVICE_USER:$DEVICE_PASSWORD -X DELETE http://$DEVICE_IP/local/dockerdwrapper/server-cert.pem<br>
+      curl --anyauth -u $DEVICE_USER:$DEVICE_PASSWORD -X DELETE http://$DEVICE_IP/local/dockerdwrapper/server-key.pem<br>
+    </code>
+  </body>
+</html>
