@@ -2,6 +2,7 @@
 #include "app_paths.h"
 #include "fcgi_write_file_from_stream.h"
 #include "log.h"
+#include "tls.h"
 #include <gio/gio.h>
 
 #define HTTP_200_OK                    "200 OK"
@@ -43,6 +44,12 @@ static bool remove_from_localdata(const char* filename) {
     return success;
 }
 
+// Certificate files have more restrictions on them than daemon.json. This function is only designed
+// for filenames exposed in the httpConfig part of the manifest.
+static bool cert_filename(const char* filename) {
+    return strcmp(filename, DAEMON_JSON) != 0;
+}
+
 static void
 response(FCGX_Request* request, const char* status, const char* content_type, const char* body) {
     FCGX_FPrintF(request->out,
@@ -68,7 +75,11 @@ static void post_request(FCGX_Request* request,
         response_msg(request, HTTP_422_UNPROCESSABLE_CONTENT, "Upload to temporary file failed.");
         return;
     }
-    if (!copy_to_localdata(temp_file, filename))
+    if (cert_filename(filename) && !tls_file_has_correct_format(filename, temp_file)) {
+        g_autofree char* msg =
+            g_strdup_printf("File is not a valid %s.", tls_file_description(filename));
+        response_msg(request, HTTP_400_BAD_REQUEST, msg);
+    } else if (!copy_to_localdata(temp_file, filename))
         response_msg(request, HTTP_400_BAD_REQUEST, "Failed to copy file to localdata");
     else {
         response_msg(request, HTTP_200_OK, "");
@@ -80,7 +91,7 @@ static void post_request(FCGX_Request* request,
 }
 
 static void get_request(FCGX_Request* request, const char* filename) {
-    if (strcmp(filename, DAEMON_JSON) != 0) {
+    if (cert_filename(filename)) {
         response_msg(request, HTTP_403_FORBIDDEN, "Resource is write-only");
         return;
     }
