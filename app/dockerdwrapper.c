@@ -798,13 +798,16 @@ static bool set_env_variable(const char* env_var, const char* value) {
 }
 
 static bool set_env_variables(void) {
+    uid_t uid = getuid();
     g_autofree char* path =
         g_strdup_printf("/bin:/usr/bin:%s:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin",
                         APP_DIRECTORY);
-    if (!set_env_variable("PATH", path))
-        return false;
+    g_autofree char* docker_host = g_strdup_printf("unix:///var/run/user/%d/docker.sock", uid);
+    g_autofree char* xdg_runtime_dir = g_strdup_printf("/var/run/user/%d", uid);
 
-    return true;
+    return set_env_variable("PATH", path) && set_env_variable("HOME", APP_DIRECTORY) &&
+           set_env_variable("DOCKER_HOST", docker_host) &&
+           set_env_variable("XDG_RUNTIME_DIR", xdg_runtime_dir);
 }
 
 int main(int argc, char** argv) {
