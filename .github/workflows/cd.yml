@@ -83,7 +83,7 @@ jobs:
           dockerfile: Dockerfile
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: ACAPARCH=${{ matrix.arch }}
+          build-args: ARCH=${{ matrix.arch }}
           outputs: "type=local,dest=build"
       - name: Get name of EAP-file
         id: get_eap_file_name

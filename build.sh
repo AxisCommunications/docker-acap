@@ -40,7 +40,7 @@ done
 
 # Build and copy out the acap
 # shellcheck disable=SC2086
-docker buildx build --build-arg ACAPARCH="$arch" \
+docker buildx build --build-arg ARCH="$arch" \
 	--build-arg HTTP_PROXY="${HTTP_PROXY:-}" \
 	--build-arg HTTPS_PROXY="${HTTPS_PROXY:-}" \
 	--file Dockerfile \

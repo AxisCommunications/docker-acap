@@ -273,7 +273,7 @@ To build the Docker ACAP use docker buildx with the provided Dockerfile:
 
 ```sh
 # Build Docker ACAP image
-docker buildx build --file Dockerfile --tag docker-acap:<ARCH> --build-arg ACAPARCH=<ARCH> --output <build-folder> .
+docker buildx build --file Dockerfile --tag docker-acap:<ARCH> --build-arg ARCH=<ARCH> --output <build-folder> .
 ```
 
 where `<ARCH>` is either `armv7hf` or `aarch64`. `<build-folder>` is the path to an output folder
