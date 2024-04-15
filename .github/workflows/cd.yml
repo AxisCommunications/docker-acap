@@ -51,7 +51,7 @@ jobs:
         if: ${{ (github.ref_type == 'tag') || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
         with:
           path: ${{ github.workspace }}/build-${{ matrix.arch }}
-          key: key-${{ env.SHORT_SHA }}-${{ matrix.arch }}
+          key: key-${{ env.SHORT_SHA }}-${{ github.run_id }}-${{ matrix.arch }}
       - name: Create base image metadata
         id: meta
         uses: ./.github/actions/metadata-action
@@ -156,7 +156,7 @@ jobs:
       - uses: actions/cache/restore@v4
         with:
           path: ${{ github.workspace }}/build-${{ matrix.arch }}
-          key: key-${{ env.SHORT_SHA }}-${{ matrix.arch }}
+          key: key-${{ env.SHORT_SHA }}-${{ github.run_id }}-${{ matrix.arch }}
       - name: Get cached EAP-file
         run: |
           mkdir -p build
