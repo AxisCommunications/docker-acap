@@ -6,6 +6,8 @@
 
 #define HTTP_200_OK                    "200 OK"
 #define HTTP_400_BAD_REQUEST           "400 Bad Request"
+#define HTTP_403_FORBIDDEN             "403 Forbidden"
+#define HTTP_404_NOT_FOUND             "404 Not Found"
 #define HTTP_405_METHOD_NOT_ALLOWED    "405 Method Not Allowed"
 #define HTTP_422_UNPROCESSABLE_CONTENT "422 Unprocessable Content"
 
@@ -73,6 +75,25 @@ static void post_request(FCGX_Request* request, const char* filename) {
         log_error("Failed to remove %s: %s", temp_file, strerror(errno));
 }
 
+static void get_request(FCGX_Request* request, const char* filename) {
+    if (strcmp(filename, DAEMON_JSON) != 0) {
+        response_msg(request, HTTP_403_FORBIDDEN, "Resource is write-only");
+        return;
+    }
+
+    g_autofree char* contents = NULL;
+    gsize length;
+    GError* error = NULL;
+    const char* full_path = APP_LOCALDATA "/" DAEMON_JSON;
+    if (!g_file_get_contents(full_path, &contents, &length, &error)) {
+        log_error("Failed to read %s: %s.", full_path, error->message);
+        response_msg(request, HTTP_404_NOT_FOUND, "Could not read file");
+        return;
+    }
+
+    response(request, HTTP_200_OK, "application/json", contents);
+}
+
 static void delete_request(FCGX_Request* request, const char* filename) {
     if (!remove_from_localdata(filename))
         response_msg(request, HTTP_400_BAD_REQUEST, "Failed to remove file from localdata");
@@ -105,6 +126,8 @@ void http_request_callback(void* request_void_ptr, __attribute__((unused)) void*
 
         if (strcmp(method, "POST") == 0)
             post_request(request, filename);
+        else if (strcmp(method, "GET") == 0)
+            get_request(request, filename);
         else if (strcmp(method, "DELETE") == 0)
             delete_request(request, filename);
         else
