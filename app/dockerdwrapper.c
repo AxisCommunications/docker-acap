@@ -782,6 +782,25 @@ static void parse_command_line(int argc, char** argv, struct log_settings* log_s
         (argc == 2 && strcmp(argv[1], "--stdout") == 0) ? log_dest_stdout : log_dest_syslog;
 }
 
+static bool set_env_variable(const char* env_var, const char* value) {
+    log_debug("Setting env: %s=%s", env_var, value);
+    if (setenv(env_var, value, 1) != 0) {
+        log_error("Error setting env variable %s to %s", env_var, value);
+        return false;
+    }
+    return true;
+}
+
+static bool set_env_variables(void) {
+    g_autofree char* path =
+        g_strdup_printf("/bin:/usr/bin:%s:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin",
+                        APP_DIRECTORY);
+    if (!set_env_variable("PATH", path))
+        return false;
+
+    return true;
+}
+
 int main(int argc, char** argv) {
     struct app_state app_state = {0};
     struct log_settings log_settings = {0};
@@ -800,6 +819,11 @@ int main(int argc, char** argv) {
     }
 
     log_debug_set(is_app_log_level_debug(app_state.param_handle));
+
+    if (!set_env_variables()) {
+        log_error("Failed to set environment variables");
+        return EX_SOFTWARE;
+    }
 
     init_signals();
 
