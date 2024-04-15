@@ -16,6 +16,8 @@
 
 #define _GNU_SOURCE  // For sigabbrev_np()
 #include "app_paths.h"
+#include "fcgi_server.h"
+#include "http_request.h"
 #include "log.h"
 #include "sd_disk_storage.h"
 #include "tls.h"
@@ -793,6 +795,10 @@ int main(int argc, char** argv) {
 
     init_signals();
 
+    int fcgi_error = fcgi_start(http_request_callback);
+    if (fcgi_error)
+        return fcgi_error;
+
     struct sd_disk_storage* sd_disk_storage = sd_disk_storage_init(sd_card_callback, &app_state);
 
     while (application_exit_code == EX_KEEP_RUNNING) {
@@ -806,6 +812,8 @@ int main(int argc, char** argv) {
         stop_dockerd();
     }
     main_loop_unref();
+
+    fcgi_stop();
 
     set_status_parameter(app_state.param_handle, STATUS_NOT_STARTED);
 

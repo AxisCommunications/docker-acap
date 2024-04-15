@@ -111,34 +111,43 @@ Running the ACAP without TLS requires no further setup.
 
 ### TLS Setup
 
-TLS requires a few keys and certificates to work, which are listed in the
-subsections below. For more information on how to generate these files, please
-consult the official [Docker documentation](https://docs.docker.com/engine/security/protect-access/).
-Most of these keys and certificates need to be moved to the Axis device. There are multiple ways to
-achieve this, for example by using `scp` to copy the files from a remote machine onto the device.
-This can be done by running the following command on the remote machine:
+TLS requires the following keys and certificates on the device:
+
+* Certificate Authority certificate `ca.pem`
+* Server certificate `server-cert.pem`
+* Private server key `server-key.pem`
+
+For more information on how to generate these files, please consult the official
+[Docker documentation](https://docs.docker.com/engine/security/protect-access/).
+
+The files can be uploaded to the device using HTTP.
+
+```sh
+curl --anyauth -u "root:$DEVICE_PASSWORD" -F file=@ca.pem -X POST \
+  http://$DEVICE_IP/local/dockerdwrapper/ca.pem
+curl --anyauth -u "root:$DEVICE_PASSWORD" -F file=@server-cert.pem -X POST \
+  http://$DEVICE_IP/local/dockerdwrapper/server-cert.pem
+curl --anyauth -u "root:$DEVICE_PASSWORD" -F file=@server-key.pem -X POST \
+  http://$DEVICE_IP/local/dockerdwrapper/server-key.pem
+```
+
+If desired, they can be deleted from the device using:
+
+```sh
+curl --anyauth -u "root:$DEVICE_PASSWORD" -X DELETE \
+  http://$DEVICE_IP/local/dockerdwrapper/ca.pem
+curl --anyauth -u "root:$DEVICE_PASSWORD" -X DELETE \
+  http://$DEVICE_IP/local/dockerdwrapper/server-cert.pem
+curl --anyauth -u "root:$DEVICE_PASSWORD" -X DELETE \
+  http://$DEVICE_IP/local/dockerdwrapper/server-key.pem
+```
+
+They can also be copied to the `/usr/local/packages/dockerdwrapper/localdata`
+directory of the device using `scp`.
 
 ```sh
 scp ca.pem server-cert.pem server-key.pem root@<device ip>:/usr/local/packages/dockerdwrapper/localdata/
 ```
-
-#### The Certificate Authority (CA) certificate
-
-This certificate needs to be present in the dockerdwrapper package folder on the
-Axis device and be named `ca.pem`. The full path of the file should be
-`/usr/local/packages/dockerdwrapper/localdata/ca.pem`.
-
-#### The server certificate
-
-This certificate needs to be present in the dockerdwrapper package folder on the
-Axis device and be named `server-cert.pem`. The full path of the file should be
-`/usr/local/packages/dockerdwrapper/localdata/server-cert.pem`.
-
-#### The private server key
-
-This key needs to be present in the dockerdwrapper package folder on the Axis device
-and be named `server-key.pem`. The full path of the file should be
-`/usr/local/packages/dockerdwrapper/localdata/server-key.pem`.
 
 #### Client key and certificate
 
