@@ -55,6 +55,24 @@
                     "default": "-1 No Status",
                     "type": "hidden:string"
                 }
+            ],
+            "settingPage": "index.html",
+            "httpConfig": [
+                {
+                    "access": "admin",
+                    "name": "ca.pem",
+                    "type": "fastCgi"
+                },
+                {
+                    "access": "admin",
+                    "name": "server-cert.pem",
+                    "type": "fastCgi"
+                },
+                {
+                    "access": "admin",
+                    "name": "server-key.pem",
+                    "type": "fastCgi"
+                }
             ]
         }
     }
