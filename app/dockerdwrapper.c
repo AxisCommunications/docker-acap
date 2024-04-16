@@ -512,12 +512,11 @@ static const char* build_daemon_args(const struct settings* settings, AXParamete
         g_strlcat(msg, " with TCP socket", msg_len);
         const uint port = use_tls ? 2376 : 2375;
         args_ptr += g_snprintf(args_ptr, args_end - args_ptr, " -H tcp://0.0.0.0:%d", port);
+        g_strlcat(msg, use_tls ? " in TLS mode" : " in unsecured mode", msg_len);
         if (use_tls) {
             args_ptr += g_snprintf(args_ptr, args_end - args_ptr, " %s", tls_args_for_dockerd());
-            g_strlcat(msg, " in TLS mode", msg_len);
         } else {
             args_ptr += g_snprintf(args_ptr, args_end - args_ptr, " --tls=false");
-            g_strlcat(msg, " in unsecured mode", msg_len);
         }
     } else {
         g_strlcat(msg, " without TCP socket", msg_len);
