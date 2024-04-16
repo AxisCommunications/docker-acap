@@ -9,6 +9,7 @@
 #define HTTP_200_OK                    "200 OK"
 #define HTTP_204_NO_CONTENT            "204 No Content"
 #define HTTP_400_BAD_REQUEST           "400 Bad Request"
+#define HTTP_403_FORBIDDEN             "403 Forbidden"
 #define HTTP_404_NOT_FOUND             "404 Not Found"
 #define HTTP_405_METHOD_NOT_ALLOWED    "405 Method Not Allowed"
 #define HTTP_422_UNPROCESSABLE_CONTENT "422 Unprocessable Content"
@@ -52,6 +53,12 @@ static bool remove_from_localdata(const char* filename) {
     return success;
 }
 
+// Certificate files have more restrictions on them than daemon.json. This function is only designed
+// for filenames exposed in the httpConfig part of the manifest.
+static bool cert_filename(const char* filename) {
+    return strcmp(filename, DAEMON_JSON) != 0;
+}
+
 static void
 response(FCGX_Request* request, const char* status, const char* content_type, const char* body) {
     FCGX_FPrintF(request->out,
@@ -82,7 +89,7 @@ post_request(FCGX_Request* request, const char* filename, restart_dockerd_t rest
         response_msg(request, HTTP_422_UNPROCESSABLE_CONTENT, "Upload to temporary file failed.");
         return;
     }
-    if (!tls_file_has_correct_format(filename, temp_file)) {
+    if (cert_filename(filename) && !tls_file_has_correct_format(filename, temp_file)) {
         g_autofree char* msg =
             g_strdup_printf("File is not a valid %s.", tls_file_description(filename));
         response_msg(request, HTTP_400_BAD_REQUEST, msg);
@@ -95,6 +102,25 @@ post_request(FCGX_Request* request, const char* filename, restart_dockerd_t rest
 
     if (unlink(temp_file) != 0)
         log_error("Failed to remove %s: %s", temp_file, strerror(errno));
+}
+
+static void get_request(FCGX_Request* request, const char* filename) {
+    if (strcmp(filename, DAEMON_JSON) != 0) {
+        response_msg(request, HTTP_403_FORBIDDEN, "Resource is write-only");
+        return;
+    }
+
+    g_autofree char* contents = NULL;
+    gsize length;
+    GError* error = NULL;
+    const char* full_path = APP_LOCALDATA "/" DAEMON_JSON;
+    if (!g_file_get_contents(full_path, &contents, &length, &error)) {
+        log_error("Failed to read %s: %s.", full_path, error->message);
+        response_msg(request, HTTP_404_NOT_FOUND, "Could not read file");
+        return;
+    }
+
+    response(request, HTTP_200_OK, "application/json", contents);
 }
 
 static void delete_request(FCGX_Request* request, const char* filename) {
@@ -134,6 +160,8 @@ void http_request_callback(void* request_void_ptr, void* restart_dockerd_void_pt
 
         if (strcmp(method, "POST") == 0)
             post_request(request, filename, restart_dockerd_void_ptr);
+        else if (strcmp(method, "GET") == 0)
+            get_request(request, filename);
         else if (strcmp(method, "DELETE") == 0)
             delete_request(request, filename);
         else

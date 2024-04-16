@@ -60,6 +60,11 @@
             "httpConfig": [
                 {
                     "access": "admin",
+                    "name": "daemon.json",
+                    "type": "fastCgi"
+                },
+                {
+                    "access": "admin",
                     "name": "ca.pem",
                     "type": "fastCgi"
                 },
