@@ -774,6 +774,10 @@ static void sd_card_callback(const char* sd_card_area, void* app_state_void_ptr)
         main_loop_quit();  // Trigger a restart of dockerd from main()
 }
 
+static void restart_dockerd_after_file_upload(void) {
+    main_loop_quit();
+}
+
 // Stop the application and start it from an SSH prompt with
 // $ ./dockerdwrapper --stdout
 // in order to get log messages written to console rather than to syslog.
@@ -827,7 +831,7 @@ int main(int argc, char** argv) {
 
     init_signals();
 
-    int fcgi_error = fcgi_start(http_request_callback);
+    int fcgi_error = fcgi_start(http_request_callback, restart_dockerd_after_file_upload);
     if (fcgi_error)
         return fcgi_error;
 

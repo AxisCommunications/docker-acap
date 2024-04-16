@@ -121,6 +121,7 @@ For more information on how to generate these files, please consult the official
 [Docker documentation](https://docs.docker.com/engine/security/protect-access/).
 
 The files can be uploaded to the device using HTTP.
+The dockerd service will restart, or try to start, after each HTTP POST request.
 
 ```sh
 curl --anyauth -u "root:$DEVICE_PASSWORD" -F file=@ca.pem -X POST \
@@ -143,7 +144,8 @@ curl --anyauth -u "root:$DEVICE_PASSWORD" -X DELETE \
 ```
 
 They can also be copied to the `/usr/local/packages/dockerdwrapper/localdata`
-directory of the device using `scp`.
+directory of the device using `scp`,
+but this method will not cause the dockerd service to restart.
 
 ```sh
 scp ca.pem server-cert.pem server-key.pem root@<device ip>:/usr/local/packages/dockerdwrapper/localdata/
