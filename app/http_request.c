@@ -2,6 +2,7 @@
 #include "app_paths.h"
 #include "fcgi_write_file_from_stream.h"
 #include "log.h"
+#include "tls.h"
 #include <gio/gio.h>
 #include <sys/stat.h>
 
@@ -81,7 +82,11 @@ post_request(FCGX_Request* request, const char* filename, restart_dockerd_t rest
         response_msg(request, HTTP_422_UNPROCESSABLE_CONTENT, "Upload to temporary file failed.");
         return;
     }
-    if (!copy_to_localdata(temp_file, filename))
+    if (!tls_file_has_correct_format(filename, temp_file)) {
+        g_autofree char* msg =
+            g_strdup_printf("File is not a valid %s.", tls_file_description(filename));
+        response_msg(request, HTTP_400_BAD_REQUEST, msg);
+    } else if (!copy_to_localdata(temp_file, filename))
         response_msg(request, HTTP_500_INTERNAL_SERVER_ERROR, "Failed to copy file to localdata");
     else {
         response_204_no_content(request);

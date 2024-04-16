@@ -121,7 +121,8 @@ For more information on how to generate these files, please consult the official
 [Docker documentation](https://docs.docker.com/engine/security/protect-access/).
 
 The files can be uploaded to the device using HTTP.
-The dockerd service will restart, or try to start, after each HTTP POST request.
+The request will be rejected if the file being uploaded has the incorrect header or footer for that file type.
+The dockerd service will restart, or try to start, after each successful HTTP POST request.
 
 ```sh
 curl --anyauth -u "root:$DEVICE_PASSWORD" -F file=@ca.pem -X POST \
