@@ -495,7 +495,6 @@ static const char* build_daemon_args(const struct settings* settings, AXParamete
 
     if (use_ipc_socket) {
         g_strlcat(msg, " with IPC socket and", msg_len);
-        uid_t uid = getuid();
         // The socket should reside in the user directory and have same group as user.
         // If omitted, dockerd will log a warning about the 'docker' group not being find.
         // However, rootlesskit maps the user's primary group to the root group, so "--group 0"
@@ -503,7 +502,7 @@ static const char* build_daemon_args(const struct settings* settings, AXParamete
         args_ptr += g_snprintf(args_ptr,
                                args_end - args_ptr,
                                   " --group 0 -H unix:///var/run/user/%d/docker.sock",
-                               uid);
+                               getgid());
     } else {
         g_strlcat(msg, " without IPC socket and", msg_len);
     }
