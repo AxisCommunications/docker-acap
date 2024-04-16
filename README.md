@@ -210,6 +210,21 @@ has a significantly higher inference time when using a small and slow SD card.
 To get more informed about specifications, check the
 [SD Card Standards](https://www.sdcard.org/developers/sd-standard-overview/).
 
+## Additional configuration
+
+For even more control over the dockerd daemon,
+a configuration file can be uploaded to the device using HTTP.
+
+```sh
+curl --anyauth -u "root:$DEVICE_PASSWORD" -F file=@daemon.json -X POST \
+  http://$DEVICE_IP/local/dockerdwrapper/daemon.json
+```
+
+The complete specification of this file can be found in the Docker reference, in section
+[Daemon configuration file](https://docs.docker.com/reference/cli/dockerd/#daemon-configuration-file).
+
+The dockerd service will automatically restart after a new configuration file has been uploaded.
+
 ## Using the Docker ACAP
 
 The Docker ACAP does not contain the docker client binary. This means that all
