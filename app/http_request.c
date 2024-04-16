@@ -75,8 +75,9 @@ static void response_msg(FCGX_Request* request, const char* status, const char* 
     response(request, status, "text/plain", body);
 }
 
-static void
-post_request(FCGX_Request* request, const char* filename, restart_dockerd_t restart_dockerd) {
+static void post_request(FCGX_Request* request,
+                         const char* filename,
+                         struct restart_dockerd_context* restart_dockerd_context) {
     g_autofree char* temp_file = fcgi_write_file_from_stream(*request);
     if (!temp_file) {
         response_msg(request, HTTP_422_UNPROCESSABLE_CONTENT, "Upload to temporary file failed.");
@@ -90,7 +91,7 @@ post_request(FCGX_Request* request, const char* filename, restart_dockerd_t rest
         response_msg(request, HTTP_500_INTERNAL_SERVER_ERROR, "Failed to copy file to localdata");
     else {
         response_204_no_content(request);
-        restart_dockerd();
+        restart_dockerd_context->restart_dockerd(restart_dockerd_context->app_state);
     }
 
     if (unlink(temp_file) != 0)
@@ -118,7 +119,7 @@ static void malformed_request(FCGX_Request* request, const char* method, const c
     response_msg(request, HTTP_400_BAD_REQUEST, "Malformed request");
 }
 
-void http_request_callback(void* request_void_ptr, void* restart_dockerd_void_ptr) {
+void http_request_callback(void* request_void_ptr, void* restart_dockerd_context_void_ptr) {
     FCGX_Request* request = (FCGX_Request*)request_void_ptr;
 
     const char* method = FCGX_GetParam("REQUEST_METHOD", request->envp);
@@ -133,7 +134,7 @@ void http_request_callback(void* request_void_ptr, void* restart_dockerd_void_pt
         filename++;  // Strip leading '/'
 
         if (strcmp(method, "POST") == 0)
-            post_request(request, filename, restart_dockerd_void_ptr);
+            post_request(request, filename, restart_dockerd_context_void_ptr);
         else if (strcmp(method, "DELETE") == 0)
             delete_request(request, filename);
         else

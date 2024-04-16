@@ -774,7 +774,10 @@ static void sd_card_callback(const char* sd_card_area, void* app_state_void_ptr)
         main_loop_quit();  // Trigger a restart of dockerd from main()
 }
 
-static void restart_dockerd_after_file_upload(void) {
+static void restart_dockerd_after_file_upload(struct app_state* app_state) {
+    // If dockerd has failed before, this file upload may have resolved the problem.
+    allow_dockerd_to_start(app_state, true);
+
     main_loop_quit();
 }
 
@@ -831,7 +834,10 @@ int main(int argc, char** argv) {
 
     init_signals();
 
-    int fcgi_error = fcgi_start(http_request_callback, restart_dockerd_after_file_upload);
+    struct restart_dockerd_context restart_dockerd_context;
+    restart_dockerd_context.restart_dockerd = restart_dockerd_after_file_upload;
+    restart_dockerd_context.app_state = &app_state;
+    int fcgi_error = fcgi_start(http_request_callback, &restart_dockerd_context);
     if (fcgi_error)
         return fcgi_error;
 
