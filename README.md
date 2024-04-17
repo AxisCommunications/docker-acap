@@ -172,21 +172,21 @@ The following settings are available
 Selects if the docker daemon data-root should be on the internal storage of the device (default) or on
 an SD card. See [Using an SD card as storage](#using-an-sd-card-as-storage) for further information.
 
-#### Use TLS
-
-Toggle to select if TLS should be disabled when using TCP Socket. See
-[Using TLS to secure the application](#using-tls-to-secure-the-application) for further information.
-
 #### TCP Socket / IPC Socket
 
-To be able to connect remotely to the docker daemon on the device, the TCP Socket needs to be selected.
-The IPC Socket needs to be selected for containers running on the device to be able to communicate with each other.
+To be able to connect remotely to the docker daemon on the device, *TCP Socket* needs to be selected.
+*IPC Socket* needs to be selected for containers running on the device to be able to communicate with each other.
 At least one of the sockets needs to be selected for the application to start dockerd.
+
+#### Use TLS
+
+Toggle to select if TLS should be disabled when using *TCP Socket*. See
+[Using TLS to secure the application](#using-tls-to-secure-the-application) for further information.
 
 #### Log levels
 
 Log levels are set separately for the application and for dockerd. For rootlesskit the log level is
-set to `debug` if `DockerdLogLevel` is set to `debug`.
+set to `debug` if *DockerdLogLevel* is set to `debug`.
 
 #### Status codes
 
@@ -280,17 +280,17 @@ Docker can be configured to use the keys and certificates from a directory of yo
 by using the `DOCKER_CERT_PATH` environment variable:
 
 ```sh
-export DOCKER_CERT_PATH=<client certificate directory>
+export DOCKER_CERT_PATH=<client-certificate-directory>
 docker --tlsverify \
        --host tcp://<device-ip>:2376 version
 ```
 
-where `<client certificate directory>` is the directory on your computer where the files `ca.pem`,
+where `<client-certificate-directory>` is the directory on your computer where the files `ca.pem`,
 `client-cert.pem` and `client-key.pem` are stored.
 
 ##### Usage example without TLS
 
-With TCP Socket active and Use TLS inactive, the Docker daemon will instead listen to port 2375.
+With *TCP Socket* active and *Use TLS* inactive, the Docker daemon will instead listen to port 2375.
 
 ```sh
 docker --host tcp://<device-ip>:2375 version
@@ -300,7 +300,7 @@ docker --host tcp://<device-ip>:2375 version
 
 An SD card might be necessary to run the application correctly. Docker
 containers and docker images can be quite large, and putting them on an SD card
-gives more freedom in how many and how large images can be stored.
+gives more freedom in how many and how large images that can be stored.
 
 Note that dockerd requires that Unix permissions are supported by the
 file system. Examples of file systems which support this are ext4, ext3 and xfs.
@@ -317,7 +317,7 @@ To get more informed about specifications, check the
 
 > [!NOTE]
 >
->If application with version before 3.0 has been used on the device with SD card as storage
+>If application with version before 3.0 has been used on the device with SD card as storage,
 >the storage directory might already be created with root permissions.
 >Since version 3.0 the application is run in rootless mode and it will then not be able
 >to access that directory. To solve this, either reformat the SD card or manually
@@ -329,10 +329,10 @@ To get more informed about specifications, check the
 
 The application does not contain the docker client binary. This means that all
 calls need to be done from a separate machine. This can be achieved by using
-the `--host` flag when running the docker command and requires the TCP Socket to be selected.
+the `--host` flag when running the docker command and requires *TCP Socket* to be selected.
 
 The port used will change depending on if the application runs using TLS or not.
-The application will be reachable on port 2375 when running unsecured, and on
+The Docker daemon will be reachable on port 2375 when running unsecured, and on
 port 2376 when running secured using TLS. Please read section
 [Using TLS to secure the application](#using-tls-to-secure-the-application) for
 more information.
@@ -343,14 +343,14 @@ Make sure the application, using TLS, is running, then pull and run the
 [hello-world][docker-hello-world] image from Docker Hub:
 
 ```sh
->docker --tlsverify --host tcp://<device-ip>:$DOCKER_PORT pull hello-world
+$ docker --tlsverify --host tcp://<device-ip>:$DOCKER_PORT pull hello-world
 Using default tag: latest
 latest: Pulling from library/hello-world
 70f5ac315c5a: Pull complete 
 Digest: sha256:88ec0acaa3ec199d3b7eaf73588f4518c25f9d34f58ce9a0df68429c5af48e8d
 Status: Downloaded newer image for hello-world:latest
 docker.io/library/hello-world:latest
->docker --tlsverify --host tcp://<device-ip>:$DOCKER_PORT run hello-world
+$ docker --tlsverify --host tcp://<device-ip>:$DOCKER_PORT run hello-world
 
 Hello from Docker!
 This message shows that your installation appears to be working correctly.
@@ -382,7 +382,7 @@ if you have problems getting the `pull` command to work in your environment, `sa
 and `load` can be used.
 
 ```sh
-docker save <image on host local repository> | docker --tlsverify --host tcp://<device-ip>:$DOCKER_PORT load
+docker save <image-on-host-local-repository> | docker --tlsverify --host tcp://<device-ip>:2376 load
 ```
 
 #### Using host user secondary groups in container
@@ -392,9 +392,9 @@ up to be a member in a number of secondary groups as listed in the
 [manifest.json](https://github.com/AxisCommunications/docker-acap/blob/main/app/manifest.json#L6-L11)
 file.
 
-When running a container, a user called `root`, (uid 0), belonging to group `root`, (gid 0),
+When running a container, a user called *root*, (uid 0), belonging to group *root*, (gid 0),
 will be the default user inside the container. It will be mapped to the non-root user on
-the device, and the group will be mapped to the non-root users primary group.
+the device, and the group will be mapped to the non-root user's primary group.
 In order to get access inside the container to resources on the device that are group owned by any
 of the non-root users secondary groups, these need to be added for the container user.
 This can be done by using `group_add` in a docker-compose.yaml or `--group-add` if using the Docker cli.
