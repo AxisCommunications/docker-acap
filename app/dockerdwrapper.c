@@ -325,11 +325,7 @@ static char* get_filesystem_of_path(const char* path) {
     return NULL;
 }
 
-/**
- * @brief Setup the sd card.
- *
- * @return True if successful, false if setup failed.
- */
+// Set up the SD card. Call set_status_parameter() and return false on error.
 static bool setup_sdcard(AXParameter* param_handle, const char* data_root) {
     g_autofree char* sd_file_system = NULL;
     g_autofree char* create_droot_command = g_strdup_printf("mkdir -p %s", data_root);
@@ -337,6 +333,7 @@ static bool setup_sdcard(AXParameter* param_handle, const char* data_root) {
     int res = system(create_droot_command);
     if (res != 0) {
         log_error("Failed to create data_root folder at: %s. Error code: %d", data_root, res);
+        set_status_parameter(param_handle, STATUS_SD_CARD_WRONG_PERMISSION);
         return false;
     }
 
@@ -344,6 +341,7 @@ static bool setup_sdcard(AXParameter* param_handle, const char* data_root) {
     sd_file_system = get_filesystem_of_path(data_root);
     if (sd_file_system == NULL) {
         log_error("Couldn't identify the file system of the SD card at %s", data_root);
+        set_status_parameter(param_handle, STATUS_NO_SD_CARD);
         return false;
     }
 
@@ -394,6 +392,7 @@ static bool is_app_log_level_debug(AXParameter* param_handle) {
 }
 
 // Return data root matching the current SDCardSupport selection.
+// Call set_status_parameter() and return NULL on error.
 //
 // If SDCardSupport is "yes", data root will be located on the proved SD card
 // area. Passing NULL as SD card area signals that the SD card is not available.
@@ -406,7 +405,6 @@ static char* prepare_data_root(AXParameter* param_handle, const char* sd_card_ar
         }
         char* data_root = g_strdup_printf("%s/data", sd_card_area);
         if (!setup_sdcard(param_handle, data_root)) {
-            log_error("Failed to setup SD card.");
             free(data_root);
             return NULL;
         }
@@ -416,27 +414,22 @@ static char* prepare_data_root(AXParameter* param_handle, const char* sd_card_ar
     }
 }
 
-/**
- * @brief Gets and verifies the UseTLS selection
- *
- * @param use_tls_ret selection to be updated.
- * @return True if successful, false otherwise.
- */
+// Read UseTLS parameter and verify that TLS files are present. Call set_status_parameter() and
+// return false on error.
 static gboolean get_and_verify_tls_selection(AXParameter* param_handle, bool* use_tls_ret) {
     const bool use_tls = is_parameter_yes(param_handle, PARAM_USE_TLS);
 
-    if (use_tls) {
-        if (tls_missing_certs()) {
-            tls_log_missing_cert_warnings();
-            set_status_parameter(param_handle, STATUS_TLS_CERT_MISSING);
-            return false;
-        }
+    if (use_tls && tls_missing_certs()) {
+        tls_log_missing_cert_warnings();
+        set_status_parameter(param_handle, STATUS_TLS_CERT_MISSING);
+        return false;
     }
 
     *use_tls_ret = use_tls;
     return true;
 }
 
+// Read and verify consistency of settings. Call set_status_parameter() and return false on error.
 static bool read_settings(struct settings* settings, const struct app_state* app_state) {
     AXParameter* param_handle = app_state->param_handle;
     settings->use_tcp_socket = is_parameter_yes(param_handle, PARAM_TCP_SOCKET);
@@ -455,15 +448,21 @@ static bool read_settings(struct settings* settings, const struct app_state* app
 
     settings->use_ipc_socket = is_parameter_yes(param_handle, PARAM_IPC_SOCKET);
 
-    if (!(settings->data_root = prepare_data_root(param_handle, app_state->sd_card_area))) {
-        log_error("Failed to set up dockerd data root");
+    if (!settings->use_ipc_socket && !settings->use_tcp_socket) {
+        log_error(
+            "At least one of IPC socket or TCP socket must be set to \"yes\". "
+            "dockerd will not be started.");
+        set_status_parameter(param_handle, STATUS_NO_SOCKET);
         return false;
     }
+
+    if (!(settings->data_root = prepare_data_root(param_handle, app_state->sd_card_area)))
+        return false;
+
     return true;
 }
 
 // Return a command line with space-delimited argument based on the current settings.
-// Log an error and return NULL if current settings are invalid.
 static const char* build_daemon_args(const struct settings* settings, AXParameter* param_handle) {
     static gchar args[1024];  // Pointer to args returned to caller on success.
     const gsize args_len = sizeof(args);
@@ -489,14 +488,6 @@ static const char* build_daemon_args(const struct settings* settings, AXParamete
         g_autofree char* log_level = get_parameter_value(param_handle, PARAM_DOCKERD_LOG_LEVEL);
         args_offset +=
             g_snprintf(args + args_offset, args_len - args_offset, " --log-level=%s", log_level);
-    }
-
-    if (!use_ipc_socket && !use_tcp_socket) {
-        log_error(
-            "At least one of IPC socket or TCP socket must be set to \"yes\". "
-            "dockerd will not be started.");
-        set_status_parameter(param_handle, STATUS_NO_SOCKET);
-        return NULL;
     }
 
     if (use_ipc_socket) {
@@ -537,8 +528,8 @@ static const char* build_daemon_args(const struct settings* settings, AXParamete
     return args;
 }
 
-// Return true if dockerd was successfully started.
-// Log an error and return false if it failed to start properly.
+// Start dockerd. On success, call set_status_parameter(STATUS_RUNNING) and on error,
+// call set_status_parameter(STATUS_NOT_STARTED).
 static bool start_dockerd(const struct settings* settings, struct app_state* app_state) {
     AXParameter* param_handle = app_state->param_handle;
     GError* error = NULL;
@@ -547,8 +538,7 @@ static bool start_dockerd(const struct settings* settings, struct app_state* app
     const char* args;
     gchar** args_split = NULL;
 
-    if (!(args = build_daemon_args(settings, param_handle)))
-        goto end;
+    args = build_daemon_args(settings, param_handle);
 
     log_debug("Sending daemon start command: %s", args);
     args_split = g_strsplit(args, " ", 0);
