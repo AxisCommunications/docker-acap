@@ -15,13 +15,13 @@ a compatible Axis device.
 
 <!-- markdownlint-enable MD013 -->
 > [!IMPORTANT]
-> From AXIS OS 12.0 running 'rootful' ACAP applications, i.e. an application setup with the `root` user,
+> From AXIS OS 12.0, running 'rootful' ACAP applications, i.e. an application setup with the `root` user,
 > will no longer be supported. To install a 'rootful' ACAP application on a device running AXIS OS
 > versions between 11.5 and 11.11, allow root must be enabled. See the [VAPIX documentation][vapix-allow-root]
-> for details. Alternatively, On the web page of the device:
+> for details. Alternatively, on the web page of the device:
 >
 > 1. Go to the Apps page, toggle on `Allow root-privileged apps`.
-> 2. Go to System -> Account page, under SSH accounts toggle off `Restrict root access` to be able to
+> 2. Go to System → Account page, under SSH accounts, toggle off `Restrict root access` to be able to
 > send the TLS certificates. Make sure to set the password of the `root` SSH user.
 
 <!-- omit in toc -->
@@ -31,7 +31,7 @@ a compatible Axis device.
 - [Requirements](#requirements)
 - [Substitutions](#substitutions)
 - [Installation and Usage](#installation-and-usage)
-  - [Download a pre-built eap-file](#download-a-pre-built-eap-file)
+  - [Download a pre-built EAP file](#download-a-pre-built-eap-file)
   - [Installation](#installation)
   - [Settings](#settings)
   - [Using TLS to secure the application](#using-tls-to-secure-the-application)
@@ -52,17 +52,17 @@ a compatible Axis device.
 > for information on how to generate certificates for TLS authentication.
 
 The application provides the means to run a Docker daemon on an Axis device, thereby
-making it possible to deploy and run Docker containers on it. When started the daemon
+making it possible to deploy and run Docker containers on it. When started, the daemon
 will run in rootless mode, i.e. the user owning the daemon process will not be root,
 and by extension, the containers will not have root access to the host system.
-See [Rootless Mode][docker-rootless-mode] on Docker.com for more information. The page also
+See [Rootless Mode][docker-rootless-mode] on Docker.com for more information. That page also
 contains known limitations when running rootless Docker.
 
 <!-- omit in toc -->
 ### Known Issues
 
 - Only uid and gid are properly mapped between device and containers, not the secondary groups that the
-user is a member of. This means that resources on the device, even if they are volume or device mounted
+user is a member of. This means that resources on the device, even if they are volume or device mounted,
 can be inaccessible inside the container. This can also affect usage of unsupported D-Bus methods from
 the container. See [Using host user secondary groups in container](#using-host-user-secondary-groups-in-container)
 for how to handle this.
@@ -97,29 +97,29 @@ The following substitutions will be used in this documentation:
 | ---------------------| :------------------------------------------------------|
 | `<application-name>` | `dockerdwrapper`                                       |
 | `<ARCH>`             | Device architecture, either `armv7hf`or `aarch64`      |
-| `<device-ip>`        | The IP of the device                                   |
+| `<device-ip>`        | The IP address of the device                           |
 | `<user>`             | The name of a user on the device with admin rights     |
-| `<user-password>`    | The password of a user on the device with admin rights |
+| `<password>`         | The password of a user on the device with admin rights |
 
 ## Installation and Usage
 
-### Download a pre-built eap-file
+### Download a pre-built EAP file
 
-Download the the eap-file for the architecture of your device from [Releases][latest-release].
-From command line this can be done with:
+Download the EAP file for the architecture of your device from [Releases][latest-release].
+From the command line this can be done with:
 
 ```sh
 curl -s https://api.github.com/repos/AxisCommunications/docker-acap/releases/latest \
  | grep "browser_download_url.*Docker_Daemon_.*_<ARCH>\_signed.eap"
 ```
 
-The prebuilt application is signed, read more about signing
+The prebuilt application is signed. Read more about signing
 [here][signing-documentation].
 
 ### Installation
 
 > [!NOTE]
-> Migrating from rootful application
+> **Migrating from rootful application**
 >
 > If you are upgrading from a rootful application, i.e, any version before 3.0,
 > the following is recommended:
@@ -127,31 +127,31 @@ The prebuilt application is signed, read more about signing
 >- Copy any Docker images that you want to persist from the device to your computer.
 >- Stop the application.
 >- Uninstall the application.
->- Format the SD Card if you will use it for the application. Make sure to manually
->  back up any data you wish to keep.
+>- Format the SD card if you will use it with the application. Make sure to manually
+>  back up any data you wish to keep first.
 >- Restart the device.
 >- Install the rootless application.
 
 Installation can be done by using either the [device web ui](#installation-via-the-device-web-ui) or
-the [VAPIX][vapix-install] application API.
+the [VAPIX application API][vapix-install].
 
 #### Installation via the device web ui
 
 Navigate to `<device-ip>/camera/index.html#/apps`, then click on the `+Add app` button on the page.
-In the popup window that appears, select the eap-file to install.
+In the popup window that appears, select the EAP file to install.
 
 ### Settings
 
 Settings can be accessed either in the device web ui, or via [VAPIX][vapix], eg. using curl:
 
 ```sh
-# To read "<setting_name>"
-curl -s anyauth -u "<user>:<user-password>" \
-"http://<device-ip>/axis-cgi/param.cgi?action=list&group=root.<application-name>.<setting_name>"
+# To read "<setting-name>"
+curl -s anyauth -u "<user>:<password>" \
+"http://<device-ip>/axis-cgi/param.cgi?action=list&group=root.<application-name>.<setting-name>"
 
-# To update "<setting_name>" to "<new_value>"
-curl -s anyauth -u "<user>:<user-password>" \
-"http://<device-ip>/axis-cgi/param.cgi?action=update&root.<application-name>.<setting_name>=<new_value>"
+# To update "<setting-name>" to "<new-value>"
+curl -s anyauth -u "<user>:<password>" \
+"http://<device-ip>/axis-cgi/param.cgi?action=update&root.<application-name>.<setting-name>=<new-value>"
 ```
 
 Note that changing the settings while the application is running will lead to dockerd being restarted.
@@ -167,10 +167,10 @@ The following settings are available
 | [DockerdLogLevel](#log-levels)       | Enum    | RW     | `debug`,`info`,`warn`,`error`,`fatal` |
 | [Status](#status-codes)              | String  | R      | See [Status Codes](#status-codes)     |
 
-#### SD Card support
+#### SD card support
 
-Selects if the docker daemon data-root should be on the device internal storage (default) or on
-an SD card. See [Using an SD Card as storage](#using-an-sd-card-as-storage) for further information.
+Selects if the docker daemon data-root should be on the internal storage of the device (default) or on
+an SD card. See [Using an SD card as storage](#using-an-sd-card-as-storage) for further information.
 
 #### Use TLS
 
@@ -179,10 +179,9 @@ Toggle to select if TLS should be disabled when using TCP Socket. See
 
 #### TCP Socket / IPC Socket
 
-To be able to connect remotely to the docker daemon on the device the TCP Socket need to be selected.
-For containers running on the device to be able to communicate with each other the IPC Socket need
-to be selected.
-Note that at least one of the sockets need to be selected for the application to start dockerd.
+To be able to connect remotely to the docker daemon on the device, the TCP Socket needs to be selected.
+The IPC Socket needs to be selected for containers running on the device to be able to communicate with each other.
+At least one of the sockets needs to be selected for the application to start dockerd.
 
 #### Log levels
 
@@ -207,17 +206,17 @@ Following are the possible values of `Status`:
  4 NO SOCKET                  Neither TCP Socket or IPC Socket are selected.
                               The application is running but dockerd is stopped.
                               Select one or both sockets.
- 5 NO SD CARD                 Use SD Card is selected but no SD Card is mounted in the device.
+ 5 NO SD CARD                 Use SD card is selected but no SD card is mounted in the device.
                               The application is running but dockerd is stopped.
-                              Insert and mount an SD Card.
- 6 SD CARD WRONG FS           Use SD Card is selected but the mounted SD Card has the wrong file system.
+                              Insert and mount an SD card.
+ 6 SD CARD WRONG FS           Use SD card is selected but the mounted SD card has the wrong file system.
                               The application is running but dockerd is stopped.
-                              Format the SD Card with the correct file system.
- 7 SD CARD WRONG PERMISSION   Use SD Card is selected but the application user does not have the correct file
+                              Format the SD card with the correct file system.
+ 7 SD CARD WRONG PERMISSION   Use SD card is selected but the application user does not have the correct file
                               permissions to use it.
                               The application is running but dockerd is stopped.
                               Make sure no directories with the wrong user permissions are left on the
-                              SD Card, then restart the application.
+                              SD card, then restart the application.
 ```
 
 ### Using TLS to secure the application
@@ -242,23 +241,21 @@ restart, or try to start, after each successful HTTP POST request.
 Uploading a new certificate will replace an already present file.
 
 ```sh
-curl --anyauth -u "<user>:<user-password>" -F file=@<file_name> -X POST \
+curl --anyauth -u "<user>:<password>" -F file=@<file_name> -X POST \
   http://<device-ip>/local/<application-name>/<file-name>
 ```
-
-Where `<file-name>` is `ca.pem`, `server-cert.pem` and `server-key.pem`.
 
 To delete any of the certificates from the device HTTP DELETE can be used. Note
 that this will *not* restart dockerd.
 
 ```sh
-curl --anyauth -u "<user>:<user-password>" -X DELETE \
+curl --anyauth -u "<user>:<password>" -X DELETE \
   http://<device-ip>/local/<application-name>/<file-name>
 ```
 
 An alternative way to upload the certificates using `scp`. This method requires an
-an ssh user with write permissions to `/usr/local/packages/<application-name>/localdata`.
-In this case the application need to be restarted for these certificates to be used.
+an SSH user with write permissions to `/usr/local/packages/<application-name>/localdata`.
+In this case the application needs to be restarted for these certificates to be used.
 
 ```sh
 scp ca.pem server-cert.pem server-key.pem <user>@<device-ip>:/usr/local/packages/<application-name>/localdata/
@@ -266,28 +263,26 @@ scp ca.pem server-cert.pem server-key.pem <user>@<device-ip>:/usr/local/packages
 
 ##### Client key and certificate
 
+When configured for TLS, the Docker daemon will listen to port 2376.
 A client will need to have its own private key, together with a certificate authorized by the CA.
-Key, certificate and CA shall be used when running Docker against the dockerd daemon on
-the Axis device. See below for an example:
 
 ```sh
-DOCKER_PORT=2376
 docker --tlsverify \
        --tlscacert=ca.pem \
        --tlscert=client-cert.pem \
        --tlskey=client-key.pem \
-       --host tcp://<device-ip>:$DOCKER_PORT \
+       --host tcp://<device-ip>:2376 \
        version
 ```
 
-Specifying the files on each Docker command will soon become tedious. To configure Docker to
-automatically use your key and certificate, you can export the `DOCKER_CERT_PATH` environment variable:
+Instead of specifying the files with each Docker command,
+Docker can be configured to use the keys and certificates from a directory of your choice
+by using the `DOCKER_CERT_PATH` environment variable:
 
 ```sh
 export DOCKER_CERT_PATH=<client certificate directory>
-DOCKER_PORT=2376
 docker --tlsverify \
-       --host tcp://<device-ip>:$DOCKER_PORT version
+       --host tcp://<device-ip>:2376 version
 ```
 
 where `<client certificate directory>` is the directory on your computer where the files `ca.pem`,
@@ -295,11 +290,10 @@ where `<client certificate directory>` is the directory on your computer where t
 
 ##### Usage example without TLS
 
-With TCP Socket active and Use TLS inactive the call would look like this:
+With TCP Socket active and Use TLS inactive, the Docker daemon will instead listen to port 2375.
 
 ```sh
-DOCKER_PORT=2375
-docker --host tcp://<device-ip>:$DOCKER_PORT version
+docker --host tcp://<device-ip>:2375 version
 ```
 
 ### Using an SD card as storage
@@ -415,14 +409,14 @@ Note that the names of the groups will *not* be correctly displayed inside the c
 
 ## Building the application
 
-Docker can be used to build the application and output the eap-file:
+Docker can be used to build the application and output the EAP file:
 
 ```sh
 docker buildx build --file Dockerfile --build-arg ARCH=<ARCH> --output <build-folder> .
 ```
 
 where `<build-folder>` is the path to an output folder on your machine, eg. `build`. This will be
-created for you if not already existing. Once the build has completed the eap-file can be found
+created for you if not already existing. Once the build has completed the EAP file can be found
 in the `<build-folder>`.
 
 ## Contributing
