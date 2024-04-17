@@ -5,11 +5,10 @@ if [ ! -e /usr/bin/containerd ]; then
 	exit 77 # EX_NOPERM
 fi
 
-# Move the daemon.json file into localdata folder
+# Create empty daemon.json
 if [ ! -e localdata/daemon.json ]; then
-	mv empty_daemon.json localdata/daemon.json
-else
-	rm empty_daemon.json
+	umask 077
+	echo "{}" >localdata/daemon.json
 fi
 
 # Make sure containerd is started before dockerd and set PATH

@@ -92,7 +92,6 @@ RUN <<EOF
         -a dockerd \
         -a docker-init \
         -a docker-proxy \
-        -a empty_daemon.json \
         -a ps
 EOF
 
