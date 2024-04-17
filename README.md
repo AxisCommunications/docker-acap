@@ -1,8 +1,8 @@
 <!-- omit in toc -->
 # The Docker ACAP application
 
-The Docker ACAP application provides the means to run Docker on a compatible Axis
-device.
+The Docker ACAP application, from here on called the application, provides the means to run Docker on
+a compatible Axis device.
 
 <!-- omit in toc -->
 ## Notable Releases
@@ -32,11 +32,12 @@ device.
 - [Installation and Usage](#installation-and-usage)
   - [Download a pre-built eap-file](#download-a-pre-built-eap-file)
   - [Installation](#installation)
-  - [Using TLS to secure the Docker ACAP application](#using-tls-to-secure-the-docker-acap-application)
+  - [Settings](#settings)
+  - [Using TLS to secure the application](#using-tls-to-secure-the-application)
   - [Using an SD card as storage](#using-an-sd-card-as-storage)
-  - [Using the Docker ACAP application](#using-the-docker-acap-application)
-- [Building the Docker ACAP application](#building-the-docker-acap-application)
-- [Installing a locally built Docker ACAP application](#installing-a-locally-built-docker-acap-application)
+  - [Using the application](#using-the-application)
+- [Building the application](#building-the-application)
+- [Installing a locally built application](#installing-a-locally-built-application)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -44,14 +45,13 @@ device.
 
 > [!NOTE]
 >
-> The Docker ACAP application can be run with TLS authentication or without.
+> When TCP socket is selected, the application can be run with TLS authentication or without.
 > Be aware that running without TLS authentication is extremely insecure and we
 > strongly recommend against this.
-> See [Using TLS to secure the Docker ACAP application](#using-tls-to-secure-the-docker-acap-application)
-> for information on how to generate certificates for TLS authentication when using
-> the Docker ACAP application.
+> See [Using TLS to secure the application](#using-tls-to-secure-the-application)
+> for information on how to generate certificates for TLS authentication.
 
-The Docker ACAP application provides the means to run a Docker daemon on an Axis device, thereby
+The application provides the means to run a Docker daemon on an Axis device, thereby
 making it possible to deploy and run Docker containers on it. When started the daemon
 will run in rootless mode, i.e. the user owning the daemon process will not be root,
 and by extension, the containers will not have root access to the host system.
@@ -70,7 +70,7 @@ for how to handle this.
 
 ## Requirements
 
-The following requirements need to be met for running the Docker ACAP application built from the
+The following requirements need to be met for running the application built from the
 main branch.
 
 - Axis device:
@@ -81,7 +81,7 @@ main branch.
 - Computer:
   - Either [Docker Desktop][dockerDesktop] version 4.11.1 or higher, or
   [Docker Engine][dockerEngine] version 20.10.17 or higher.
-  - To build Docker ACAP locally it is required to have [Buildx][buildx] installed.
+  - To build the application locally it is required to have [Buildx][buildx] installed.
 
 <!-- omit in toc -->
 ### Container capability
@@ -108,23 +108,23 @@ curl -s https://api.github.com/repos/AxisCommunications/docker-acap/releases/lat
  | grep "browser_download_url.*Docker_Daemon_.*_<ARCH>\_signed.eap"
 ```
 
-The prebuilt Docker ACAP application is signed, read more about signing
+The prebuilt application is signed, read more about signing
 [here][signing-documentation].
 
 ### Installation
 
 > [!NOTE]
-> Migrating from rootful Docker ACAP application
+> Migrating from rootful application
 >
-> If you are upgrading from a rootful Docker ACAP application, i.e, any version before 3.0,
+> If you are upgrading from a rootful application, i.e, any version before 3.0,
 > the following is recommended:
 >
 >- Copy any Docker images that you want to persist from the device to your computer.
->- Stop the Docker ACAP application.
->- Uninstall the Docker ACAP application.
+>- Stop the application.
+>- Uninstall the application.
 >- If you use the SD card as storage either format it or manually remove the `dockerd` directory (`/var/spool/storage/SD_DISK/dockerd`).
 >- Restart the device.
->- Install the rootless Docker ACAP application.
+>- Install the rootless application.
 
 Installation can be done by using either the device web ui or the [VAPIX][vapix] application API.
 
@@ -133,9 +133,88 @@ Installation can be done by using either the device web ui or the [VAPIX][vapix]
 Navigate to `<device-ip>/camera/index.html#/apps`, then click on the `+Add app` button on the page.
 In the popup window that appears, select the eap-file to install.
 
-### Using TLS to secure the Docker ACAP application
+### Settings
 
-When using the Docker ACAP application with TCP socket, the application can be run in either TLS or
+Settings can be accessed either in the device web interface, or via [VAPIX][vapix], eg. with a curl command:
+
+```sh
+# To read "<setting_name>"
+curl -s anyauth -u "<user>:<user_password>" \
+"http://$DEVICE_IP/axis-cgi/param.cgi?action=list&group=root.<application_name>.<setting_name>"
+
+# To update "<setting_name>" to "<new_value>"
+curl -s anyauth -u "<user>:<user_password>" \
+"http://$DEVICE_IP/axis-cgi/param.cgi?action=update&root.<application_name>.<setting_name>=<new_value>"
+```
+
+The following settings are available
+| Setting             | Type    | Action | Comment                         |
+| ------------------: | ------: | -----: |---------------------------------|
+| SDCardSupport       | Boolean | RW     |                                 |
+| [UseTLS](#use-tls)  | Boolean | RW     |                                 |
+| [TCPSocket](#tcp-socket) | Boolean | RW     |                                 |
+| [IPCSocket](#ipc-socket) | Boolean | RW     |                                 |
+| ApplicationLogLevel      | Enum    | RW     |                                 |
+| DockerdLogLevel          | Enum    | RW     |                                 |
+| [Status](#status-codes)  | Boolean | R      |                                 |
+
+TODO ! PLACEHOLDER FOR LISTING AND DESCRIBING THE VARIOUS SETTINGS
+
+#### Use TLS
+
+TODO ! Move all TLS here or keep it short and refer to other chapters
+
+#### TCP Socket
+
+To be able to connect remotely to the docker daemon on the device the TCP Socket need to be selected.
+Note that at lease one of TCP Socket and [IPC Socket](#ipc-socket) need to be selected for the application
+to start dockerd.
+
+#### IPC Socket
+
+For containers running on the device to be able to communicate with each other the IPC Socket need
+to be selected. Note that at lease one of TCP Socket and [IPC Socket](#ipc-socket) need to be
+selected for the application to start dockerd.
+
+#### Status codes
+
+The application use a parameter called `Status` to inform about what state it is currently in.
+
+Following are the possible values of `Status`:
+
+```text
+-1 NOT STARTED                The application is not started.
+ 0 RUNNING                    The application is started and dockerd is running.
+ 1 DOCKERD STOPPED            Dockerd was stopped successfully and will soon be restarted.
+ 2 DOCKERD RUNTIME ERROR      Dockerd has reported an error during runtime that needs to be resolved by the operator.
+                              Change at least one parameter or restart the application in order to start dockerd again.
+ 3 TLS CERT MISSING           Use TLS is selected but there but certificates are missing on the device.
+                              The application is running but dockerd is stopped.
+                              Upload certificates and restart the application or de-select Use TLS.
+ 4 NO SOCKET                  Neither TCP Socket or IPC Socket are selected.
+                              The application is running but dockerd is stopped.
+                              Select one or both sockets.
+ 5 NO SD CARD                 Use SD Card is selected but no SD Card is mounted in the device.
+                              The application is running but dockerd is stopped.
+                              Insert and mount an SD Card.
+ 6 SD CARD WRONG FS           Use SD Card is selected but the mounted SD Card has the wrong file system.
+                              The application is running but dockerd is stopped.
+                              Format the SD Card with the correct file system.
+ 7 SD CARD WRONG PERMISSION   Use SD Card is selected but the application user does not have the correct file
+                              permissions to use it.
+                              The application is running but dockerd is stopped.
+                              Make sure no directories with the wrong user permissions are left on the
+                              SD Card, then restart the application.
+ 8 SD CARD MIGRATION FAILED   Use SD Card is selected but migrating data from the old data root location to the
+                              new one has failed.
+                              The application is running but dockerd is stopped.
+                              Manually back up and remove either the old or the new data root folder from the SD card,
+                              then restart the application.
+```
+
+### Using TLS to secure the application
+
+When using the application with TCP socket, the application can be run in either TLS or
 unsecured mode. The default selection is to use TLS mode. To change this use the "Use TLS" dropdown
 in the web interface to switch between the two different modes. It's also possible to toggle this
 option by calling the parameter management API in [VAPIX][vapix] and setting the
@@ -154,41 +233,46 @@ Running the ACAP without TLS requires no further setup.
 
 #### TLS Setup
 
-TLS requires a keys and certificates to work, which are listed in the
-subsections below. For more information on how to generate these files, please
-consult the official [Docker documentation][docker-tls].
-Most of these keys and certificates need to be moved to the Axis device. There are multiple ways to
-achieve this, for example by using `scp` to copy the files from a remote machine onto the device.
-This can be done by running the following command on the remote machine:
+TLS requires the following keys and certificates on the device:
+
+- Certificate Authority certificate `ca.pem`
+- Server certificate `server-cert.pem`
+- Private server key `server-key.pem`
+
+For more information on how to generate these files, please consult the official
+[Docker documentation][docker_protect-access].
+
+The files can be uploaded to the device using HTTP. The request will be rejected if the file
+being uploaded has the incorrect header or footer for that file type. The dockerd service will
+restart, or try to start, after each successful HTTP POST request.
 
 ```sh
-scp ca.pem server-cert.pem server-key.pem root@<device ip>:/usr/local/packages/dockerdwrapper/
+curl --anyauth -u "root:$DEVICE_PASSWORD" -F file=@ca.pem -X POST \
+  http://$DEVICE_IP/local/dockerdwrapper/ca.pem
+curl --anyauth -u "root:$DEVICE_PASSWORD" -F file=@server-cert.pem -X POST \
+  http://$DEVICE_IP/local/dockerdwrapper/server-cert.pem
+curl --anyauth -u "root:$DEVICE_PASSWORD" -F file=@server-key.pem -X POST \
+  http://$DEVICE_IP/local/dockerdwrapper/server-key.pem
 ```
 
-Once copied to the Axis device the correct permissions need to be set for the certificates:
+If desired, they can be deleted from the device using:
 
 ```sh
-ssh root@<device IP> 'chown acap-dockerdwrapper /usr/local/packages/dockerdwrapper/*.pem'
-
+curl --anyauth -u "root:$DEVICE_PASSWORD" -X DELETE \
+  http://$DEVICE_IP/local/dockerdwrapper/ca.pem
+curl --anyauth -u "root:$DEVICE_PASSWORD" -X DELETE \
+  http://$DEVICE_IP/local/dockerdwrapper/server-cert.pem
+curl --anyauth -u "root:$DEVICE_PASSWORD" -X DELETE \
+  http://$DEVICE_IP/local/dockerdwrapper/server-key.pem
 ```
 
-##### The Certificate Authority (CA) certificate
+They can also be copied to the `/usr/local/packages/dockerdwrapper/localdata`
+directory of the device using `scp`,
+but this method will not cause the dockerd service to restart.
 
-This certificate needs to be present in the dockerdwrapper package folder on the
-Axis device and be named `ca.pem`. The full path of the file should be
-`/usr/local/packages/dockerdwrapper/ca.pem`.
-
-##### The server certificate
-
-This certificate needs to be present in the dockerdwrapper package folder on the
-Axis device and be named `server-cert.pem`. The full path of the file should be
-`/usr/local/packages/dockerdwrapper/server-cert.pem`.
-
-##### The private server key
-
-This key needs to be present in the dockerdwrapper package folder on the Axis device
-and be named `server-key.pem`. The full path of the file should be
-`/usr/local/packages/dockerdwrapper/server-key.pem`.
+```sh
+scp ca.pem server-cert.pem server-key.pem root@<device ip>:/usr/local/packages/dockerdwrapper/localdata/
+```
 
 ##### Client key and certificate
 
@@ -222,7 +306,7 @@ where `<client certificate directory>` is the directory on your computer where t
 
 ### Using an SD card as storage
 
-An SD card might be necessary to run the Docker ACAP application correctly. Docker
+An SD card might be necessary to run the application correctly. Docker
 containers and docker images can be quite large, and putting them on an SD card
 gives more freedom in how many and how large images can be stored. Switching
 between storage on the SD card or internal storage is done by toggling the "SD
@@ -250,25 +334,25 @@ To get more informed about specifications, check the
 
 > [!NOTE]
 >
->If Docker ACAP application v1.4 or previous has been used on the device with SD card as storage
+>If application v3.0 or previous has been used on the device with SD card as storage
 >the storage directory might already be created with root permissions.
->Since v2.0 the Docker ACAP application is run in rootless mode and it will then not be able
+>Since v3.0 the application is run in rootless mode and it will then not be able
 >to access that directory. To solve this, either reformat the SD card or manually
->remove the directory that is used by the Docker ACAP application.
+>remove the directory that is used by the application.
 
-### Using the Docker ACAP application
+### Using the application
 
-The Docker ACAP application does not contain the docker client binary. This means that all
+The application does not contain the docker client binary. This means that all
 calls need to be done from a separate machine. This can be achieved by using
-the `--host` flag when running the docker command.
+the `--host` flag when running the docker command. The TCP Socket must be selected.
 
-The port used will change depending on if the Docker ACAP application runs using TLS or not.
-The Docker ACAP application will be reachable on port 2375 when running unsecured, and on
+The port used will change depending on if the application runs using TLS or not.
+The application will be reachable on port 2375 when running unsecured, and on
 port 2376 when running secured using TLS. Please read section
-[Using TLS to secure the Docker ACAP application](#using-tls-to-secure-the-docker-acap-application) for
+[Using TLS to secure the application](#using-tls-to-secure-the-application) for
 more information.
 Below is an example of how to remotely run a docker command on an Axis device running
-the Docker ACAP application in unsecured mode:
+the application in unsecured mode:
 
 ```sh
 DOCKER_INSECURE_PORT=2375
@@ -276,10 +360,10 @@ docker --host tcp://$DEVICE_IP:$DOCKER_INSECURE_PORT version
 ```
 
 See [Client key and certificate](#client-key-and-certificate) for an example
-of how to remotely run docker commands on a device running a secured Docker ACAP application
+of how to remotely run docker commands on a device running a secured application
 using TLS.
 
-#### Run a container using the Docker ACAP application
+#### Run a container using the application
 
 Make sure the application, using TLS, is running, then pull and run the
 [hello-world][docker-hello-world] image from Docker Hub:
@@ -329,7 +413,7 @@ docker save <image on host local repository> | docker --tlsverify --host tcp://$
 
 #### Using host user secondary groups in container
 
-The Docker ACAP application is run by a non-root user on the device. This user is set
+The application is run by a non-root user on the device. This user is set
 up to be a member in a number of secondary groups as listed in the
 [manifest.json](https://github.com/AxisCommunications/docker-compose-acap/blob/rootless-preview/app/manifest.json#L6-L11)
 file. When running a container, a user called `root`, (uid 0), belonging to group `root`, (gid 0),
@@ -343,36 +427,23 @@ of the group need to be used. At the moment of writing this the mappings are:
 
 | device group | container group id |
 | ------------ | :----------------: |
-| datacache    | "1"                |
-| sdk          | "2"                |
-| storage      | "3"                |
-| vdo          | "4"                |
-| optics       | "5"                |
+| storage      | "1"                |
 
 Note that the names of the groups will *not* be correctly displayed inside the container.
 
-## Building the Docker ACAP application
+## Building the application
 
-This repository provides a build script that uses Docker to build the application and then extract
-the .eap file:
-
-```sh
-./build.sh <ARCH>
-```
-
-where `<ARCH>` is either `armv7hf` or `aarch64`.
-
-To run the individual commands manually instead:
+Docker can be used to build the application and output the eap-file:
 
 ```sh
-# Build Docker ACAP image
-docker buildx build --file Dockerfile --tag docker-acap:<ARCH> --build-arg ACAPARCH=<ARCH> .
-
-# Extract the eap-file into a folder called `build`
-docker cp "$(docker create "docker-acap:<ARCH>")":/opt/app/ ./build
+docker buildx build --file Dockerfile --build-arg ARCH=<ARCH> --output <build-folder> .
 ```
 
-## Installing a locally built Docker ACAP application
+where `<ARCH>` is either `armv7hf` or `aarch64`. `<build-folder>` is the path to an output folder
+on your machine, eg. `build`. This will be created for you if not already existing.
+Once the build has completed the eap-file can be found in the `<build-folder>`.
+
+## Installing a locally built application
 
 Installation can be done either by running the locally built docker image:
 
@@ -405,9 +476,9 @@ Take a look at the [CONTRIBUTING.md](CONTRIBUTING.md) file.
 [buildx]: https://docs.docker.com/build/install-buildx/
 [devices]: https://axiscommunications.github.io/acap-documentation/docs/axis-devices-and-compatibility#sdk-and-device-compatibility
 [dockerDesktop]: https://docs.docker.com/desktop/
+[docker_protect-access]: https://docs.docker.com/engine/security/protect-access/
 [dockerEngine]: https://docs.docker.com/engine/
 [docker-hello-world]: https://hub.docker.com/_/hello-world
-[docker-tls]: https://docs.docker.com/engine/security/protect-access/
 [docker-rootless-mode]: https://docs.docker.com/engine/security/rootless/
 [latest-release]: https://github.com/AxisCommunications/docker-acap/releases/latest
 [object-detector-python]: https://github.com/AxisCommunications/acap-computer-vision-sdk-examples/tree/main/object-detector-python
