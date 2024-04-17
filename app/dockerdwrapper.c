@@ -462,26 +462,20 @@ static bool read_settings(struct settings* settings, const struct app_state* app
     return true;
 }
 
-// Return true if dockerd was successfully started.
-// Log an error and return false if it failed to start properly.
-static bool start_dockerd(const struct settings* settings, struct app_state* app_state) {
-    AXParameter* param_handle = app_state->param_handle;
+// Return a command line with space-delimited argument based on the current settings.
+// Log an error and return NULL if current settings are invalid.
+static const char* build_daemon_args(const struct settings* settings, AXParameter* param_handle) {
+    static gchar args[1024];  // Pointer to args returned to caller on success.
+    const gsize args_len = sizeof(args);
+
     const char* data_root = settings->data_root;
     const bool use_tls = settings->use_tls;
     const bool use_tcp_socket = settings->use_tcp_socket;
     const bool use_ipc_socket = settings->use_ipc_socket;
 
-    GError* error = NULL;
-
-    bool return_value = false;
-    bool result = false;
-
-    gsize args_len = 1024;
     gsize msg_len = 128;
-    gchar args[args_len];
     gchar msg[msg_len];
     guint args_offset = 0;
-    gchar** args_split = NULL;
 
     args_offset += g_snprintf(args + args_offset,
                               args_len - args_offset,
@@ -502,7 +496,7 @@ static bool start_dockerd(const struct settings* settings, struct app_state* app
             "At least one of IPC socket or TCP socket must be set to \"yes\". "
             "dockerd will not be started.");
         set_status_parameter(param_handle, STATUS_NO_SOCKET);
-        goto end;
+        return NULL;
     }
 
     if (use_ipc_socket) {
@@ -539,9 +533,24 @@ static bool start_dockerd(const struct settings* settings, struct app_state* app
         args_offset +=
             g_snprintf(args + args_offset, args_len - args_offset, " --data-root %s", data_root);
     }
-    log_debug("Sending daemon start command: %s", args);
     log_info("%s", msg);
+    return args;
+}
 
+// Return true if dockerd was successfully started.
+// Log an error and return false if it failed to start properly.
+static bool start_dockerd(const struct settings* settings, struct app_state* app_state) {
+    AXParameter* param_handle = app_state->param_handle;
+    GError* error = NULL;
+    bool result = false;
+    bool return_value = false;
+    const char* args;
+    gchar** args_split = NULL;
+
+    if (!(args = build_daemon_args(settings, param_handle)))
+        goto end;
+
+    log_debug("Sending daemon start command: %s", args);
     args_split = g_strsplit(args, " ", 0);
     result = g_spawn_async(NULL,
                            args_split,
