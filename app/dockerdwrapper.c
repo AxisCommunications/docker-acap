@@ -144,6 +144,33 @@ static void quit_program(int exit_code) {
     main_loop_quit();
 }
 
+static bool with_compose(void) {
+    return strcmp(APP_NAME, "dockerdwrapperwithcompose") == 0;
+}
+
+static char* xdg_runtime_directory(void) {
+    return g_strdup_printf("/var/run/user/%d", getuid());
+}
+
+static bool set_xdg_directory_permisssions(mode_t mode) {
+    g_autofree char* xdg_runtime_dir = xdg_runtime_directory();
+    if (chmod(xdg_runtime_dir, mode) != 0) {
+        log_error("Failed to set permissions on %s: %s", xdg_runtime_dir, strerror(errno));
+        return false;
+    }
+    return true;
+}
+
+static bool let_other_apps_use_our_ipc_socket(void) {
+    const mode_t group_read_and_exec_perms = 0750;
+    return set_xdg_directory_permisssions(group_read_and_exec_perms);
+}
+
+static bool prevent_others_from_using_our_ipc_socket(void) {
+    const mode_t user_read_and_exec_perms = 0700;
+    return set_xdg_directory_permisssions(user_read_and_exec_perms);
+}
+
 /**
  * @brief Signals handling
  *
@@ -431,7 +458,8 @@ static gboolean get_and_verify_tls_selection(AXParameter* param_handle, bool* us
     return true;
 }
 
-// Read and verify consistency of settings. Call set_status_parameter() and return false on error.
+// Read and verify consistency of settings. Call set_status_parameter() or quit_program() and return
+// false on error.
 static bool read_settings(struct settings* settings, const struct app_state* app_state) {
     AXParameter* param_handle = app_state->param_handle;
     settings->use_tcp_socket = is_parameter_yes(param_handle, PARAM_TCP_SOCKET);
@@ -455,6 +483,11 @@ static bool read_settings(struct settings* settings, const struct app_state* app
             "At least one of IPC socket or TCP socket must be set to \"yes\". "
             "dockerd will not be started.");
         set_status_parameter(param_handle, STATUS_NO_SOCKET);
+        return false;
+    }
+
+    if (settings->use_ipc_socket && with_compose() && !let_other_apps_use_our_ipc_socket()) {
+        quit_program(EX_SOFTWARE);
         return false;
     }
 
@@ -731,6 +764,8 @@ static void dockerd_process_exited_callback(GPid pid, gint status, gpointer app_
     g_autofree char* pid_path = g_strdup_printf("/var/run/user/%d/docker.pid", getuid());
     remove(pid_path);
 
+    prevent_others_from_using_our_ipc_socket();
+
     main_loop_quit();  // Trigger a restart of dockerd from main()
 }
 
@@ -844,7 +879,7 @@ static bool set_env_variables(void) {
         g_strdup_printf("/bin:/usr/bin:%s:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin",
                         APP_DIRECTORY);
     g_autofree char* docker_host = g_strdup_printf("unix:///var/run/user/%d/docker.sock", uid);
-    g_autofree char* xdg_runtime_dir = g_strdup_printf("/var/run/user/%d", uid);
+    g_autofree char* xdg_runtime_dir = xdg_runtime_directory();
 
     return set_env_variable("PATH", path) && set_env_variable("HOME", APP_DIRECTORY) &&
            set_env_variable("DOCKER_HOST", docker_host) &&
