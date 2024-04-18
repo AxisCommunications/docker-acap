@@ -727,9 +727,9 @@ static void dockerd_process_exited_callback(GPid pid, gint status, gpointer app_
     dockerd_process_pid = -1;
     g_spawn_close_pid(pid);
 
-    // The lockfile might have been left behind if dockerd shut down in a bad
-    // manner. Remove it manually.
-    remove("/var/run/docker.pid");
+    // The lockfile might have been left behind if dockerd shut down in a bad manner.
+    g_autofree char* pid_path = g_strdup_printf("/var/run/user/%d/docker.pid", getuid());
+    remove(pid_path);
 
     main_loop_quit();  // Trigger a restart of dockerd from main()
 }
