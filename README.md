@@ -121,7 +121,7 @@ The prebuilt application is signed. Read more about signing
 > [!NOTE]
 > **Migrating from rootful application**
 >
-> If you are upgrading from a rootful application, i.e, any version before 3.0,
+> If you are upgrading from a rootful version of this application, i.e, any version before 3.0,
 > the following is recommended:
 >
 >- Copy any Docker images that you want to persist from the device to your computer.
@@ -175,7 +175,7 @@ an SD card. See [Using an SD card as storage](#using-an-sd-card-as-storage) for 
 #### TCP Socket / IPC Socket
 
 To be able to connect remotely to the docker daemon on the device, `TCP Socket` needs to be selected.
-*IPC Socket* needs to be selected for containers running on the device to be able to communicate with each other.
+`IPC Socket` needs to be selected for containers running on the device to be able to communicate with each other.
 At least one of the sockets needs to be selected for the application to start dockerd.
 
 #### Use TLS
