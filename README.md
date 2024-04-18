@@ -180,13 +180,13 @@ At least one of the sockets needs to be selected for the application to start do
 
 #### Use TLS
 
-Toggle to select if TLS should be disabled when using *TCP Socket*. See
+Toggle to select if TLS should be disabled when using `TCP Socket`. See
 [Using TLS to secure the application](#using-tls-to-secure-the-application) for further information.
 
 #### Log levels
 
 Log levels are set separately for the application and for dockerd. For rootlesskit the log level is
-set to `debug` if *DockerdLogLevel* is set to `debug`.
+set to `debug` if `DockerdLogLevel` is set to `debug`.
 
 #### Status codes
 
@@ -290,7 +290,7 @@ where `<client-certificate-directory>` is the directory on your computer where t
 
 ##### Usage example without TLS
 
-With *TCP Socket* active and *Use TLS* inactive, the Docker daemon will instead listen to port 2375.
+With `TCP Socket` active and `Use TLS` inactive, the Docker daemon will instead listen to port 2375.
 
 ```sh
 docker --host tcp://<device-ip>:2375 version
@@ -317,7 +317,7 @@ To get more informed about specifications, check the
 
 > [!NOTE]
 >
->If application with version before 3.0 has been used on the device with SD card as storage,
+>If this application with version before 3.0 has been used on the device with SD card as storage,
 >the storage directory might already be created with root permissions.
 >Since version 3.0 the application is run in rootless mode and it will then not be able
 >to access that directory. To solve this, either reformat the SD card or manually
@@ -329,7 +329,7 @@ To get more informed about specifications, check the
 
 The application does not contain the docker client binary. This means that all
 calls need to be done from a separate machine. This can be achieved by using
-the `--host` flag when running the docker command and requires *TCP Socket* to be selected.
+the `--host` flag when running the docker command and requires `TCP Socket` to be selected.
 
 The port used will change depending on if the application runs using TLS or not.
 The Docker daemon will be reachable on port 2375 when running unsecured, and on
@@ -343,14 +343,14 @@ Make sure the application, using TLS, is running, then pull and run the
 [hello-world][docker-hello-world] image from Docker Hub:
 
 ```sh
-$ docker --tlsverify --host tcp://<device-ip>:$DOCKER_PORT pull hello-world
+$ docker --tlsverify --host tcp://<device-ip>:2376 pull hello-world
 Using default tag: latest
 latest: Pulling from library/hello-world
 70f5ac315c5a: Pull complete 
 Digest: sha256:88ec0acaa3ec199d3b7eaf73588f4518c25f9d34f58ce9a0df68429c5af48e8d
 Status: Downloaded newer image for hello-world:latest
 docker.io/library/hello-world:latest
-$ docker --tlsverify --host tcp://<device-ip>:$DOCKER_PORT run hello-world
+$ docker --tlsverify --host tcp://<device-ip>:2376 run hello-world
 
 Hello from Docker!
 This message shows that your installation appears to be working correctly.
@@ -382,7 +382,7 @@ if you have problems getting the `pull` command to work in your environment, `sa
 and `load` can be used.
 
 ```sh
-docker save <image-on-host-local-repository> | docker --tlsverify --host tcp://<device-ip>:2376 load
+docker save <image-in-client-local-repository> | docker --tlsverify --host tcp://<device-ip>:2376 load
 ```
 
 #### Using host user secondary groups in container
@@ -392,7 +392,7 @@ up to be a member in a number of secondary groups as listed in the
 [manifest.json](https://github.com/AxisCommunications/docker-acap/blob/main/app/manifest.json#L6-L11)
 file.
 
-When running a container, a user called *root*, (uid 0), belonging to group *root*, (gid 0),
+When running a container, a user called `root`, (uid 0), belonging to group `root`, (gid 0),
 will be the default user inside the container. It will be mapped to the non-root user on
 the device, and the group will be mapped to the non-root user's primary group.
 In order to get access inside the container to resources on the device that are group owned by any
