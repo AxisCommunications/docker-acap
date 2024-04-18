@@ -174,7 +174,7 @@ an SD card. See [Using an SD card as storage](#using-an-sd-card-as-storage) for 
 
 #### TCP Socket / IPC Socket
 
-To be able to connect remotely to the docker daemon on the device, *TCP Socket* needs to be selected.
+To be able to connect remotely to the docker daemon on the device, `TCP Socket` needs to be selected.
 *IPC Socket* needs to be selected for containers running on the device to be able to communicate with each other.
 At least one of the sockets needs to be selected for the application to start dockerd.
 
