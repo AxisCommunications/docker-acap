@@ -194,30 +194,38 @@ The application use a parameter called `Status` to inform about what state it is
 
 Following are the possible values of `Status`:
 
-```text
--1 NOT STARTED                The application is not started.
- 0 RUNNING                    The application is started and dockerd is running.
- 1 DOCKERD STOPPED            Dockerd was stopped successfully and will soon be restarted.
- 2 DOCKERD RUNTIME ERROR      Dockerd has reported an error during runtime that needs to be resolved by the operator.
-                              Change at least one parameter or restart the application in order to start dockerd again.
- 3 TLS CERT MISSING           Use TLS is selected but there but certificates are missing on the device.
-                              The application is running but dockerd is stopped.
-                              Upload certificates and restart the application or de-select Use TLS.
- 4 NO SOCKET                  Neither TCP Socket or IPC Socket are selected.
-                              The application is running but dockerd is stopped.
-                              Select one or both sockets.
- 5 NO SD CARD                 Use SD card is selected but no SD card is mounted in the device.
-                              The application is running but dockerd is stopped.
-                              Insert and mount an SD card.
- 6 SD CARD WRONG FS           Use SD card is selected but the mounted SD card has the wrong file system.
-                              The application is running but dockerd is stopped.
-                              Format the SD card with the correct file system.
- 7 SD CARD WRONG PERMISSION   Use SD card is selected but the application user does not have the correct file
-                              permissions to use it.
-                              The application is running but dockerd is stopped.
-                              Make sure no directories with the wrong user permissions are left on the
-                              SD card, then restart the application.
-```
+**-1 NOT STARTED** - The application is not started.
+
+**0 RUNNING** - The application is started and dockerd is running.
+
+**1 DOCKERD STOPPED** - Dockerd was stopped successfully and will soon be restarted.
+
+**2 DOCKERD RUNTIME ERROR** - Dockerd has reported an error during runtime that needs to be resolved
+                              by the operator.
+                              Change at least one parameter or restart the application in order to start
+                              dockerd again.
+
+**3 TLS CERT MISSING** - `UseTLS` is selected but there but certificates are missing on the device.
+                         The application is running but dockerd is stopped.
+                         Upload certificates and restart the application or de-select `UseTLS`.
+
+**4 NO SOCKET** - Neither `TCPSocket` or `IPCSocket` are selected.
+                  The application is running but dockerd is stopped.
+                  Select one or both sockets.
+
+**5 NO SD CARD** - `SDCardSupport` is selected but no SD card is mounted in the device.
+                   The application is running but dockerd is stopped.
+                   Insert and mount an SD card.
+
+**6 SD CARD WRONG FS** - `SDCardSupport` is selected but the mounted SD card has the wrong file system.
+                         The application is running but dockerd is stopped.
+                         Format the SD card with the correct file system.
+
+**7 SD CARD WRONG PERMISSION** - `SDCardSupport` is selected but the application user does not have the
+                                 correct file permissions to use it.
+                                 The application is running but dockerd is stopped.
+                                 Make sure no directories with the wrong user permissions are left on
+                                 the SD card, then restart the application.
 
 ### Using TLS to secure the application
 
@@ -327,9 +335,10 @@ To get more informed about specifications, check the
 
 ### Using the application
 
-The application does not contain the docker client binary. This means that all
-calls need to be done from a separate machine. This can be achieved by using
-the `--host` flag when running the docker command and requires `TCP Socket` to be selected.
+#### Using the application remotely
+
+To interact with the Docker daemon from a remote machine the `TCPSocket` need to be
+selected and the `--host` option need to be used when running any docker command.
 
 The port used will change depending on if the application runs using TLS or not.
 The Docker daemon will be reachable on port 2375 when running unsecured, and on
