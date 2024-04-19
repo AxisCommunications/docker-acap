@@ -93,13 +93,6 @@ struct exit_cause {
     int signal;
 };
 
-/**
- * @brief Callback called when the dockerd process exits.
- */
-static void dockerd_process_exited_callback(__attribute__((unused)) GPid pid,
-                                            gint status,
-                                            __attribute__((unused)) gpointer user_data);
-
 // Loop run on the main process
 static GMainLoop* loop = NULL;
 
@@ -447,6 +440,64 @@ static bool read_settings(struct settings* settings, const struct app_state* app
     return true;
 }
 
+static struct exit_cause child_process_exit_cause(int status, GError* error) {
+    struct exit_cause result;
+    result.code = -1;
+    result.signal = 0;
+
+    if (g_spawn_check_wait_status(status, &error) || error->domain == G_SPAWN_EXIT_ERROR)
+        result.code = error ? error->code : 0;
+    else if (error->domain == G_SPAWN_ERROR && error->code == G_SPAWN_ERROR_FAILED)
+        result.signal = status;
+
+    return result;
+}
+
+static void log_child_process_exit_cause(const char* name, GPid pid, int status) {
+    GError* error = NULL;
+    struct exit_cause exit_cause = child_process_exit_cause(status, error);
+
+    char msg[128];
+    const char* end = msg + sizeof(msg);
+    char* ptr = msg + g_snprintf(msg, end - msg, "Child process %s (%d)", name, pid);
+    if (exit_cause.code >= 0)
+        g_snprintf(ptr, end - ptr, " exited with exit code %d", exit_cause.code);
+    else if (exit_cause.signal > 0)
+        g_snprintf(ptr, end - ptr, " was killed by signal %d", exit_cause.signal);
+    else
+        g_snprintf(ptr, end - ptr, " terminated in an unexpected way: %s", error->message);
+    g_clear_error(&error);
+    log_debug("%s", msg);
+}
+
+static bool child_process_exited_with_error(int status) {
+    GError* error = NULL;
+    struct exit_cause exit_cause = child_process_exit_cause(status, error);
+    g_clear_error(&error);
+    return exit_cause.code > 0;
+}
+
+static void
+check_child_process_exit_code_and_clean_up(GPid pid, gint status, gpointer app_state_void_ptr) {
+    log_child_process_exit_cause("rootlesskit", pid, status);
+
+    struct app_state* app_state = app_state_void_ptr;
+
+    bool runtime_error = child_process_exited_with_error(status);
+    allow_dockerd_to_start(app_state, !runtime_error);
+    status_code_t s = runtime_error ? STATUS_DOCKERD_RUNTIME_ERROR : STATUS_DOCKERD_STOPPED;
+    set_status_parameter(app_state->param_handle, s);
+
+    rootlesskit_pid = 0;
+    g_spawn_close_pid(pid);
+
+    remove_docker_pid_file();  // Might have been left behind if dockerd crashed.
+
+    prevent_others_from_using_our_ipc_socket();
+
+    main_loop_quit();  // Trigger a restart of dockerd from main()
+}
+
 // Return a command line with space-delimited argument based on the current settings.
 static const char* build_daemon_args(const struct settings* settings, AXParameter* param_handle) {
     static gchar args[1024];  // Pointer to args returned to caller on success.
@@ -582,8 +633,7 @@ static bool start_dockerd(const struct settings* settings, struct app_state* app
     }
     log_debug("Child process rootlesskit (%d) was started.", rootlesskit_pid);
 
-    // Watch the child process.
-    g_child_watch_add(rootlesskit_pid, dockerd_process_exited_callback, app_state);
+    g_child_watch_add(rootlesskit_pid, check_child_process_exit_code_and_clean_up, app_state);
 
     set_status_parameter(param_handle, STATUS_RUNNING);
     return_value = true;
@@ -650,66 +700,6 @@ static void stop_dockerd(void) {
         g_main_loop_run(loop);
     }
     log_info("Stopped dockerd.");
-}
-
-static struct exit_cause child_process_exit_cause(int status, GError* error) {
-    struct exit_cause result;
-    result.code = -1;
-    result.signal = 0;
-
-    if (g_spawn_check_wait_status(status, &error) || error->domain == G_SPAWN_EXIT_ERROR)
-        result.code = error ? error->code : 0;
-    else if (error->domain == G_SPAWN_ERROR && error->code == G_SPAWN_ERROR_FAILED)
-        result.signal = status;
-
-    return result;
-}
-
-static void log_child_process_exit_cause(const char* name, GPid pid, int status) {
-    GError* error = NULL;
-    struct exit_cause exit_cause = child_process_exit_cause(status, error);
-
-    char msg[128];
-    const char* end = msg + sizeof(msg);
-    char* ptr = msg + g_snprintf(msg, end - msg, "Child process %s (%d)", name, pid);
-    if (exit_cause.code >= 0)
-        g_snprintf(ptr, end - ptr, " exited with exit code %d", exit_cause.code);
-    else if (exit_cause.signal > 0)
-        g_snprintf(ptr, end - ptr, " was killed by signal %d", exit_cause.signal);
-    else
-        g_snprintf(ptr, end - ptr, " terminated in an unexpected way: %s", error->message);
-    g_clear_error(&error);
-    log_debug("%s", msg);
-}
-
-static bool child_process_exited_with_error(int status) {
-    GError* error = NULL;
-    struct exit_cause exit_cause = child_process_exit_cause(status, error);
-    g_clear_error(&error);
-    return exit_cause.code > 0;
-}
-
-/**
- * @brief Callback called when the dockerd process exits.
- */
-static void dockerd_process_exited_callback(GPid pid, gint status, gpointer app_state_void_ptr) {
-    log_child_process_exit_cause("rootlesskit", pid, status);
-
-    struct app_state* app_state = app_state_void_ptr;
-
-    bool runtime_error = child_process_exited_with_error(status);
-    allow_dockerd_to_start(app_state, !runtime_error);
-    status_code_t s = runtime_error ? STATUS_DOCKERD_RUNTIME_ERROR : STATUS_DOCKERD_STOPPED;
-    set_status_parameter(app_state->param_handle, s);
-
-    rootlesskit_pid = 0;
-    g_spawn_close_pid(pid);
-
-    remove_docker_pid_file();  // Might have been left behind if dockerd crashed.
-
-    prevent_others_from_using_our_ipc_socket();
-
-    main_loop_quit();  // Trigger a restart of dockerd from main()
 }
 
 // Meant to be used as a one-shot call from g_timeout_add_seconds()
