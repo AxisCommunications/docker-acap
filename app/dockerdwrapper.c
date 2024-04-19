@@ -871,11 +871,9 @@ static bool set_env_variables(void) {
     g_autofree char* path =
         g_strdup_printf("/bin:/usr/bin:%s:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin",
                         APP_DIRECTORY);
-    g_autofree char* docker_host = g_strdup_printf("unix:///var/run/user/%d/docker.sock", uid);
     g_autofree char* xdg_runtime_dir = xdg_runtime_directory();
 
     return set_env_variable("PATH", path) && set_env_variable("HOME", APP_DIRECTORY) &&
-           set_env_variable("DOCKER_HOST", docker_host) &&
            set_env_variable("XDG_RUNTIME_DIR", xdg_runtime_dir);
 }
 
