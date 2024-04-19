@@ -109,8 +109,7 @@ static GMainLoop* loop = NULL;
 #define EX_KEEP_RUNNING -1
 static int application_exit_code = EX_KEEP_RUNNING;
 
-// Pid of the running dockerd process
-static pid_t dockerd_process_pid = -1;
+static pid_t rootlesskit_pid = 0;
 
 // All ax_parameters the acap has
 static const char* ax_parameters[] = {PARAM_APPLICATION_LOG_LEVEL,
@@ -211,7 +210,7 @@ static bool is_process_alive(int pid) {
     if (return_pid == -1) {
         // Report errors as dead.
         return false;
-    } else if (return_pid == dockerd_process_pid) {
+    } else if (return_pid == rootlesskit_pid) {
         // Child is already exited, so not alive.
         return false;
     }
@@ -622,17 +621,17 @@ static bool start_dockerd(const struct settings* settings, struct app_state* app
                            G_SPAWN_DO_NOT_REAP_CHILD | G_SPAWN_SEARCH_PATH,
                            NULL,
                            NULL,
-                           &dockerd_process_pid,
+                           &rootlesskit_pid,
                            &error);
     if (!result) {
         log_error("Starting dockerd failed: execv returned: %d, error: %s", result, error->message);
         set_status_parameter(param_handle, STATUS_NOT_STARTED);
         goto end;
     }
-    log_debug("Child process dockerd (%d) was started.", dockerd_process_pid);
+    log_debug("Child process rootlesskit (%d) was started.", rootlesskit_pid);
 
     // Watch the child process.
-    g_child_watch_add(dockerd_process_pid, dockerd_process_exited_callback, app_state);
+    g_child_watch_add(rootlesskit_pid, dockerd_process_exited_callback, app_state);
 
     set_status_parameter(param_handle, STATUS_RUNNING);
     return_value = true;
@@ -668,19 +667,19 @@ static gboolean monitor_dockerd_termination(void* time_since_sigterm_void_ptr) {
     // dockerd usually sends SIGTERM to containers after 10 s, so we must wait a bit longer.
     const int time_to_wait_before_sigkill = 20;
     int* time_since_sigterm = (int*)time_since_sigterm_void_ptr;
-    if (dockerd_process_pid == -1) {
-        log_debug("dockerd exited after %d s", *time_since_sigterm);
+    if (!rootlesskit_pid) {
+        log_debug("rootlesskit exited after %d s", *time_since_sigterm);
         *time_since_sigterm = 0;  // Tell caller that timer has ended.
         g_main_loop_quit(loop);   // Release caller from its main loop.
         return FALSE;             // Tell GLib that timer shall end.
     } else {
-        log_debug("dockerd (%d) still running %d s after SIGTERM",
-                  dockerd_process_pid,
+        log_debug("rootlesskit (%d) still running %d s after SIGTERM",
+                  rootlesskit_pid,
                   *time_since_sigterm);
         (*time_since_sigterm)++;
         if (*time_since_sigterm > time_to_wait_before_sigkill)
             // Send SIGKILL but still wait for the process exit callback to clear the pid variable.
-            send_signal("dockerd", dockerd_process_pid, SIGKILL);
+            send_signal("rootlesskit", rootlesskit_pid, SIGKILL);
         return TRUE;  // Tell GLib to call timer again.
     }
 }
@@ -688,10 +687,10 @@ static gboolean monitor_dockerd_termination(void* time_since_sigterm_void_ptr) {
 // Send SIGTERM to dockerd, wait for it to terminate.
 // Send SIGKILL if that fails, but still wait for it to terminate.
 static void stop_dockerd(void) {
-    if (!is_process_alive(dockerd_process_pid))
+    if (!is_process_alive(rootlesskit_pid))
         return;
 
-    send_signal("dockerd", dockerd_process_pid, SIGTERM);
+    send_signal("rootlesskit", rootlesskit_pid, SIGTERM);
 
     int time_since_sigterm = 1;
     g_timeout_add_seconds(1, monitor_dockerd_termination, &time_since_sigterm);
@@ -742,7 +741,7 @@ static bool child_process_exited_with_error(int status) {
  * @brief Callback called when the dockerd process exits.
  */
 static void dockerd_process_exited_callback(GPid pid, gint status, gpointer app_state_void_ptr) {
-    log_child_process_exit_cause("dockerd", pid, status);
+    log_child_process_exit_cause("rootlesskit", pid, status);
 
     struct app_state* app_state = app_state_void_ptr;
 
@@ -751,7 +750,7 @@ static void dockerd_process_exited_callback(GPid pid, gint status, gpointer app_
     status_code_t s = runtime_error ? STATUS_DOCKERD_RUNTIME_ERROR : STATUS_DOCKERD_STOPPED;
     set_status_parameter(app_state->param_handle, s);
 
-    dockerd_process_pid = -1;
+    rootlesskit_pid = 0;
     g_spawn_close_pid(pid);
 
     // The lockfile might have been left behind if dockerd shut down in a bad manner.
@@ -916,7 +915,7 @@ int main(int argc, char** argv) {
     struct sd_disk_storage* sd_disk_storage = sd_disk_storage_init(sd_card_callback, &app_state);
 
     while (application_exit_code == EX_KEEP_RUNNING) {
-        if (dockerd_process_pid == -1 && dockerd_allowed_to_start(&app_state))
+        if (!rootlesskit_pid && dockerd_allowed_to_start(&app_state))
             read_settings_and_start_dockerd(&app_state);
 
         main_loop_run();
