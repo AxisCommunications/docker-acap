@@ -562,12 +562,14 @@ static const char* build_daemon_args(const struct settings* settings, AXParamete
     if (use_ipc_socket) {
         g_strlcat(msg, " with IPC socket and", msg_len);
         uid_t uid = getuid();
-        uid_t gid = getgid();
         // The socket should reside in the user directory and have same group as user
+        // Ideally we would like to set the group ownership here but due to us
+        // now being in user ns the gid will be set incorrectly on the opened socket
+        // Instead we get a warning message that the 'docker' group is not found
+        // but the socket will be created with the 'addon' group as owner
         args_offset += g_snprintf(args + args_offset,
                                   args_len - args_offset,
-                                  " --group %d -H unix:///var/run/user/%d/docker.sock",
-                                  gid,
+                                  " -H unix:///var/run/user/%d/docker.sock",
                                   uid);
     } else {
         g_strlcat(msg, " without IPC socket and", msg_len);
