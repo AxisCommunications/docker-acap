@@ -58,18 +58,19 @@ const char* tls_file_description(const char* filename) {
     return NULL;
 }
 
-const char* tls_args_for_dockerd(void) {
+const char* tls_file_dockerd_args(void) {
     static char args[512];  // Too small buffer will cause truncated options, nothing more.
     const char* end = args + sizeof(args);
-    char* ptr = args + g_snprintf(args, end - args, "--tlsverify");
+    char* ptr = args;
 
     for (size_t i = 0; i < NUM_TLS_CERTS; ++i)
         ptr += g_snprintf(ptr,
                           end - ptr,
-                          " %s %s/%s",
+                          "%s %s/%s ",
                           tls_certs[i].dockerd_option,
                           TLS_CERT_PATH,
                           tls_certs[i].filename);
+    ptr[-1] = '\0';  // Remove space after last item.
     return args;
 }
 
