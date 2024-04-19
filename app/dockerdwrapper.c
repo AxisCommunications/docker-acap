@@ -634,12 +634,6 @@ static bool start_dockerd(const struct settings* settings, struct app_state* app
     // Watch the child process.
     g_child_watch_add(dockerd_process_pid, dockerd_process_exited_callback, app_state);
 
-    if (!is_process_alive(dockerd_process_pid)) {
-        log_error("Starting dockerd failed: Process died unexpectedly during startup");
-        quit_program(EX_SOFTWARE);
-        set_status_parameter(param_handle, STATUS_NOT_STARTED);
-        goto end;
-    }
     set_status_parameter(param_handle, STATUS_RUNNING);
     return_value = true;
 
