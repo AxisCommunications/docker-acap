@@ -52,7 +52,6 @@ typedef enum {
     STATUS_NO_SD_CARD,
     STATUS_SD_CARD_WRONG_FS,
     STATUS_SD_CARD_WRONG_PERMISSION,
-    STATUS_SD_CARD_MIGRATION_FAILED,
     STATUS_CODE_COUNT,
 } status_code_t;
 
@@ -64,8 +63,7 @@ static const char* const status_code_strs[STATUS_CODE_COUNT] = {"-1 NOT STARTED"
                                                                 "4 NO SOCKET",
                                                                 "5 NO SD CARD",
                                                                 "6 SD CARD WRONG FS",
-                                                                "7 SD CARD WRONG PERMISSION",
-                                                                "8 SD CARD MIGRATION FAILED"};
+                                                                "7 SD CARD WRONG PERMISSION"};
 
 struct settings {
     char* data_root;
@@ -259,57 +257,6 @@ static char* get_parameter_value(AXParameter* param_handle, const char* paramete
 }
 
 /**
- * @brief Migrate the contents of the data directory from the old setup on the
- * SD card to 'new_dir' The new directory must be created and empty. If the
- * operation is successful, the old setup directory will be removed.
- *
- * @return True if operation was successful, false otherwise.
- */
-static bool migrate_from_old_sdcard_setup(const char* new_dir) {
-    const char* old_top_dir = "/var/spool/storage/SD_DISK/dockerd";
-    struct stat directory_stat;
-    int stat_result = stat(old_top_dir, &directory_stat);
-    if (stat(old_top_dir, &directory_stat) != 0) {
-        // No files to move
-        return true;
-    }
-
-    // The new directory must be created and empty.
-    GDir* dir = g_dir_open(new_dir, 0, NULL);
-    if (dir == NULL) {
-        log_error("Failed to open %s", new_dir);
-        return false;
-    }
-    // Get name to first entry in directory, NULL if empty, . and .. are omitted
-    const char* dir_entry = g_dir_read_name(dir);
-    bool directory_not_empty = dir_entry != NULL;
-    g_dir_close(dir);
-
-    if (directory_not_empty) {
-        log_error("Target directory %s is not empty. Will not move files.", new_dir);
-        return false;
-    }
-
-    // Move data from the old directory
-    const char* move_command = g_strdup_printf("mv %s/data/* %s/.", old_top_dir, new_dir);
-    log_info("Run move cmd: \"%s\"", move_command);
-    int res = system(move_command);
-    if (res != 0) {
-        log_error("Failed to move %s to %s, error: %d", old_top_dir, new_dir, res);
-        return false;
-    }
-
-    // Remove the directory
-    const char* remove_command = g_strdup_printf("rm -rf %s", old_top_dir);
-    res = system(remove_command);
-    if (res != 0) {
-        log_error("Failed to remove %s, error: %d", old_top_dir, res);
-    }
-
-    return res == 0;
-}
-
-/**
  * @brief Retrieve the file system type of the device containing this path.
  *
  * @return The file system type as a string (ext4/ext3/vfat etc...) if
@@ -391,12 +338,6 @@ static bool setup_sdcard(AXParameter* param_handle, const char* data_root) {
             "remove the directory.",
             data_root);
         set_status_parameter(param_handle, STATUS_SD_CARD_WRONG_PERMISSION);
-        return false;
-    }
-
-    if (!migrate_from_old_sdcard_setup(data_root)) {
-        log_error("Failed to migrate data from old data-root");
-        set_status_parameter(param_handle, STATUS_SD_CARD_MIGRATION_FAILED);
         return false;
     }
 
