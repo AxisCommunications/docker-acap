@@ -9,7 +9,7 @@ a compatible Axis device.
 <!-- markdownlint-disable MD013 -->
 | Release                 | AXIS OS min. version | Dockerd version | Type     | Comment                         |
 | ----------------------: | -------------------: | --------------: |----------|---------------------------------|
-| [3.0.N][latest-release] | 11.10                | 26.0.0          | rootless | Latest release                  |
+| [3.0.0][latest-release] | 11.10                | 26.0.0          | rootless | Latest release                  |
 | [2.0.0][2.0.0-release]  | 11.9                 | 26.0.0          | rootful  | Legacy release AXIS OS 2024 LTS |
 | [1.5.0][1.5.0-release]  | 10.12                | 20.10.9         | rootful  | Legacy release AXIS OS 2022 LTS |
 
@@ -94,7 +94,7 @@ page by checking the [Container support check box][product-selector-container].
 The following substitutions will be used in this documentation:
 
 |                      | Meaning                                                |
-| ---------------------| :------------------------------------------------------|
+|----------------------| :------------------------------------------------------|
 | `<application-name>` | `dockerdwrapper`                                       |
 | `<ARCH>`             | Device architecture, either `armv7hf`or `aarch64`      |
 | `<device-ip>`        | The IP address of the device                           |
@@ -175,8 +175,8 @@ an SD card. See [Using an SD card as storage](#using-an-sd-card-as-storage) for 
 #### TCP Socket / IPC Socket
 
 To be able to connect remotely to the docker daemon on the device, `TCP Socket` needs to be selected.
-`IPC Socket` needs to be selected for containers running on the device to be able to communicate with each other.
-At least one of the sockets needs to be selected for the application to start dockerd.
+`IPC Socket` needs to be selected for containers running on the device to be able to communicate with
+each other. At least one of the sockets needs to be selected for the application to start dockerd.
 
 #### Use TLS
 
@@ -323,7 +323,7 @@ has a significantly higher inference time when using a small and slow SD card.
 To get more informed about specifications, check the
 [SD Card Standards][sd-card-standards].
 
-> [!NOTE]
+> [!CAUTION]
 >
 >If this application with version before 3.0 has been used on the device with SD card as storage,
 >the storage directory might already be created with root permissions.
@@ -397,8 +397,7 @@ docker save <image-in-client-local-repository> | docker --tlsverify --host tcp:/
 #### Using host user secondary groups in container
 
 The application is run by a non-root user on the device. This user is set
-up to be a member in a number of secondary groups as listed in the
-[manifest.json](https://github.com/AxisCommunications/docker-acap/blob/main/app/manifest.json#L6-L11)
+up to be a member in a number of secondary groups as listed in the /app/manifest.json
 file.
 
 When running a container, a user called `root`, (uid 0), belonging to group `root`, (gid 0),
