@@ -149,6 +149,16 @@ static char* xdg_runtime_directory(void) {
     return g_strdup_printf("/var/run/user/%d", getuid());
 }
 
+static char* xdg_runtime_file(const char* filename) {
+    g_autofree char* xdg_runtime_dir = xdg_runtime_directory();
+    return g_strdup_printf("%s/%s", xdg_runtime_dir, filename);
+}
+
+static void remove_docker_pid_file(void) {
+    g_autofree char* pid_path = xdg_runtime_file("docker.pid");
+    unlink(pid_path);
+}
+
 static bool set_xdg_directory_permisssions(mode_t mode) {
     g_autofree char* xdg_runtime_dir = xdg_runtime_directory();
     if (chmod(xdg_runtime_dir, mode) != 0) {
@@ -501,15 +511,15 @@ static const char* build_daemon_args(const struct settings* settings, AXParamete
 
     if (use_ipc_socket) {
         g_strlcat(msg, " with IPC socket and", msg_len);
-        uid_t uid = getuid();
         // The socket should reside in the user directory and have same group as user.
         // If omitted, dockerd will log a warning about the 'docker' group not being find.
         // However, rootlesskit maps the user's primary group to the root group, so "--group 0"
         // means the socket will belong to the user's primary group.
+        g_autofree char* ipc_socket = xdg_runtime_file("docker.sock");
         args_offset += g_snprintf(args + args_offset,
                                   args_len - args_offset,
-                                  " --group 0 -H unix:///var/run/user/%d/docker.sock",
-                                  uid);
+                                  " --group 0 -H unix://%s",
+                                  ipc_socket);
     } else {
         g_strlcat(msg, " without IPC socket and", msg_len);
     }
@@ -695,9 +705,7 @@ static void dockerd_process_exited_callback(GPid pid, gint status, gpointer app_
     rootlesskit_pid = 0;
     g_spawn_close_pid(pid);
 
-    // The lockfile might have been left behind if dockerd shut down in a bad manner.
-    g_autofree char* pid_path = g_strdup_printf("/var/run/user/%d/docker.pid", getuid());
-    remove(pid_path);
+    remove_docker_pid_file();  // Might have been left behind if dockerd crashed.
 
     prevent_others_from_using_our_ipc_socket();
 
