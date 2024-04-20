@@ -89,7 +89,7 @@ EOF
 WORKDIR $EXPORT_DIR
 RUN cp $BUILD_DIR/util-linux/nsenter nsenter
 
-FROM build_image AS docker-binaries
+FROM sdk_image AS docker_binaries
 
 WORKDIR /download
 
@@ -132,7 +132,7 @@ WORKDIR /opt/app
 COPY app .
 COPY --from=ps /export/ps .
 COPY --from=nsenter /export/nsenter .
-COPY --from=docker-binaries \
+COPY --from=docker_binaries \
     /download/dockerd \
     /download/docker-init \
     /download/docker-proxy \
