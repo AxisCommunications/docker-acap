@@ -882,5 +882,6 @@ int main(int argc, char** argv) {
     sd_disk_storage_free(sd_disk_storage);
     free(app_state.sd_card_area);
 
+    log_debug("Application exited with exit code %d", application_exit_code);
     return application_exit_code;
 }
