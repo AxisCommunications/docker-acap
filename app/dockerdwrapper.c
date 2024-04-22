@@ -501,7 +501,8 @@ check_child_process_exit_code_and_clean_up(GPid pid, gint status, gpointer app_s
 // Return a command line with space-delimited argument based on the current settings.
 static const char* build_daemon_args(const struct settings* settings, AXParameter* param_handle) {
     static gchar args[1024];  // Pointer to args returned to caller on success.
-    const gsize args_len = sizeof(args);
+    const char* args_end = args + sizeof(args);
+    char* args_wr = args;  // Points to location of next write
 
     const char* data_root = settings->data_root;
     const bool use_tls = settings->use_tls;
@@ -510,7 +511,6 @@ static const char* build_daemon_args(const struct settings* settings, AXParamete
 
     gsize msg_len = 128;
     gchar msg[msg_len];
-    guint args_offset = 0;
 
     g_autofree char* log_level = get_parameter_value(param_handle, PARAM_DOCKERD_LOG_LEVEL);
 
@@ -523,42 +523,36 @@ static const char* build_daemon_args(const struct settings* settings, AXParamete
     IPbuffer = inet_ntoa(*((struct in_addr*)host_entry->h_addr_list[0]));
 
     // construct the rootlesskit command
-    args_offset += g_snprintf(args + args_offset,
-                              args_len - args_offset,
-                              "%s %s %s %s %s %s %s %s %s",
-                              "rootlesskit",
-                              "--subid-source=static",
-                              "--net=slirp4netns",
-                              "--disable-host-loopback",
-                              "--copy-up=/etc",
-                              "--copy-up=/run",
-                              "--propagation=rslave",
-                              "--port-driver slirp4netns",
-                              /* don't use same range as company proxy */
-                              "--cidr=10.0.3.0/24");
+    args_wr += g_snprintf(args_wr,
+                          args_end - args_wr,
+                          "%s %s %s %s %s %s %s %s %s",
+                          "rootlesskit",
+                          "--subid-source=static",
+                          "--net=slirp4netns",
+                          "--disable-host-loopback",
+                          "--copy-up=/etc",
+                          "--copy-up=/run",
+                          "--propagation=rslave",
+                          "--port-driver slirp4netns",
+                          /* don't use same range as company proxy */
+                          "--cidr=10.0.3.0/24");
 
     if (strcmp(log_level, "debug") == 0) {
-        args_offset += g_snprintf(args + args_offset, args_len - args_offset, " %s", "--debug");
+        args_wr += g_snprintf(args_wr, args_end - args_wr, " %s", "--debug");
     }
 
     const uint port = use_tls ? 2376 : 2375;
-    args_offset += g_snprintf(args + args_offset,
-                              args_len - args_offset,
-                              " -p %s:%d:%d/tcp",
-                              IPbuffer,
-                              port,
-                              port);
+    args_wr += g_snprintf(args_wr, args_end - args_wr, " -p %s:%d:%d/tcp", IPbuffer, port, port);
 
     // add dockerd command
-    args_offset += g_snprintf(args + args_offset,
-                              args_len - args_offset,
-                              " dockerd %s",
-                              "--config-file " APP_LOCALDATA "/" DAEMON_JSON);
+    args_wr += g_snprintf(args_wr,
+                          args_end - args_wr,
+                          " dockerd %s",
+                          "--config-file " APP_LOCALDATA "/" DAEMON_JSON);
 
     g_strlcpy(msg, "Starting dockerd", msg_len);
 
-    args_offset +=
-        g_snprintf(args + args_offset, args_len - args_offset, " --log-level=%s", log_level);
+    args_wr += g_snprintf(args_wr, args_end - args_wr, " --log-level=%s", log_level);
 
     if (use_ipc_socket) {
         g_strlcat(msg, " with IPC socket and", msg_len);
@@ -567,39 +561,28 @@ static const char* build_daemon_args(const struct settings* settings, AXParamete
         // However, rootlesskit maps the user's primary group to the root group, so "--group 0"
         // means the socket will belong to the user's primary group.
         g_autofree char* ipc_socket = xdg_runtime_file("docker.sock");
-        args_offset += g_snprintf(args + args_offset,
-                                  args_len - args_offset,
-                                  " --group 0 -H unix://%s",
-                                  ipc_socket);
+        args_wr += g_snprintf(args_wr, args_end - args_wr, " --group 0 -H unix://%s", ipc_socket);
     } else {
         g_strlcat(msg, " without IPC socket and", msg_len);
     }
 
     if (use_tcp_socket) {
         g_strlcat(msg, " with TCP socket", msg_len);
+        g_strlcat(msg, use_tls ? " in TLS mode" : " in unsecured mode", msg_len);
         const uint port = use_tls ? 2376 : 2375;
-        args_offset +=
-            g_snprintf(args + args_offset, args_len - args_offset, " -H tcp://0.0.0.0:%d", port);
-        if (use_tls) {
-            args_offset += g_snprintf(args + args_offset,
-                                      args_len - args_offset,
-                                      " %s",
-                                      tls_args_for_dockerd());
-            g_strlcat(msg, " in TLS mode", msg_len);
-        } else {
-            args_offset += g_snprintf(args + args_offset, args_len - args_offset, " --tls=false");
-            g_strlcat(msg, " in unsecured mode", msg_len);
-        }
+        args_wr += g_snprintf(args_wr, args_end - args_wr, " -H tcp://0.0.0.0:%d", port);
+        const char* tls_arg = use_tls ? "--tlsverify=true" : "--tls=false";
+        args_wr += g_snprintf(args_wr, args_end - args_wr, " %s", tls_arg);
+        if (use_tls)
+            args_wr += g_snprintf(args_wr, args_end - args_wr, " %s", tls_file_dockerd_args());
     } else {
         g_strlcat(msg, " without TCP socket", msg_len);
     }
 
-    {
-        g_autofree char* data_root_msg = g_strdup_printf(" using %s as storage.", data_root);
-        g_strlcat(msg, data_root_msg, msg_len);
-        args_offset +=
-            g_snprintf(args + args_offset, args_len - args_offset, " --data-root %s", data_root);
-    }
+    g_autofree char* data_root_msg = g_strdup_printf(" using %s as storage.", data_root);
+    g_strlcat(msg, data_root_msg, msg_len);
+    args_wr += g_snprintf(args_wr, args_end - args_wr, " --data-root %s", data_root);
+
     log_info("%s", msg);
     return args;
 }
@@ -611,13 +594,11 @@ static bool start_dockerd(const struct settings* settings, struct app_state* app
     GError* error = NULL;
     bool result = false;
     bool return_value = false;
-    const char* args;
-    gchar** args_split = NULL;
 
-    args = build_daemon_args(settings, param_handle);
+    const char* args = build_daemon_args(settings, param_handle);
 
     log_debug("Sending daemon start command: %s", args);
-    args_split = g_strsplit(args, " ", 0);
+    char** args_split = g_strsplit(args, " ", 0);
     result = g_spawn_async(NULL,
                            args_split,
                            NULL,
