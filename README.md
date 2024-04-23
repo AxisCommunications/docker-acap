@@ -407,11 +407,12 @@ In order to get access inside the container to resources on the device that are 
 of the non-root users secondary groups, these need to be added for the container user.
 This can be done by using `group_add` in a docker-compose.yaml or `--group-add` if using the Docker cli.
 Unfortunately, adding the name of a secondary group is not supported. Instead the *mapped* id
-of the group need to be used. At the moment of writing this the mappings are:
+of the group need to be used. The current mappings are:
 
 | device group | container group id |
 | ------------ | :----------------: |
-| `storage`    | "1"                |
+| `sdk`        | "1"                |
+| `storage`    | "2"                |
 
 Note that the names of the groups will *not* be correctly displayed inside the container.
 
