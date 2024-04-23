@@ -3,7 +3,7 @@
     "resources": {
         "linux": {
             "user": {
-                "groups": ["storage", "sdk"]
+                "groups": ["sdk", "storage"]
             }
         }
     },

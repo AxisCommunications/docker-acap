@@ -411,8 +411,8 @@ of the group need to be used. The current mappings are:
 
 | device group | container group id |
 | ------------ | :----------------: |
-| `storage`    | "1"                |
-| `sdk`        | "2"                |
+| `sdk`        | "1"                |
+| `storage`    | "2"                |
 
 Note that the names of the groups will *not* be correctly displayed inside the container.
 
