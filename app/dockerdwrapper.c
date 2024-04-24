@@ -440,14 +440,14 @@ static bool read_settings(struct settings* settings, const struct app_state* app
     return true;
 }
 
-static struct exit_cause child_process_exit_cause(int status, GError* error) {
+static struct exit_cause child_process_exit_cause(int status, GError** error) {
     struct exit_cause result;
     result.code = -1;
     result.signal = 0;
 
-    if (g_spawn_check_wait_status(status, &error) || error->domain == G_SPAWN_EXIT_ERROR)
-        result.code = error ? error->code : 0;
-    else if (error->domain == G_SPAWN_ERROR && error->code == G_SPAWN_ERROR_FAILED)
+    if (g_spawn_check_wait_status(status, error) || (*error)->domain == G_SPAWN_EXIT_ERROR)
+        result.code = *error ? (*error)->code : 0;
+    else if ((*error)->domain == G_SPAWN_ERROR && (*error)->code == G_SPAWN_ERROR_FAILED)
         result.signal = status;
 
     return result;
@@ -455,7 +455,7 @@ static struct exit_cause child_process_exit_cause(int status, GError* error) {
 
 static void log_child_process_exit_cause(const char* name, GPid pid, int status) {
     GError* error = NULL;
-    struct exit_cause exit_cause = child_process_exit_cause(status, error);
+    struct exit_cause exit_cause = child_process_exit_cause(status, &error);
 
     char msg[128];
     const char* end = msg + sizeof(msg);
@@ -472,7 +472,7 @@ static void log_child_process_exit_cause(const char* name, GPid pid, int status)
 
 static bool child_process_exited_with_error(int status) {
     GError* error = NULL;
-    struct exit_cause exit_cause = child_process_exit_cause(status, error);
+    struct exit_cause exit_cause = child_process_exit_cause(status, &error);
     g_clear_error(&error);
     return exit_cause.code > 0;
 }
