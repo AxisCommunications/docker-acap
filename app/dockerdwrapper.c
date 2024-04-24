@@ -849,15 +849,7 @@ int main(int argc, char** argv) {
     fcgi_stop();
 
     set_status_parameter(app_state.param_handle, STATUS_NOT_STARTED);
-
-    if (app_state.param_handle != NULL) {
-        for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]); ++i) {
-            char* parameter_path = g_strdup_printf("root.%s.%s", APP_NAME, ax_parameters[i]);
-            ax_parameter_unregister_callback(app_state.param_handle, parameter_path);
-            free(parameter_path);
-        }
-        ax_parameter_free(app_state.param_handle);
-    }
+    ax_parameter_free(app_state.param_handle);
 
     free(app_state.sd_card_area);
 
