@@ -119,9 +119,7 @@ static void malformed_request(FCGX_Request* request, const char* method, const c
     response_msg(request, HTTP_400_BAD_REQUEST, "Malformed request");
 }
 
-void http_request_callback(void* request_void_ptr, void* restart_dockerd_context_void_ptr) {
-    FCGX_Request* request = (FCGX_Request*)request_void_ptr;
-
+void http_request_callback(FCGX_Request* request, void* restart_dockerd_context_void_ptr) {
     const char* method = FCGX_GetParam("REQUEST_METHOD", request->envp);
     const char* uri = FCGX_GetParam("REQUEST_URI", request->envp);
 

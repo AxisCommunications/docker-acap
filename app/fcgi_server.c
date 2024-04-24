@@ -22,24 +22,16 @@ struct request_context {
 static void* handle_fcgi(void* request_context_void_ptr) {
     g_autofree struct request_context* request_context =
         (struct request_context*)request_context_void_ptr;
-    GThreadPool* workers = g_thread_pool_new((GFunc)request_context->callback,
-                                             request_context->parameter,
-                                             -1,
-                                             FALSE,
-                                             NULL);
-    while (workers) {
-        FCGX_Request* request = g_malloc0(sizeof(FCGX_Request));
-        FCGX_InitRequest(request, g_socket, FCGI_FAIL_ACCEPT_ON_INTR);
-        if (FCGX_Accept_r(request) < 0) {
-            log_info("FCGX_Accept_r: %s", strerror(errno));
-            g_free(request);
-            break;
+    while (true) {
+        FCGX_Request request = {};
+        FCGX_InitRequest(&request, g_socket, FCGI_FAIL_ACCEPT_ON_INTR);
+        if (FCGX_Accept_r(&request) < 0) {
+            // shutdown() was called on g_socket, which causes FCGX_Accept_r() to fail.
+            log_debug("Stopping FCGI server, because FCGX_Accept_r() returned %s", strerror(errno));
+            return NULL;
         }
-        g_thread_pool_push(workers, request, NULL);
+        request_context->callback(&request, request_context->parameter);
     }
-    log_info("Stopping FCGI server");
-    g_thread_pool_free(workers, true, false);
-    return NULL;
 }
 
 int fcgi_start(fcgi_request_callback request_callback, void* request_callback_parameter) {
