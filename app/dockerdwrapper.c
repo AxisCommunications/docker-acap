@@ -843,7 +843,8 @@ int main(int argc, char** argv) {
 
         stop_dockerd();
     }
-    main_loop_unref();
+
+    sd_disk_storage_free(sd_disk_storage);
 
     fcgi_stop();
 
@@ -858,8 +859,9 @@ int main(int argc, char** argv) {
         ax_parameter_free(app_state.param_handle);
     }
 
-    sd_disk_storage_free(sd_disk_storage);
     free(app_state.sd_card_area);
+
+    main_loop_unref();
 
     log_debug("Application exited with exit code %d", application_exit_code);
     return application_exit_code;
