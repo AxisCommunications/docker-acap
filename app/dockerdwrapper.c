@@ -102,13 +102,13 @@ static int application_exit_code = EX_KEEP_RUNNING;
 
 static pid_t rootlesskit_pid = 0;
 
-// All ax_parameters the acap has
-static const char* ax_parameters[] = {PARAM_APPLICATION_LOG_LEVEL,
-                                      PARAM_DOCKERD_LOG_LEVEL,
-                                      PARAM_IPC_SOCKET,
-                                      PARAM_SD_CARD_SUPPORT,
-                                      PARAM_TCP_SOCKET,
-                                      PARAM_USE_TLS};
+static const char* params_that_restart_dockerd[] = {PARAM_APPLICATION_LOG_LEVEL,
+                                                    PARAM_DOCKERD_LOG_LEVEL,
+                                                    PARAM_IPC_SOCKET,
+                                                    PARAM_SD_CARD_SUPPORT,
+                                                    PARAM_TCP_SOCKET,
+                                                    PARAM_USE_TLS,
+                                                    NULL};
 
 #define main_loop_run()                                        \
     do {                                                       \
@@ -689,15 +689,10 @@ static gboolean quit_main_loop(void*) {
     return FALSE;
 }
 
-/**
- * @brief Callback function called when any of the parameters
- * changes. Will restart the dockerd process with the new setting.
- *
- * @param name Name of the updated parameter.
- * @param value Value of the updated parameter.
- */
-static void
-parameter_changed_callback(const gchar* name, const gchar* value, gpointer app_state_void_ptr) {
+// Meant to be used as an AXParameter callback
+static void restart_dockerd_when_parameter_changed(const gchar* name,
+                                                   const gchar* value,
+                                                   gpointer app_state_void_ptr) {
     const gchar* parname = name += strlen("root." APP_NAME ".");
 
     log_info("%s changed to %s", parname, value);
@@ -724,19 +719,13 @@ static AXParameter* setup_axparameter(struct app_state* app_state) {
         goto end;
     }
 
-    for (size_t i = 0; i < sizeof(ax_parameters) / sizeof(ax_parameters[0]); ++i) {
-        char* parameter_path = g_strdup_printf("root.%s.%s", APP_NAME, ax_parameters[i]);
-        gboolean geresult = ax_parameter_register_callback(ax_parameter,
-                                                           parameter_path,
-                                                           parameter_changed_callback,
-                                                           app_state,
-                                                           &error);
-        free(parameter_path);
-
-        if (geresult == FALSE) {
-            log_error("Could not register %s callback. Error: %s",
-                      ax_parameters[i],
-                      error->message);
+    for (const char** param = params_that_restart_dockerd; *param; param++) {
+        if (!ax_parameter_register_callback(ax_parameter,
+                                            *param,
+                                            restart_dockerd_when_parameter_changed,
+                                            app_state,
+                                            &error)) {
+            log_error("Could not register %s callback. Error: %s", *param, error->message);
             goto end;
         }
     }
@@ -744,6 +733,7 @@ static AXParameter* setup_axparameter(struct app_state* app_state) {
     success = true;
 
 end:
+    g_clear_error(&error);
     if (!success && ax_parameter != NULL) {
         ax_parameter_free(ax_parameter);
         ax_parameter = NULL;
