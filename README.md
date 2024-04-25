@@ -7,11 +7,11 @@ a compatible Axis device.
 <!-- omit in toc -->
 ## Notable Releases
 <!-- markdownlint-disable MD013 -->
-| Release                 | AXIS OS min. version | Dockerd version | Type     | Comment                         |
-| ----------------------: | -------------------: | --------------: |----------|---------------------------------|
-| [3.0.0][latest-release] | 11.10                | 26.0.0          | rootless | Latest release                  |
-| [2.0.0][2.0.0-release]  | 11.9                 | 26.0.0          | rootful  | Legacy release AXIS OS 2024 LTS |
-| [1.5.0][1.5.0-release]  | 10.12                | 20.10.9         | rootful  | Legacy release AXIS OS 2022 LTS |
+| Release                  | AXIS OS min. version | Dockerd version | Type     | Comment                         |
+| -----------------------: | -------------------: | --------------: |----------|---------------------------------|
+| [3.0.0-rc.3][3.0.0-rc.3] | 11.10                | 26.0.0          | rootless | Release candidate               |
+| [2.0.0][2.0.0-release]   | 11.9                 | 26.0.0          | rootful  | Legacy release AXIS OS 2024 LTS |
+| [1.5.0][1.5.0-release]   | 10.12                | 20.10.9         | rootful  | Legacy release AXIS OS 2022 LTS |
 
 <!-- markdownlint-enable MD013 -->
 > [!IMPORTANT]
@@ -439,6 +439,7 @@ Take a look at the [CONTRIBUTING.md](CONTRIBUTING.md) file.
 <!-- markdownlint-disable MD034 -->
 [1.5.0-release]: https://github.com/AxisCommunications/docker-acap/releases/tag/1.5.0
 [2.0.0-release]: https://github.com/AxisCommunications/docker-acap/releases/tag/2.0.0
+[3.0.0-rc.3]: https://github.com/AxisCommunications/docker-acap/releases/tag/3.0.0-rc.3
 [buildx]: https://docs.docker.com/build/install-buildx/
 [devices]: https://axiscommunications.github.io/acap-documentation/docs/axis-devices-and-compatibility#sdk-and-device-compatibility
 [dockerDesktop]: https://docs.docker.com/desktop/
