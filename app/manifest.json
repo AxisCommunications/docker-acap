@@ -50,7 +50,7 @@
                 },
                 {
                     "name": "DockerdLogLevel",
-                    "default": "info",
+                    "default": "warn",
                     "type": "enum:debug,info,warn,error,fatal"
                 },
                 {
