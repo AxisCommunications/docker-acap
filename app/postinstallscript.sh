@@ -15,6 +15,6 @@ fi
 # ACAP framework does not handle ownership on SD card, which causes problem when the app user ID changes.
 # If run as root, this script will repair the ownership.
 SD_CARD_AREA=/var/spool/storage/SD_DISK/areas/"$(basename "$(pwd)")"
-if [ "$(id -u)" -eq 0 -a -d "$SD_CARD_AREA" ]; then
+if [ "$(id -u)" -eq 0 ] && [ -d "$SD_CARD_AREA" ]; then
 	chown -R "$(stat -c %u.%g localdata)" "$SD_CARD_AREA"
 fi
