@@ -61,6 +61,9 @@ contains known limitations when running rootless Docker.
 <!-- omit in toc -->
 ### Known Issues
 
+- When using the SD Card for this application, the file permissions can sometimes be set incorrectly
+  during an upgrade of the device firmware or the application. To fix this see [Using an SD card as storage](#using-an-sd-card-as-storage).
+
 - Only uid and gid are properly mapped between device and containers, not the secondary groups that the
 user is a member of. This means that resources on the device, even if they are volume or device mounted,
 can be inaccessible inside the container. This can also affect usage of unsupported D-Bus methods from
@@ -224,11 +227,8 @@ Following are the possible values of `Status`:
                                  correct file permissions to use it.
                                  The application is running but dockerd is stopped.
                                  Make sure no directories with the wrong user permissions are left on
-                                 the SD card, then restart the application.
-                                 This can be achieved by [allowing root-privileged apps][vapix-allow-root],
-                                 reinstalling the application, then disallowing root-privileged apps again,
-                                 since the post-install script will attempt to repair the permissions when
-                                 running as root.
+                                 the SD card, then restart the application. For further information see
+                                 [Using an SD card as storage](#using-an-sd-card-as-storage).
 
 ### Using TLS to secure the application
 
@@ -335,6 +335,9 @@ To get more informed about specifications, check the
 >remove the directory that is used by the application.
 >For versions before 2.0 the path was `/var/spool/storage/SD_DISK/dockerd`.
 >For versions from 2.0 the path is `/var/spool/storage/areas/SD_DISK/<application-name>`.
+>Alternatively, this can be achieved by [allowing root-privileged apps][vapix-allow-root],
+>reinstalling the application, then disallowing root-privileged apps again,
+>since the post-install script will attempt to repair the permissions when running as root.
 
 ### Using the application
 
