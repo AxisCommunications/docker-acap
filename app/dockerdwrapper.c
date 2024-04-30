@@ -371,7 +371,7 @@ static bool is_app_log_level_debug(AXParameter* param_handle) {
 static char* prepare_data_root(AXParameter* param_handle, const char* sd_card_area) {
     if (is_parameter_yes(param_handle, PARAM_SD_CARD_SUPPORT)) {
         if (!sd_card_area) {
-            log_error("SD card was requested, but no SD card is available at the moment.");
+            log_warning("SD card was requested, but no SD card is available at the moment.");
             set_status_parameter(param_handle, STATUS_NO_SD_CARD);
             return NULL;
         }
