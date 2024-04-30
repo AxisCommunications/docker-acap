@@ -412,12 +412,8 @@ static bool read_settings(struct settings* settings, const struct app_state* app
         // when TCP won't be used. If the setting is changed we will loop through
         // this function again.
         settings->use_tls = false;
-    else {
-        if (!get_and_verify_tls_selection(param_handle, &settings->use_tls)) {
-            log_error("Failed to verify tls selection");
-            return false;
-        }
-    }
+    else if (!get_and_verify_tls_selection(param_handle, &settings->use_tls))
+        return false;
 
     settings->use_ipc_socket = is_parameter_yes(param_handle, PARAM_IPC_SOCKET);
 
