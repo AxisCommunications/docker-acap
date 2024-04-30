@@ -796,17 +796,13 @@ int main(int argc, char** argv) {
     allow_dockerd_to_start(&app_state, true);
 
     app_state.param_handle = setup_axparameter(&app_state);
-    if (!app_state.param_handle) {
-        log_error("Error in setup_axparameter");
+    if (!app_state.param_handle)
         return EX_SOFTWARE;
-    }
 
     log_debug_set(is_app_log_level_debug(app_state.param_handle));
 
-    if (!set_env_variables()) {
-        log_error("Failed to set environment variables");
+    if (!set_env_variables())
         return EX_SOFTWARE;
-    }
 
     init_signals();
 
