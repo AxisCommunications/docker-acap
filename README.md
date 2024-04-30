@@ -225,6 +225,10 @@ Following are the possible values of `Status`:
                                  The application is running but dockerd is stopped.
                                  Make sure no directories with the wrong user permissions are left on
                                  the SD card, then restart the application.
+                                 This can be achieved by [allowing root-privileged apps][vapix-allow-root],
+                                 reinstalling the application, then disallowing root-privileged apps again,
+                                 since the post-install script will attempt to repair the permissions when
+                                 running as root.
 
 ### Using TLS to secure the application
 
