@@ -5,16 +5,21 @@ if [ ! -e /usr/bin/containerd ]; then
 	exit 77 # EX_NOPERM
 fi
 
+UID_DOT_GID="$(stat -c %u.%g localdata)"
+IS_ROOT=$([ "$(id -u)" -eq 0 ] && echo true || echo false)
+
 # Create empty daemon.json
-if [ ! -e localdata/daemon.json ]; then
+DAEMON_JSON=localdata/daemon.json
+if [ ! -e "$DAEMON_JSON" ]; then
 	umask 077
-	echo "{}" >localdata/daemon.json
-	[ "$(id -u)" -ne 0 ] || chown "$(stat -c %u.%g localdata)" localdata/daemon.json
+	echo "{}" >"$DAEMON_JSON"
+	! $IS_ROOT || chown "$UID_DOT_GID" "$DAEMON_JSON"
 fi
 
-# ACAP framework does not handle ownership on SD card, which causes problem when the app user ID changes.
-# If run as root, this script will repair the ownership.
-SD_CARD_AREA=/var/spool/storage/SD_DISK/areas/"$(basename "$(pwd)")"
-if [ "$(id -u)" -eq 0 ] && [ -d "$SD_CARD_AREA" ]; then
-	chown -R "$(stat -c %u.%g localdata)" "$SD_CARD_AREA"
+# ACAP framework does not handle ownership on SD card, which causes problem when
+# the app user ID changes. If run as root, this script will repair the ownership.
+APP_NAME="$(basename "$(pwd)")"
+SD_CARD_AREA=/var/spool/storage/SD_DISK/areas/"$APP_NAME"
+if $IS_ROOT && [ -d "$SD_CARD_AREA" ]; then
+	chown -R "$UID_DOT_GID" "$SD_CARD_AREA"
 fi
