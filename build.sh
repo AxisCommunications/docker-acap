@@ -43,6 +43,7 @@ done
 docker buildx build --build-arg ARCH="$arch" \
 	--build-arg HTTP_PROXY="${HTTP_PROXY:-}" \
 	--build-arg HTTPS_PROXY="${HTTPS_PROXY:-}" \
+	--build-arg BUILD_WITH_SANITIZERS="${BUILD_WITH_SANITIZERS:-}" \
 	--file Dockerfile \
 	$progress_arg \
 	$cache_arg \
