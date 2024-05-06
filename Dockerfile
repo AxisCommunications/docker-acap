@@ -140,8 +140,11 @@ COPY --from=docker_binaries \
     /download/rootlesskit-docker-proxy \
     /download/slirp4netns ./
 
+ARG BUILD_WITH_SANITIZERS
+
 RUN <<EOF
     . /opt/axis/acapsdk/environment-setup*
+    BUILD_WITH_SANITIZERS="$BUILD_WITH_SANITIZERS" \
     acap-build . \
         -a dockerd \
         -a docker-init \

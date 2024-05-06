@@ -10,6 +10,11 @@ CFLAGS += -W -Wformat=2 -Wpointer-arith -Wbad-function-cast -Wstrict-prototypes 
 		-Wno-unused-variable \
 		-D APP_NAME=\"$(PROG1)\"
 
+ifdef BUILD_WITH_SANITIZERS
+    CFLAGS += -g -fsanitize=address -fsanitize=leak -fsanitize=undefined
+    LDFLAGS += -static-libasan -static-liblsan -static-libubsan
+endif
+
 all: $(PROG1)
 
 $(PROG1): $(OBJS1)

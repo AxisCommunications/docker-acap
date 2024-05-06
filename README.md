@@ -435,6 +435,17 @@ where `<build-folder>` is the path to an output folder on your machine, eg. `bui
 created for you if not already existing. Once the build has completed the EAP file can be found
 in the `<build-folder>`.
 
+### Build options
+
+In order to build with debug symbols and sanitizing instrumentation for detecting memory leaks and undefined behavior,
+add the option
+
+```sh
+--build-arg BUILD_WITH_SANITIZERS=1
+```
+
+to the docker command line above.
+
 ## Contributing
 
 Take a look at the [CONTRIBUTING.md](CONTRIBUTING.md) file.
