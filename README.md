@@ -11,7 +11,7 @@ a compatible Axis device.
 | -----------------------: | -------------------: | --------------: |----------|---------------------------------|
 | [3.0.0][latest-release]  | 11.10                | 26.0.0          | rootless | Latest release                  |
 | [2.0.0][2.0.0-release]   | 11.9                 | 26.0.0          | rootful  | Legacy release AXIS OS 2024 LTS |
-| [1.5.0][1.5.0-release]   | 10.12                | 20.10.9         | rootful  | Legacy release AXIS OS 2022 LTS |
+| [1.5.0][1.5.0-release]   | 10.12                | 26.0.0          | rootful  | Legacy release AXIS OS 2022 LTS |
 
 <!-- markdownlint-enable MD013 -->
 > [!IMPORTANT]
