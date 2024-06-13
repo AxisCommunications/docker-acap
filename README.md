@@ -362,7 +362,7 @@ Make sure the application, using TLS, is running, then pull and run the
 $ docker --tlsverify --host tcp://<device-ip>:2376 pull hello-world
 Using default tag: latest
 latest: Pulling from library/hello-world
-70f5ac315c5a: Pull complete 
+70f5ac315c5a: Pull complete
 Digest: sha256:88ec0acaa3ec199d3b7eaf73588f4518c25f9d34f58ce9a0df68429c5af48e8d
 Status: Downloaded newer image for hello-world:latest
 docker.io/library/hello-world:latest
@@ -390,6 +390,35 @@ For more examples and ideas, visit:
  https://docs.docker.com/get-started/
 
 ```
+
+#### Proxy Setup
+
+> [!NOTE]
+> **From AXIS OS 12.0**
+>
+> To use the shell script provided to set proxy, [developer mode](#developermode) certificate has to be set on camera, to be able use acap-dockerdwrapper ssh user instead of root ssh user.
+
+**Using provided shell script**
+- Modify the docker-acap-set-proxy-in-daemon-json.sh at <myproxy\> <port\> <domain\>
+- Call the shell script and then restart the docker acap if already running :
+
+```sh
+ sh docker-acap-set-proxy-in-daemon-json.sh <device-ip> <ssh-user> <ssh-pass>
+```
+
+**Setting proxy without developer mode**\
+It is possible to set proxy by creating deamon.json file with the settings needed.
+
+```json
+{
+  "proxies": {
+    "http-proxy": "http://<myproxy>:<port>",
+    "https-proxy": "http://<myproxy>:<port>",
+    "no-proxy": "localhost,127.0.0.0/8,10.0.0.0/8,192.168.0.0/16,172.16.0.0/12,.<domain>"
+ }
+}
+```
+Instead of the creation of empty daemon.json file in post install script, copy in the daemon.json file you have created.
 
 #### Loading images onto a device
 
@@ -460,6 +489,7 @@ Take a look at the [CONTRIBUTING.md](CONTRIBUTING.md) file.
 [2.0.0-release]: https://github.com/AxisCommunications/docker-acap/releases/tag/2.0.0
 [buildx]: https://docs.docker.com/build/install-buildx/
 [devices]: https://axiscommunications.github.io/acap-documentation/docs/axis-devices-and-compatibility#sdk-and-device-compatibility
+[developermode]: http://axiscommunications.github.io/acap-documentation/docs/get-started/set-up-developer-environment/set-up-device-advanced
 [dockerDesktop]: https://docs.docker.com/desktop/
 [docker_protect-access]: https://docs.docker.com/engine/security/protect-access/
 [dockerEngine]: https://docs.docker.com/engine/
