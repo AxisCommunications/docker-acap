@@ -393,21 +393,10 @@ For more examples and ideas, visit:
 
 #### Proxy Setup
 
-> [!NOTE]
-> **From AXIS OS 12.0**
->
-> To use the shell script provided to set proxy, [developer mode](#developermode) certificate has to be set on camera, to be able use acap-dockerdwrapper ssh user instead of root ssh user.
+If the device is located behind a corporate proxy you may need to set the correct environment variables. This is done by configuring proxy behavior for dockerd in the daemon.json file as described in ['Configure the Docker daemon to use a proxy server'][docker-proxy].
 
-**Using provided shell script**
-- Modify the docker-acap-set-proxy-in-daemon-json.sh at <myproxy\> <port\> <domain\>
-- Call the shell script and then restart the docker acap if already running :
-
-```sh
- sh docker-acap-set-proxy-in-daemon-json.sh <device-ip> <ssh-user> <ssh-pass>
-```
-
-**Setting proxy without developer mode**\
-It is possible to set proxy by creating deamon.json file with the settings needed.
+To do this for the application you can either use [developer mode][developermode] or build the application manually with a pre-created daemon.json that is copied onto the device by the postinstall script.
+daemon.json file should be located at /usr/local/packages/dockerdwrapper/localdata/daemon.json on the device and should include the fallowing properties.
 
 ```json
 {
@@ -418,7 +407,7 @@ It is possible to set proxy by creating deamon.json file with the settings neede
  }
 }
 ```
-Instead of the creation of empty daemon.json file in post install script, copy in the daemon.json file you have created.
+If developer mode is used, after downloading the application, ssh user will be created. Update the password of the ssh user. Then the application ssh user can be used to write in the daemon.json file, application has to be restarted once updated
 
 #### Loading images onto a device
 
@@ -495,6 +484,7 @@ Take a look at the [CONTRIBUTING.md](CONTRIBUTING.md) file.
 [dockerEngine]: https://docs.docker.com/engine/
 [docker-hello-world]: https://hub.docker.com/_/hello-world
 [docker-rootless-mode]: https://docs.docker.com/engine/security/rootless/
+[docker-proxy]: https://docs.docker.com/config/daemon/systemd/#httphttps-proxy
 [latest-release]: https://github.com/AxisCommunications/docker-acap/releases/latest
 [object-detector-python]: https://github.com/AxisCommunications/acap-computer-vision-sdk-examples/tree/main/object-detector-python
 [product-selector]: https://www.axis.com/support/tools/product-selector
