@@ -407,7 +407,7 @@ daemon.json file should be located at /usr/local/packages/dockerdwrapper/localda
  }
 }
 ```
-If developer mode is used, after downloading the application, ssh user will be created. Update the password of the ssh user. Then the application ssh user can be used to write in the daemon.json file, application has to be restarted once updated
+If [developer mode][developermode] is used, after downloading the application SSH user acap-dockerdwrapper will be created. Update the password of acap-dockerdwrapper. SSH user acap-dockerdwrapper can be used to write in the daemon.json file, application has to be restarted once daemon.json is updated.
 
 #### Loading images onto a device
 
