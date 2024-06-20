@@ -406,7 +406,9 @@ The daemon.json file should be located at `/usr/local/packages/dockerdwrapper/lo
   }
 }
 ```
-Setting the contents of the daemon.json file can be done either by adding it to the source code and rebuilding the application or by ssh:ing into the device with an already installed application. In the latter case [developer mode][developermode] is needed, see that documentation for further details. Also note that, if the application is running when the file is updated, it needs to be restarted for the change to take effect.
+Setting the contents of the daemon.json file can be done either by adding it to the source code and rebuilding the application or by ssh:ing into the device with an already installed application.
+In the latter case [developer mode][developermode] is needed, see that documentation for further details.
+Also note that, if the application is running when the file is updated, it needs to be restarted for the change to take effect.
 
 #### Loading images onto a device
 
