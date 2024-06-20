@@ -395,19 +395,18 @@ For more examples and ideas, visit:
 
 If the device is located behind a corporate proxy you may need to set the correct environment variables. This is done by configuring proxy behavior for dockerd in the daemon.json file as described in ['Configure the Docker daemon to use a proxy server'][docker-proxy].
 
-To do this for the application you can either use [developer mode][developermode] or build the application manually with a pre-created daemon.json that is copied onto the device by the postinstall script.
-daemon.json file should be located at /usr/local/packages/dockerdwrapper/localdata/daemon.json on the device and should include the fallowing properties.
+The daemon.json file should be located at `/usr/local/packages/dockerdwrapper/localdata/daemon.json` on the device and should include the following properties.
 
 ```json
 {
   "proxies": {
-    "http-proxy": "http://<myproxy>:<port>",
-    "https-proxy": "http://<myproxy>:<port>",
-    "no-proxy": "localhost,127.0.0.0/8,10.0.0.0/8,192.168.0.0/16,172.16.0.0/12,.<domain>"
- }
+    "http-proxy": "http://proxy.example.com:3128",
+    "https-proxy": "https://proxy.example.com:3129",
+    "no-proxy": "*.test.example.com,.example.org,127.0.0.0/8"
+  }
 }
 ```
-If [developer mode][developermode] is used, after downloading the application SSH user acap-dockerdwrapper will be created. Update the password of acap-dockerdwrapper. SSH user acap-dockerdwrapper can be used to write in the daemon.json file, application has to be restarted once daemon.json is updated.
+Setting the contents of the daemon.json file can be done either by adding it to the source code and rebuilding the application or by ssh:ing into the device with an already installed application. In the latter case [developer mode][developermode] is needed, see that documentation for further details. Also note that, if the application is running when the file is updated, it needs to be restarted for the change to take effect.
 
 #### Loading images onto a device
 
