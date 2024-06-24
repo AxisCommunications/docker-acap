@@ -38,6 +38,7 @@ a compatible Axis device.
   - [Using an SD card as storage](#using-an-sd-card-as-storage)
   - [Using the application](#using-the-application)
 - [Building the application](#building-the-application)
+  - [Build options](#build-options)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -393,9 +394,12 @@ For more examples and ideas, visit:
 
 #### Proxy Setup
 
-If the device is located behind a corporate proxy you may need to set the correct environment variables. This is done by configuring proxy behavior for dockerd in the daemon.json file as described in ['Configure the Docker daemon to use a proxy server'][docker-proxy].
+If the device is located behind a corporate proxy you may need to set the correct environment variables.
+This is done by configuring proxy behavior for dockerd in the daemon.json file as described in
+['Configure the Docker daemon to use a proxy server'][docker-proxy].
 
-The daemon.json file should be located at `/usr/local/packages/dockerdwrapper/localdata/daemon.json` on the device and should include the following properties.
+The daemon.json file should be located at `/usr/local/packages/dockerdwrapper/localdata/daemon.json`
+on the device and should include the following properties:
 
 ```json
 {
@@ -406,9 +410,13 @@ The daemon.json file should be located at `/usr/local/packages/dockerdwrapper/lo
   }
 }
 ```
-Setting the contents of the daemon.json file can be done either by adding it to the source code and rebuilding the application or by ssh:ing into the device with an already installed application.
+
+Setting the contents of the daemon.json file can be done either by adding it to the source code and
+rebuilding the application or by ssh:ing into the device with an already installed application and updating
+the file.
 In the latter case [developer mode][developermode] is needed, see that documentation for further details.
-Also note that, if the application is running when the file is updated, it needs to be restarted for the change to take effect.
+Also note that, if the application is running when the file is updated, it needs to be restarted for
+the change to take effect.
 
 #### Loading images onto a device
 
@@ -456,8 +464,8 @@ in the `<build-folder>`.
 
 ### Build options
 
-In order to build with debug symbols and sanitizing instrumentation for detecting memory leaks and undefined behavior,
-add the option
+In order to build with debug symbols and sanitizing instrumentation for detecting memory leaks and
+undefined behavior, add the option
 
 ```sh
 --build-arg BUILD_WITH_SANITIZERS=1
