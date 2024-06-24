@@ -53,9 +53,6 @@ inputs:
     required: false
     default: ''
 
-env: 
-    DOCKER_BUILD_NO_SUMMARY: true
-
 runs:
   using: composite
   steps:
@@ -66,6 +63,8 @@ runs:
       uses: docker/setup-qemu-action@v3
     - name: Build image
       uses: docker/build-push-action@v6
+      env:
+          DOCKER_BUILD_NO_SUMMARY: true
       with:
         context: .
         push: false
