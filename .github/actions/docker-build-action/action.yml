@@ -62,7 +62,9 @@ runs:
       if: ${{ inputs.use_qemu == 'true'}}
       uses: docker/setup-qemu-action@v3
     - name: Build image
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v6
+      env:
+          DOCKER_BUILD_NO_SUMMARY: true
       with:
         context: .
         push: false
