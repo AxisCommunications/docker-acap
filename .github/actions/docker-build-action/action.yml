@@ -55,6 +55,8 @@ inputs:
 
 runs:
   using: composite
+  env: 
+    DOCKER_BUILD_NO_SUMMARY: true
   steps:
     - name: Set up Docker buildx
       uses: docker/setup-buildx-action@v3
