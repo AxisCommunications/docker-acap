@@ -38,6 +38,7 @@ a compatible Axis device.
   - [Using an SD card as storage](#using-an-sd-card-as-storage)
   - [Using the application](#using-the-application)
 - [Building the application](#building-the-application)
+  - [Build options](#build-options)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -362,7 +363,7 @@ Make sure the application, using TLS, is running, then pull and run the
 $ docker --tlsverify --host tcp://<device-ip>:2376 pull hello-world
 Using default tag: latest
 latest: Pulling from library/hello-world
-70f5ac315c5a: Pull complete 
+70f5ac315c5a: Pull complete
 Digest: sha256:88ec0acaa3ec199d3b7eaf73588f4518c25f9d34f58ce9a0df68429c5af48e8d
 Status: Downloaded newer image for hello-world:latest
 docker.io/library/hello-world:latest
@@ -390,6 +391,32 @@ For more examples and ideas, visit:
  https://docs.docker.com/get-started/
 
 ```
+
+#### Proxy Setup
+
+If the device is located behind a proxy the Docker daemon needs to be configured.
+This is done by configuring proxy behavior for dockerd in the daemon.json file as described in
+['Configure the Docker daemon to use a proxy server'][docker-proxy].
+
+The daemon.json file should be located at `/usr/local/packages/dockerdwrapper/localdata/daemon.json`
+on the device and should include the following properties:
+
+```json
+{
+  "proxies": {
+    "http-proxy": "http://proxy.example.com:3128",
+    "https-proxy": "https://proxy.example.com:3129",
+    "no-proxy": "*.test.example.com,.example.org,127.0.0.0/8"
+  }
+}
+```
+
+Setting the contents of the daemon.json file can be done either by adding it to the source code and
+rebuilding the application or by logging into the device over SSH with an already installed application and updating
+the file.
+In the latter case [Developer Mode][developermode] is needed, see that documentation for further details.
+Also note that, if the application is running when the file is updated, it needs to be restarted for
+the change to take effect.
 
 #### Loading images onto a device
 
@@ -437,8 +464,8 @@ in the `<build-folder>`.
 
 ### Build options
 
-In order to build with debug symbols and sanitizing instrumentation for detecting memory leaks and undefined behavior,
-add the option
+In order to build with debug symbols and sanitizing instrumentation for detecting memory leaks and
+undefined behavior, add the option
 
 ```sh
 --build-arg BUILD_WITH_SANITIZERS=1
@@ -460,11 +487,13 @@ Take a look at the [CONTRIBUTING.md](CONTRIBUTING.md) file.
 [2.0.0-release]: https://github.com/AxisCommunications/docker-acap/releases/tag/2.0.0
 [buildx]: https://docs.docker.com/build/install-buildx/
 [devices]: https://axiscommunications.github.io/acap-documentation/docs/axis-devices-and-compatibility#sdk-and-device-compatibility
+[developermode]: http://axiscommunications.github.io/acap-documentation/docs/get-started/set-up-developer-environment/set-up-device-advanced.html#developer-mode
 [dockerDesktop]: https://docs.docker.com/desktop/
 [docker_protect-access]: https://docs.docker.com/engine/security/protect-access/
 [dockerEngine]: https://docs.docker.com/engine/
 [docker-hello-world]: https://hub.docker.com/_/hello-world
 [docker-rootless-mode]: https://docs.docker.com/engine/security/rootless/
+[docker-proxy]: https://docs.docker.com/config/daemon/systemd/#httphttps-proxy
 [latest-release]: https://github.com/AxisCommunications/docker-acap/releases/latest
 [object-detector-python]: https://github.com/AxisCommunications/acap-computer-vision-sdk-examples/tree/main/object-detector-python
 [product-selector]: https://www.axis.com/support/tools/product-selector
