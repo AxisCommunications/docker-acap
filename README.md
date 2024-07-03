@@ -487,7 +487,7 @@ Take a look at the [CONTRIBUTING.md](CONTRIBUTING.md) file.
 [2.0.0-release]: https://github.com/AxisCommunications/docker-acap/releases/tag/2.0.0
 [buildx]: https://docs.docker.com/build/install-buildx/
 [devices]: https://axiscommunications.github.io/acap-documentation/docs/axis-devices-and-compatibility#sdk-and-device-compatibility
-[developermode]: http://axiscommunications.github.io/acap-documentation/docs/get-started/set-up-developer-environment/set-up-device-advanced
+[developermode]: http://axiscommunications.github.io/acap-documentation/docs/get-started/set-up-developer-environment/set-up-device-advanced.html#developer-mode
 [dockerDesktop]: https://docs.docker.com/desktop/
 [docker_protect-access]: https://docs.docker.com/engine/security/protect-access/
 [dockerEngine]: https://docs.docker.com/engine/
