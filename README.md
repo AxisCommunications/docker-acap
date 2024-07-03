@@ -394,7 +394,7 @@ For more examples and ideas, visit:
 
 #### Proxy Setup
 
-If the device is located behind a corporate proxy you may need to set the correct environment variables.
+If the device is located behind a proxy the Docker daemon needs to be configured.
 This is done by configuring proxy behavior for dockerd in the daemon.json file as described in
 ['Configure the Docker daemon to use a proxy server'][docker-proxy].
 
@@ -412,9 +412,9 @@ on the device and should include the following properties:
 ```
 
 Setting the contents of the daemon.json file can be done either by adding it to the source code and
-rebuilding the application or by ssh:ing into the device with an already installed application and updating
+rebuilding the application or by logging into the device over SSH with an already installed application and updating
 the file.
-In the latter case [developer mode][developermode] is needed, see that documentation for further details.
+In the latter case [Developer Mode][developermode] is needed, see that documentation for further details.
 Also note that, if the application is running when the file is updated, it needs to be restarted for
 the change to take effect.
 
