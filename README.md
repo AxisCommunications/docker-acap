@@ -141,7 +141,8 @@ the [VAPIX application API][vapix-install].
 
 #### Installation via the device web ui
 
-Navigate to `<device-ip>/camera/index.html#/apps`, then click on the `+Add app` button on the page.
+Navigate to `<device-ip>/camera/index.html#/apps`, enable `Allow unsigned apps` toggle
+then click on the `+Add app` button on the page.
 In the popup window that appears, select the EAP file to install.
 
 ### Settings
