@@ -401,6 +401,12 @@ static gboolean get_and_verify_tls_selection(AXParameter* param_handle, bool* us
     return true;
 }
 
+// Meant to be used as a one-shot call from g_timeout_add_seconds()
+static gboolean quit_main_loop(void*) {
+    main_loop_quit();
+    return FALSE;
+}
+
 // Read and verify consistency of settings. Call set_status_parameter() or quit_program() and return
 // false on error.
 static bool read_settings(struct settings* settings, const struct app_state* app_state) {
@@ -428,6 +434,15 @@ static bool read_settings(struct settings* settings, const struct app_state* app
     if (settings->use_ipc_socket && with_compose() && !let_other_apps_use_our_ipc_socket()) {
         quit_program(EX_SOFTWARE);
         return false;
+    }
+
+    // It takes a few seconds from sd_disk_storage_init() until sd_card_callback(), which is when
+    // app_state->sd_card_area is set. Waiting here means we may avoid failure in the call to
+    // prepare_data_root() below.
+    if (is_parameter_yes(param_handle, PARAM_SD_CARD_SUPPORT) && !app_state->sd_card_area) {
+        int id = g_timeout_add_seconds(5, quit_main_loop, NULL);
+        g_main_loop_run(loop);  // Wait until the timer or sd_card_callback() calls main_loop_quit()
+        g_source_remove(id);    // If it was sd_card_callback(), the timer must not restart dockerd.
     }
 
     if (!(settings->data_root = prepare_data_root(param_handle, app_state->sd_card_area)))
@@ -677,12 +692,6 @@ static void stop_dockerd(void) {
         g_main_loop_run(loop);
     }
     log_info("Stopped dockerd.");
-}
-
-// Meant to be used as a one-shot call from g_timeout_add_seconds()
-static gboolean quit_main_loop(void*) {
-    main_loop_quit();
-    return FALSE;
 }
 
 // Meant to be used as an AXParameter callback
