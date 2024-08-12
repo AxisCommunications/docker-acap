@@ -400,7 +400,7 @@ moby, including docker binaries and rootlesskit
    limitations under the License.
 
 --------------------------------------------------------------------------------
-nsenter fror util-linux
+nsenter from util-linux
 ps from procps-ng
 slirp4netns
 --------------------------------------------------------------------------------
