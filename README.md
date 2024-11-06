@@ -91,7 +91,7 @@ main branch.
 ### Container capability
 
 A list of container capable Axis devices can be found with the Axis Product
-Selector. 
+Selector.
 
 From AXIS OS 12.0, only products with architecture `aarch64` that
 existed before this release are supported. This
