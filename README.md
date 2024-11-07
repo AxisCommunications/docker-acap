@@ -90,8 +90,15 @@ main branch.
 <!-- omit in toc -->
 ### Container capability
 
-A list of Container capable Axis devices can be found on the Axis [Product Selector][product-selector]
-page by checking the [Container support check box][product-selector-container].
+A list of container capable Axis devices can be found with the Axis Product
+Selector.
+
+From AXIS OS 12.0, only products with architecture `aarch64` that
+existed before this release are supported. This
+[query][product-selector-container] lists products that cover both.
+
+In AXIS OS 11.11, both architectures `aarch64` and `armv7hf` are supported and
+are found with this [query][product-selector-container-11-11].
 
 ## Substitutions
 
@@ -497,8 +504,8 @@ Take a look at the [CONTRIBUTING.md](CONTRIBUTING.md) file.
 [docker-proxy]: https://docs.docker.com/config/daemon/systemd/#httphttps-proxy
 [latest-release]: https://github.com/AxisCommunications/docker-acap/releases/latest
 [object-detector-python]: https://github.com/AxisCommunications/acap-computer-vision-sdk-examples/tree/main/object-detector-python
-[product-selector]: https://www.axis.com/support/tools/product-selector
-[product-selector-container]: https://www.axis.com/support/tools/product-selector/shared/%5B%7B%22index%22%3A%5B4%2C2%5D%2C%22value%22%3A%22Yes%22%7D%5D
+[product-selector-container-11-11]: https://www.axis.com/support/tools/product-selector/shared/%5B%7B%22index%22%3A%5B10%2C2%5D%2C%22value%22%3A%22Yes%22%7D%5D
+[product-selector-container]: https://www.axis.com/support/tools/product-selector/shared/%5B%7B%22index%22%3A%5B10%2C0%5D%2C%22value%22%3A%22ARTPEC-8%22%7D%2C%7B%22index%22%3A%5B10%2C2%5D%2C%22value%22%3A%22Yes%22%7D%5D
 [sd-card-standards]: https://www.sdcard.org/developers/sd-standard-overview/
 [signing-documentation]: https://axiscommunications.github.io/acap-documentation/docs/faq/security.html#sign-acap-applications
 [vapix]: https://www.axis.com/vapix-library/
