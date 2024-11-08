@@ -10,7 +10,7 @@ struct sd_disk_storage {
     AXStorage* handle;
 };
 
-static bool event_status_or_log(gchar* storage_id, AXStorageStatusEventId event) {
+static bool event_status_or_log(const gchar* storage_id, AXStorageStatusEventId event) {
     GError* error = NULL;
     bool value = ax_storage_get_status(storage_id, event, &error);
     if (error) {
@@ -79,7 +79,7 @@ void sd_disk_storage_free(struct sd_disk_storage* storage) {
     free(storage);
 }
 
-static void subscribe_cb(gchar* storage_id, gpointer storage_void_ptr, GError* error) {
+static void subscribe_cb(const gchar* storage_id, gpointer storage_void_ptr, GError* error) {
     struct sd_disk_storage* storage = storage_void_ptr;
 
     if (error) {
@@ -110,10 +110,8 @@ static bool subscribe(struct sd_disk_storage* storage, const char* storage_id) {
         if (strcmp(node->data, storage_id) == 0) {
             found = true;
             if (!(storage->subscription_id =
-                      ax_storage_subscribe(node->data, subscribe_cb, storage, &error))) {
-                log_error("Failed to subscribe to events of %s: %s",
-                          (char*)node->data,
-                          error->message);
+                      ax_storage_subscribe(storage_id, subscribe_cb, storage, &error))) {
+                log_error("Failed to subscribe to events of %s: %s", storage_id, error->message);
                 g_clear_error(&error);
                 return false;
             }
