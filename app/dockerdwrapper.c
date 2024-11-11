@@ -190,8 +190,8 @@ static gboolean handle_signals(gpointer signal_num) {
  * @brief Initialize signals
  */
 static void init_signals(void) {
-    g_unix_signal_add(SIGINT, handle_signals, (gpointer)SIGINT);
-    g_unix_signal_add(SIGTERM, handle_signals, (gpointer)SIGTERM);
+    g_unix_signal_add(SIGINT, handle_signals, GINT_TO_POINTER(SIGINT));
+    g_unix_signal_add(SIGTERM, handle_signals, GINT_TO_POINTER(SIGTERM));
 }
 
 /**
