@@ -514,7 +514,7 @@ static const char* build_daemon_args(const struct settings* settings, AXParamete
     const bool use_tcp_socket = settings->use_tcp_socket;
     const bool use_ipc_socket = settings->use_ipc_socket;
 
-    gsize msg_len = 128;
+    gsize msg_len = 256;
     gchar msg[msg_len];
 
     g_autofree char* log_level = get_parameter_value(param_handle, PARAM_DOCKERD_LOG_LEVEL);
