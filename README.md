@@ -169,6 +169,7 @@ curl -s anyauth -u "<user>:<password>" \
 Note that changing the settings while the application is running will lead to dockerd being restarted.
 
 The following settings are available
+
 | Setting                              | Type    | Action | Possible values                       |
 | :----------------------------------- | :------ | :----: |---------------------------------------|
 | [SDCardSupport](#sd-card-support)    | Boolean | RW     | `yes`,`no`                            |
