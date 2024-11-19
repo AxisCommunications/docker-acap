@@ -784,7 +784,8 @@ static bool set_env_variables(void) {
     g_autofree char* xdg_runtime_dir = xdg_runtime_directory();
 
     return set_env_variable("PATH", path) && set_env_variable("HOME", APP_DIRECTORY) &&
-           set_env_variable("XDG_RUNTIME_DIR", xdg_runtime_dir);
+           set_env_variable("XDG_RUNTIME_DIR", xdg_runtime_dir) &&
+           set_env_variable("XTABLES_LOCKFILE", TMP_LOCKFILE);
 }
 
 int main(int argc, char** argv) {
