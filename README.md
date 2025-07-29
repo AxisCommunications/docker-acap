@@ -125,7 +125,7 @@ curl -s https://api.github.com/repos/AxisCommunications/docker-acap/releases/lat
 ```
 
 The prebuilt application is signed. Read more about signing
-[here][signing-documentation].
+[Signing Documentation][signing-documentation].
 
 ### Installation
 
@@ -421,8 +421,8 @@ on the device and should include the following properties:
 ```
 
 Setting the contents of the daemon.json file can be done either by adding it to the source code and
-rebuilding the application or by logging into the device over SSH with an already installed application and updating
-the file.
+rebuilding the application or by logging into the device over SSH with an already installed
+application and updating the file.
 In the latter case [Developer Mode][developermode] is needed, see that documentation for further details.
 Also note that, if the application is running when the file is updated, it needs to be restarted for
 the change to take effect.
