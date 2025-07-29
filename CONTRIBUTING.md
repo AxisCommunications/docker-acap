@@ -178,7 +178,7 @@ docker run --rm \
   -e VALIDATE_MARKDOWN=true \
   -e VALIDATE_SHELL_SHFMT=true \
   -e VALIDATE_YAML=true \
-  ghcr.io/super-linter/super-linter:slim-v7
+  ghcr.io/super-linter/super-linter:slim-v8
 ```
 
 See [`.github/workflows/lint.yml`](.github/workflows/lint.yml) for the exact setup used by this project.
@@ -192,7 +192,7 @@ docker run --rm \
   -v $PWD:/tmp/lint \
   -w /tmp/lint \
   --entrypoint /bin/bash \
-  -it ghcr.io/super-linter/super-linter:slim-v7
+  -it ghcr.io/super-linter/super-linter:slim-v8
 ```
 
 Then from the container terminal, the following commands can lint the the code base for different
