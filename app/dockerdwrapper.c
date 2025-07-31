@@ -653,7 +653,7 @@ static bool send_signal(const char* name, GPid pid, int sig) {
 // Otherwise, it will be increased, and SIGTERM will be sent on the 20th call.
 static gboolean monitor_dockerd_termination(void* time_since_sigterm_void_ptr) {
     // dockerd usually sends SIGTERM to containers after 10 s, so we must wait a bit longer.
-    const int time_to_wait_before_sigkill = 20;
+    const int time_to_wait_before_sigkill = 13;
     int* time_since_sigterm = (int*)time_since_sigterm_void_ptr;
     if (!rootlesskit_pid) {
         log_debug("rootlesskit exited after %d s", *time_since_sigterm);
