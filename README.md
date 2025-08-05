@@ -124,7 +124,7 @@ curl -s https://api.github.com/repos/AxisCommunications/docker-acap/releases/lat
  | grep "browser_download_url.*Docker_Daemon_.*_<ARCH>\_signed.eap"
 ```
 
-The prebuilt application is signed. Read more about signing
+The prebuilt application is signed. Read more about signing in the
 [Signing Documentation][signing-documentation].
 
 ### Installation
