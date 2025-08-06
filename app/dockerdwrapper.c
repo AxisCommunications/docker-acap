@@ -652,8 +652,10 @@ static bool send_signal(const char* name, GPid pid, int sig) {
 // pointer to a counter starting at 1. When dockerd has terminated, the counter will be set to zero.
 // Otherwise, it will be increased, and SIGTERM will be sent on the 20th call.
 static gboolean monitor_dockerd_termination(void* time_since_sigterm_void_ptr) {
-    // dockerd usually sends SIGTERM to containers after 10 s, so we must wait a bit longer.
-    const int time_to_wait_before_sigkill = 20;
+    // dockerd usually sends SIGTERM to containers after 10 seconds and systemd forcefully shutdown
+    // the process approximately at 14-15 seconds, so we must wait slightly longer than 10 seconds
+    // but not more than 15 seconds.
+    const int time_to_wait_before_sigkill = 13;
     int* time_since_sigterm = (int*)time_since_sigterm_void_ptr;
     if (!rootlesskit_pid) {
         log_debug("rootlesskit exited after %d s", *time_since_sigterm);
