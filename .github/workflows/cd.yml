@@ -41,7 +41,7 @@ jobs:
       EAP_FILE_AARCH64: ${{ steps.save_full_file_name.outputs.EAP_FILE_AARCH64 }}
       SHORT_SHA: ${{ steps.save_full_file_name.outputs.SHORT_SHA }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: get_short_sha
         run: |
           sha=${{ github.sha }}
