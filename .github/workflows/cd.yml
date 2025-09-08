@@ -48,7 +48,7 @@ jobs:
           strip_sha=${sha:0:7}
           echo "SHORT_SHA=${strip_sha}" >> $GITHUB_ENV
       - uses: actions/cache@v4
-        if: ${{ (github.ref_type == 'tag') || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+        #if: ${{ (github.ref_type == 'tag') || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
         with:
           path: ${{ github.workspace }}/build-${{ matrix.arch }}
           key: key-${{ env.SHORT_SHA }}-${{ github.run_id }}-${{ matrix.arch }}
@@ -61,7 +61,7 @@ jobs:
           get_version: "true"
       - name: Get changes for manifest
         id: manifest-settings
-        if: ${{ (github.ref_type == 'tag') || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+        #if:${{ (github.ref_type == 'tag') || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
         run: |
           if [ ${{github.ref_type}} == tag ]; then
               echo "version_value=${{ steps.meta.outputs.version }}" >> $GITHUB_OUTPUT
@@ -71,7 +71,7 @@ jobs:
               echo "append_sha='true'" >> $GITHUB_OUTPUT
           fi
       - name: Update manifest file
-        if: ${{ (github.ref_type == 'tag') || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+        #if:${{ (github.ref_type == 'tag') || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
         uses: ./.github/actions/update-acap-manifest-action
         with:
           manifest_file: ./app/manifest.json
@@ -87,7 +87,7 @@ jobs:
           outputs: "type=local,dest=build"
       - name: Get name of EAP-file
         id: get_eap_file_name
-        if: ${{ (github.ref_type == 'tag') || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+        #if:${{ (github.ref_type == 'tag') || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
         run: |
           export EAP_FILE=$(find build -type f -name "*.eap" -printf "%f\n")
           delimiter="$(openssl rand -hex 8)"
@@ -95,14 +95,14 @@ jobs:
           echo "${EAP_FILE}" >> ${GITHUB_ENV}
           echo "${delimiter}" >> ${GITHUB_ENV}
       - name: Add sha to EAP-file name
-        if: ${{ (github.ref_type == 'tag') || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+        #if:${{ (github.ref_type == 'tag') || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
         run: |
           eap_file_w_sha=$(echo $"${{ env.EAP_FILE }}" | sed 's/\.eap/_${{ env.SHORT_SHA }}.eap/')
           echo "EAP_FILE_W_SHA=${eap_file_w_sha}" >> $GITHUB_ENV
           cp build/${{ env.EAP_FILE }} build/$eap_file_w_sha
       - name: Save full file name
         id: save_full_file_name
-        if: ${{ (github.ref_type == 'tag') || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+        #if:${{ (github.ref_type == 'tag') || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
         run: |
           echo "SHORT_SHA=${{ env.SHORT_SHA }}" >> $GITHUB_OUTPUT
           if [ ${{ matrix.arch }} = armv7hf ]
@@ -115,7 +115,7 @@ jobs:
             echo "::error::Non valid architecture '${{ matrix.arch }}' encountered"
           fi
       - name: Move EAP-file to cache location
-        if: ${{ (github.ref_type == 'tag') || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+        #if:${{ (github.ref_type == 'tag') || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
         run: |
           mkdir -p ${{ github.workspace }}/build-${{ matrix.arch }}
           #rm -f ${{ github.workspace }}/build-${{ matrix.arch }}/${{ env.EAP_FILE_W_SHA }}
@@ -124,7 +124,7 @@ jobs:
   # Sign the eap-file from the build
   sign-eap:
     runs-on: ubuntu-latest
-    if: ${{ (github.ref_type == 'tag') || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+    #if:${{ (github.ref_type == 'tag') || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
     needs: build
     permissions:
       contents: write
@@ -207,7 +207,7 @@ jobs:
   # Creates a pre-release in the repository.
   # This job runs if the workflow is triggered by a tag and the build job was successful.
   create_prerelease:
-    if: (github.ref_type == 'tag')
+    #if:(github.ref_type == 'tag')
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -243,7 +243,7 @@ jobs:
   # Uploads the signed eap files from artifacts to the pre-release.
   # This job runs if the create_prerelease job
   download-and-upload-artifacts:
-    if: (github.ref_type == 'tag')
+    #if:(github.ref_type == 'tag')
     permissions:
       contents: write
     runs-on: ubuntu-latest
