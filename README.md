@@ -1,7 +1,7 @@
 <!-- omit in toc -->
 # The Docker ACAP application
 
-The Docker ACAP application, from here on called the application, provides the means to run Docker on
+Dummy change. The Docker ACAP application, from here on called the application, provides the means to run Docker on
 a compatible Axis device.
 
 <!-- omit in toc -->
