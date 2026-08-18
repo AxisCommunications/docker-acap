@@ -44,13 +44,13 @@ jobs:
       EAP_FILE_AARCH64: ${{ steps.save_full_file_name.outputs.EAP_FILE_AARCH64 }}
       SHORT_SHA: ${{ steps.save_full_file_name.outputs.SHORT_SHA }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - name: get_short_sha
         run: |
           sha=${{ github.sha }}
           strip_sha=${sha:0:7}
           echo "SHORT_SHA=${strip_sha}" >> $GITHUB_ENV
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         if: ${{ (github.ref_type == 'tag') || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
         with:
           path: ${{ github.workspace }}/build-${{ matrix.arch }}
@@ -156,7 +156,7 @@ jobs:
           else
               echo "::error::Non valid architecture '${{ matrix.arch }}' encountered"
           fi
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ github.workspace }}/build-${{ matrix.arch }}
           key: key-${{ env.SHORT_SHA }}-${{ github.run_id }}-${{ matrix.arch }}
@@ -190,7 +190,7 @@ jobs:
             echo "HTTP_RESPONSE is empty or not a valid integer: $HTTP_RESPONSE"
           fi
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ env.SIGNED_EAP_FILE }}
           path: build/${{ env.SIGNED_EAP_FILE }}
@@ -222,7 +222,7 @@ jobs:
         id: vars
         run: echo "TAG=${GITHUB_REF#refs/*/}" >> ${GITHUB_ENV}
       - name: Create prerelease
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         id: prerelease
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -272,7 +272,7 @@ jobs:
             echo "::error::Non valid architecture '${{ matrix.arch }}' encountered"
           fi
       - name: Download artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           name: ${{ env.EAP_FILE }}
           path: ./
