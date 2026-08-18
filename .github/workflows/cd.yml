@@ -26,6 +26,9 @@ on:
 env:
   PROJECT: "docker-acap"
 
+permissions:
+  contents: read
+
 jobs:
   # Builds docker ACAP using the build.sh script, then signs the eap-file in
   # ACAP Portal and stores it as a build artifact.

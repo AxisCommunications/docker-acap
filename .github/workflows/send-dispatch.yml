@@ -11,6 +11,9 @@ on:
     paths-ignore:
       - ".github/*"
 
+permissions:
+  contents: read
+
 jobs:
   send-dispatch:
     if: github.event.pull_request.merged == true
