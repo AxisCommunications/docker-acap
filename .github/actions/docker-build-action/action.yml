@@ -60,7 +60,7 @@ runs:
       uses: docker/setup-buildx-action@v3
     - name: Set up QEMU
       if: ${{ inputs.use_qemu == 'true'}}
-      uses: docker/setup-qemu-action@v3
+      uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
     - name: Build image
       uses: docker/build-push-action@v6
       env:
