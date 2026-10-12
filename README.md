@@ -7,11 +7,12 @@ a compatible Axis device.
 <!-- omit in toc -->
 ## Notable Releases
 <!-- markdownlint-disable MD013 -->
-| Release                  | AXIS OS min. version | Dockerd version | Type     | Comment                         |
-| -----------------------: | -------------------: | --------------: |----------|---------------------------------|
-| [3.0.0][latest-release]  | 11.10                | 26.0.0          | rootless | Latest release                  |
-| [2.0.0][2.0.0-release]   | 11.9                 | 26.0.0          | rootful  | Legacy release AXIS OS 2024 LTS |
-| [1.5.0][1.5.0-release]   | 10.12                | 26.0.0          | rootful  | Legacy release AXIS OS 2022 LTS |
+| Release                 | AXIS OS min. version | Dockerd version | Type     | Comment                                    |
+| ----------------------: | -------------------: | --------------: |----------|--------------------------------------------|
+| [4.0.0][latest-release] | 12.0                 | 29.8.1          | rootless | Latest release                             |
+| [3.0.0][3.0.3-release]  | 11.10                | 26.0.0          | rootless | Legacy release, rootless, AXIS OS 2024 LTS |
+| [2.0.0][2.0.0-release]  | 11.9                 | 26.0.0          | rootful  | Legacy release AXIS OS 2024 LTS            |
+| [1.5.0][1.5.0-release]  | 10.12                | 26.0.0          | rootful  | Legacy release AXIS OS 2022 LTS            |
 
 <!-- markdownlint-enable MD013 -->
 > [!IMPORTANT]
@@ -87,7 +88,7 @@ The following requirements need to be met for running the application built from
 main branch.
 
 - Axis device:
-  - AXIS OS version 11.10 or higher.
+  - AXIS OS version 12.0 or higher.
   - The device needs to have ACAP Native SDK support. See [Axis devices & compatibility][devices]
   for more information.
   - The device must be [container capable](#container-capability).
@@ -503,6 +504,7 @@ Take a look at the [CONTRIBUTING.md](CONTRIBUTING.md) file.
 <!-- markdownlint-disable MD034 -->
 [1.5.0-release]: https://github.com/AxisCommunications/docker-acap/releases/tag/1.5.0
 [2.0.0-release]: https://github.com/AxisCommunications/docker-acap/releases/tag/2.0.0
+[3.0.3-release]: https://github.com/AxisCommunications/docker-acap/releases/tag/3.0.3
 [buildx]: https://docs.docker.com/build/install-buildx/
 [devices]: https://axiscommunications.github.io/acap-documentation/docs/axis-devices-and-compatibility#sdk-and-device-compatibility
 [developermode]: http://axiscommunications.github.io/acap-documentation/docs/get-started/set-up-developer-environment/set-up-device-advanced.html#developer-mode
