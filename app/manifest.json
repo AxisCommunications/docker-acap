@@ -16,7 +16,7 @@
             "embeddedSdkVersion": "3.0",
             "vendorUrl": "https://www.axis.com",
             "runMode": "once",
-            "version": "3.0.0"
+            "version": "4.0.0"
         },
         "installation": {
             "postInstallScript": "postinstallscript.sh"
