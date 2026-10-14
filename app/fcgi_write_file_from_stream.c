@@ -153,7 +153,9 @@ char* fcgi_write_file_from_stream(FCGX_Request request) {
 
 end:
     if (file_des != -1) {
-        log_debug("Closing %s after writing %ld bytes.", temp_file, lseek(file_des, 0, SEEK_CUR));
+        log_debug("Closing %s after writing %lld bytes.",
+                  temp_file,
+                  (long long)lseek(file_des, 0, SEEK_CUR));
         if (close(file_des) == -1)
             log_warning("Failed to close %s: %s", temp_file, strerror(errno));
     }
