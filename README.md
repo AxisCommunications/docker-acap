@@ -72,6 +72,15 @@ can be inaccessible inside the container. This can also affect usage of unsuppor
 the container. See [Using host user secondary groups in container](#using-host-user-secondary-groups-in-container)
 for information on how to handle this.
 
+- Container networking requires `DOCKER_INSECURE_NO_IPTABLES_RAW=1`.
+This means omitting newer defense-in-depth hardening introduced in Docker 28 and absent from
+application release 3.0.2: raw-table rules that restrict direct access to published container
+ports, including localhost-only ports, where a network path to container addresses exists.
+Rootless networking with `slirp4netns` normally prevents direct routing from the LAN, but Docker
+API TLS does not protect container services or restore the omitted filtering.
+Restrict network access, publish only necessary ports, and protect sensitive container services
+with their own authentication and encryption.
+
 ## Requirements
 
 The following requirements need to be met for running the application built from the

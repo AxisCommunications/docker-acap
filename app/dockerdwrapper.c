@@ -601,12 +601,16 @@ static bool start_dockerd(const struct settings* settings, struct app_state* app
     bool return_value = false;
 
     const char* args = build_daemon_args(settings, param_handle);
+    char** child_env = g_get_environ();
+    child_env = g_environ_setenv(child_env, "DOCKER_INSECURE_NO_IPTABLES_RAW", "1", TRUE);
+    log_info(
+        "Starting dockerd without iptables raw-table rules; container port filtering is reduced.");
 
     log_debug("Sending daemon start command: %s", args);
     char** args_split = g_strsplit(args, " ", 0);
     result = g_spawn_async(NULL,
                            args_split,
-                           NULL,
+                           child_env,
                            G_SPAWN_DO_NOT_REAP_CHILD | G_SPAWN_SEARCH_PATH,
                            NULL,
                            NULL,
@@ -625,6 +629,7 @@ static bool start_dockerd(const struct settings* settings, struct app_state* app
     return_value = true;
 
 end:
+    g_strfreev(child_env);
     g_strfreev(args_split);
     g_clear_error(&error);
     return return_value;
